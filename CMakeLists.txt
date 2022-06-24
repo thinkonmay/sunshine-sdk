@@ -6,7 +6,7 @@ project(Sunshine VERSION 0.14.0
 		)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-set(SUNSHINE_SOURCE_ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src_assets")
+set(SUNSHINE_SOURCE_ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/config")
 
 if(WIN32)
 	# Ugly hack to compile with #include <qos2.h>
@@ -79,14 +79,16 @@ if(WIN32)
 	set(PLATFORM_TARGET_FILES
 		"${CMAKE_CURRENT_BINARY_DIR}/windows.rc"
 		sunshine/platform/windows/publish.cpp
-		sunshine/platform/windows/misc.h
 		sunshine/platform/windows/misc.cpp
 		sunshine/platform/windows/input.cpp
-		sunshine/platform/windows/display.h
 		sunshine/platform/windows/display_base.cpp
 		sunshine/platform/windows/display_vram.cpp
 		sunshine/platform/windows/display_ram.cpp
 		sunshine/platform/windows/audio.cpp
+
+		sunshine/platform/windows/display.h
+		sunshine/platform/windows/misc.h
+
 		third-party/ViGEmClient/src/ViGEmClient.cpp
 		third-party/ViGEmClient/include/ViGEm/Client.h
 		third-party/ViGEmClient/include/ViGEm/Common.h
@@ -158,13 +160,13 @@ elseif(APPLE)
 		sunshine/platform/macos/av_video.h
 		sunshine/platform/macos/av_video.m
 		sunshine/platform/macos/display.mm
-		sunshine/platform/macos/input.cpp
 		sunshine/platform/macos/microphone.mm
-		sunshine/platform/macos/misc.cpp
 		sunshine/platform/macos/misc.h
 		sunshine/platform/macos/nv12_zero_device.cpp
-		sunshine/platform/macos/nv12_zero_device.h
+		sunshine/platform/macos/misc.cpp
+		sunshine/platform/macos/input.cpp
 		sunshine/platform/macos/publish.cpp
+		sunshine/platform/macos/nv12_zero_device.h
 		sunshine/platform/macos/TPCircularBuffer/TPCircularBuffer.c
 		sunshine/platform/macos/TPCircularBuffer/TPCircularBuffer.h
 		${APPLE_PLIST_FILE})
@@ -282,15 +284,16 @@ else()
 
 	list(APPEND PLATFORM_TARGET_FILES
 		sunshine/platform/linux/publish.cpp
-		sunshine/platform/linux/vaapi.h
 		sunshine/platform/linux/vaapi.cpp
-		sunshine/platform/linux/cuda.h
-		sunshine/platform/linux/graphics.h
 		sunshine/platform/linux/graphics.cpp
-		sunshine/platform/linux/misc.h
 		sunshine/platform/linux/misc.cpp
 		sunshine/platform/linux/audio.cpp
 		sunshine/platform/linux/input.cpp
+
+		sunshine/platform/linux/vaapi.h
+		sunshine/platform/linux/misc.h
+		sunshine/platform/linux/cuda.h
+		sunshine/platform/linux/graphics.h
 		sunshine/platform/linux/x11grab.h
 		sunshine/platform/linux/wayland.h
 		third-party/glad/src/egl.c
@@ -328,37 +331,39 @@ set(SUNSHINE_TARGET_FILES
 	third-party/moonlight-common-c/src/Rtsp.h
 	third-party/moonlight-common-c/src/RtspParser.c
 	third-party/moonlight-common-c/src/Video.h
+
 	sunshine/upnp.cpp
 	sunshine/upnp.h
 	sunshine/cbs.cpp
+	sunshine/config.cpp
+	sunshine/main.cpp
+	sunshine/crypto.cpp
+	sunshine/nvhttp.cpp
+	sunshine/httpcommon.cpp
+	sunshine/confighttp.cpp
+	sunshine/rtsp.cpp
+	sunshine/stream.cpp
+	sunshine/video.cpp
+	sunshine/input.cpp
+	sunshine/audio.cpp
+	sunshine/process.cpp
+	sunshine/network.cpp
+
+	sunshine/httpcommon.h
+	sunshine/nvhttp.h
+	sunshine/main.h
 	sunshine/utility.h
 	sunshine/uuid.h
 	sunshine/config.h
-	sunshine/config.cpp
-	sunshine/main.cpp
-	sunshine/main.h
-	sunshine/crypto.cpp
 	sunshine/crypto.h
-	sunshine/nvhttp.cpp
-	sunshine/nvhttp.h
-	sunshine/httpcommon.cpp
-	sunshine/httpcommon.h
-	sunshine/confighttp.cpp
 	sunshine/confighttp.h
-	sunshine/rtsp.cpp
 	sunshine/rtsp.h
-	sunshine/stream.cpp
 	sunshine/stream.h
-	sunshine/video.cpp
 	sunshine/video.h
-	sunshine/input.cpp
-	sunshine/input.h
-	sunshine/audio.cpp
 	sunshine/audio.h
+	sunshine/input.h
 	sunshine/platform/common.h
-	sunshine/process.cpp
 	sunshine/process.h
-	sunshine/network.cpp
 	sunshine/network.h
 	sunshine/move_by_copy.h
 	sunshine/task_pool.h
@@ -368,7 +373,8 @@ set(SUNSHINE_TARGET_FILES
 	sunshine/round_robin.h
 	${PLATFORM_TARGET_FILES})
 
-set_source_files_properties(sunshine/upnp.cpp PROPERTIES COMPILE_FLAGS -Wno-pedantic)
+set_source_files_properties(sunshine/upnp.cpp 
+	PROPERTIES COMPILE_FLAGS -Wno-pedantic)
 
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
@@ -386,7 +392,8 @@ string(TOUPPER "x${CMAKE_BUILD_TYPE}" BUILD_TYPE)
 if("${BUILD_TYPE}" STREQUAL "XDEBUG")
 	list(APPEND SUNSHINE_COMPILE_OPTIONS -O0 -ggdb3)
 	if(WIN32)
-		set_source_files_properties(sunshine/nvhttp.cpp PROPERTIES COMPILE_FLAGS -O2)
+		set_source_files_properties(sunshine/nvhttp.cpp 
+			PROPERTIES COMPILE_FLAGS -O2)
 	endif()
 else()
 	add_definitions(-DNDEBUG)
@@ -421,10 +428,20 @@ endif()
 
 list(APPEND SUNSHINE_DEFINITIONS SUNSHINE_ASSETS_DIR="${SUNSHINE_ASSETS_DIR}")
 list(APPEND SUNSHINE_DEFINITIONS SUNSHINE_CONFIG_DIR="${SUNSHINE_CONFIG_DIR}")
+
 add_executable(sunshine ${SUNSHINE_TARGET_FILES})
+add_library(sunshinesdk STATIC ${SUNSHINE_TARGET_FILES})
+
 target_link_libraries(sunshine ${SUNSHINE_EXTERNAL_LIBRARIES} ${EXTRA_LIBS})
 target_compile_definitions(sunshine PUBLIC ${SUNSHINE_DEFINITIONS})
 set_target_properties(sunshine PROPERTIES CXX_STANDARD 17
+                            VERSION ${PROJECT_VERSION}
+                            SOVERSION ${PROJECT_VERSION_MAJOR}
+                            )
+
+target_link_libraries(sunshinesdk ${SUNSHINE_EXTERNAL_LIBRARIES} ${EXTRA_LIBS})
+target_compile_definitions(sunshinesdk PUBLIC ${SUNSHINE_DEFINITIONS})
+set_target_properties(sunshinesdk PROPERTIES CXX_STANDARD 17
                             VERSION ${PROJECT_VERSION}
                             SOVERSION ${PROJECT_VERSION_MAJOR}
                             )
@@ -436,6 +453,7 @@ endif()
 
 if(APPLE)
 	target_link_options(sunshine PRIVATE LINKER:-sectcreate,__TEXT,__info_plist,${APPLE_PLIST_FILE})
+	target_link_options(sunshinesdk PRIVATE LINKER:-sectcreate,__TEXT,__info_plist,${APPLE_PLIST_FILE})
 endif()
 
 foreach(flag IN LISTS SUNSHINE_COMPILE_OPTIONS)
@@ -443,6 +461,7 @@ foreach(flag IN LISTS SUNSHINE_COMPILE_OPTIONS)
 endforeach()
 
 target_compile_options(sunshine PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${SUNSHINE_COMPILE_OPTIONS}>;$<$<COMPILE_LANGUAGE:CUDA>:${SUNSHINE_COMPILE_OPTIONS_CUDA};-std=c++17>)
+target_compile_options(sunshinesdk PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${SUNSHINE_COMPILE_OPTIONS}>;$<$<COMPILE_LANGUAGE:CUDA>:${SUNSHINE_COMPILE_OPTIONS_CUDA};-std=c++17>)
 
 # CPACK / Packaging
 
@@ -461,7 +480,8 @@ set(CPACK_STRIP_FILES YES)
 
 # Platform specific options
 if(WIN32) # see options at: https://cmake.org/cmake/help/latest/cpack_gen/nsis.html
-	install(TARGETS sunshine RUNTIME DESTINATION "." COMPONENT application)
+	install(TARGETS sunshine RUNTIME DESTINATION "executable" COMPONENT application)
+	install(TARGETS sunshinesdk RUNTIME DESTINATION "lib" COMPONENT application)
 
 	# Adding tools
 	install(TARGETS dxgi-info RUNTIME DESTINATION "tools" COMPONENT dxgi)
