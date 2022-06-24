@@ -4,10 +4,10 @@
 
 #include <ViGEm/Client.h>
 
-#include "misc.h"
-#include "sunshine/config.h"
-#include "sunshine/main.h"
-#include "sunshine/platform/common.h"
+#include <misc.h>
+#include <config.h>
+#include <main.h>
+#include <common.h>
 
 namespace platf {
 using namespace std::literals;

@@ -5,7 +5,7 @@
 #ifndef SUNSHINE_NVHTTP_H
 #define SUNSHINE_NVHTTP_H
 
-#include "thread_safe.h"
+#include <thread_safe.h>
 #include <string>
 
 namespace nvhttp {

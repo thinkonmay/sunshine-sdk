@@ -1,15 +1,15 @@
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
 
-#include "config.h"
-#include "confighttp.h"
-#include "main.h"
-#include "network.h"
-#include "nvhttp.h"
-#include "rtsp.h"
-#include "stream.h"
-#include "upnp.h"
-#include "utility.h"
+#include <config.h>
+#include <confighttp.h>
+#include <main.h>
+#include <network.h>
+#include <nvhttp.h>
+#include <rtsp.h>
+#include <stream.h>
+#include <upnp.h>
+#include <utility.h>
 
 using namespace std::literals;
 

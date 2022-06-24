@@ -6,9 +6,9 @@ extern "C" {
 #include <libavutil/pixdesc.h>
 }
 
-#include "cbs.h"
-#include "main.h"
-#include "utility.h"
+#include <cbs.h>
+#include <main.h>
+#include <utility.h>
 
 using namespace std::literals;
 namespace cbs {

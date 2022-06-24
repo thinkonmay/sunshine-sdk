@@ -2,7 +2,7 @@
 // Created by loki on 5/30/19.
 //
 
-#include "process.h"
+#include <current_process.h>
 
 #include <csignal>
 #include <filesystem>
@@ -16,18 +16,18 @@
 #include <boost/log/sinks.hpp>
 #include <boost/log/sources/severity_logger.hpp>
 
-#include "config.h"
-#include "confighttp.h"
-#include "httpcommon.h"
-#include "main.h"
-#include "nvhttp.h"
-#include "rtsp.h"
-#include "thread_pool.h"
-#include "upnp.h"
-#include "version.h"
-#include "video.h"
+#include <config.h>
+#include <confighttp.h>
+#include <httpcommon.h>
+#include <main.h>
+#include <nvhttp.h>
+#include <rtsp.h>
+#include <thread_pool.h>
+#include <upnp.h>
+#include <version.h>
+#include <video_sdk.h>
 
-#include "platform/common.h"
+#include <common.h>
 extern "C" {
 #include <libavutil/log.h>
 #include <rs.h>

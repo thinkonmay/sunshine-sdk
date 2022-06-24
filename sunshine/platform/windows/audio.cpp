@@ -14,13 +14,13 @@
 #include <propkeydef.h>
 #undef INITGUID
 
-#include "sunshine/config.h"
-#include "sunshine/main.h"
-#include "sunshine/platform/common.h"
+#include <config.h>
+#include <main.h>
+#include <common.h>
 
 // Must be the last included file
 // clang-format off
-#include "PolicyConfig.h"
+#include <PolicyConfig.h>
 // clang-format on
 
 DEFINE_PROPERTYKEY(PKEY_Device_DeviceDesc, 0xa45c254e, 0xdf1c, 0x4efd, 0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0, 2);    // DEVPROP_TYPE_STRING

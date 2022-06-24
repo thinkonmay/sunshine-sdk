@@ -8,7 +8,7 @@
 #include <functional>
 #include <string>
 
-#include "thread_safe.h"
+#include <thread_safe.h>
 
 #define WEB_DIR SUNSHINE_ASSETS_DIR "/web/"
 

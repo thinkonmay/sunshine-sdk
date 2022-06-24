@@ -7,9 +7,9 @@
 
 #include <boost/asio.hpp>
 
-#include "audio.h"
-#include "crypto.h"
-#include "video.h"
+#include <audio.h>
+#include <crypto.h>
+#include <video_sdk.h>
 
 namespace stream {
 constexpr auto VIDEO_STREAM_PORT = 9;

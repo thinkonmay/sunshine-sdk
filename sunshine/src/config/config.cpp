@@ -7,11 +7,11 @@
 
 #include <boost/asio.hpp>
 
-#include "config.h"
-#include "main.h"
-#include "utility.h"
+#include <config.h>
+#include <main.h>
+#include <utility.h>
 
-#include "platform/common.h"
+#include <common.h>
 
 namespace fs = std::filesystem;
 using namespace std::literals;

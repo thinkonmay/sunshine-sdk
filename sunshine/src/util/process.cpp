@@ -4,7 +4,7 @@
 
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 
-#include "process.h"
+#include <current_process.h>
 
 #include <filesystem>
 #include <string>
@@ -15,8 +15,8 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-#include "main.h"
-#include "utility.h"
+#include <main.h>
+#include <utility.h>
 
 namespace proc {
 using namespace std::literals;

@@ -7,8 +7,8 @@
 
 #include <atomic>
 
-#include "crypto.h"
-#include "thread_safe.h"
+#include <crypto.h>
+#include <thread_safe.h>
 
 namespace stream {
 constexpr auto RTSP_SETUP_PORT = 21;

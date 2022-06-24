@@ -7,7 +7,7 @@
 
 #include <iostream>
 
-#include "sunshine/utility.h"
+#include <utility.h>
 
 using namespace std::literals;
 namespace dxgi {

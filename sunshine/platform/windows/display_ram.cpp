@@ -1,5 +1,5 @@
-#include "display.h"
-#include "sunshine/main.h"
+#include <display.h>
+#include <main.h>
 
 namespace platf {
 using namespace std::literals;

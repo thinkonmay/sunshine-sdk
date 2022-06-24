@@ -14,7 +14,7 @@
 
 #include <boost/process.hpp>
 
-#include "utility.h"
+#include <utility.h>
 
 namespace proc {
 using file_t = util::safe_ptr_v2<FILE, int, fclose>;

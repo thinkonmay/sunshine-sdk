@@ -2,8 +2,8 @@
 // Created by loki on 12/27/19.
 //
 
-#include "network.h"
-#include "utility.h"
+#include <network.h>
+#include <utility.h>
 #include <algorithm>
 
 using namespace std::literals;

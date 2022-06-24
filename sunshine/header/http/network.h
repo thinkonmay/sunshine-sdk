@@ -9,7 +9,7 @@
 
 #include <enet/enet.h>
 
-#include "utility.h"
+#include <utility.h>
 
 namespace net {
 void free_host(ENetHost *host);

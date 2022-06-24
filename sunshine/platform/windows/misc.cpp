@@ -12,8 +12,8 @@
 #include <ws2tcpip.h>
 // clang-format on
 
-#include "sunshine/main.h"
-#include "sunshine/utility.h"
+#include <main.h>
+#include <utility.h>
 
 using namespace std::literals;
 namespace platf {

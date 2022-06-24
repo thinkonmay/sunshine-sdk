@@ -2,9 +2,9 @@
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 
-#include "sunshine/main.h"
-#include "sunshine/platform/common.h"
-#include "sunshine/utility.h"
+#include <main.h>
+#include <common.h>
+#include <utility.h>
 
 // Delay for a double click
 // FIXME: we probably want to make this configurable

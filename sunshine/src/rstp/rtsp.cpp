@@ -14,13 +14,13 @@ extern "C" {
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
-#include "config.h"
-#include "input.h"
-#include "main.h"
-#include "network.h"
-#include "rtsp.h"
-#include "stream.h"
-#include "sync.h"
+#include <config.h>
+#include <input.h>
+#include <main.h>
+#include <network.h>
+#include <rtsp.h>
+#include <stream.h>
+#include <sync.h>
 
 #include <unordered_map>
 

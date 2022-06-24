@@ -1,7 +1,7 @@
 #ifndef KITTY_THREAD_POOL_H
 #define KITTY_THREAD_POOL_H
 
-#include "task_pool.h"
+#include <task_pool.h>
 #include <thread>
 
 namespace util {

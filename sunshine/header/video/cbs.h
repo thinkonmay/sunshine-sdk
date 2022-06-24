@@ -1,7 +1,7 @@
 #ifndef SUNSHINE_CBS_H
 #define SUNSHINE_CBS_H
 
-#include "utility.h"
+#include <utility.h>
 
 struct AVPacket;
 struct AVCodecContext;

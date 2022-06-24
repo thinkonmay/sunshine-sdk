@@ -7,13 +7,14 @@
 
 #include <boost/asio/ip/host_name.hpp>
 
-#include "misc.h"
-#include "sunshine/config.h"
-#include "sunshine/main.h"
-#include "sunshine/network.h"
-#include "sunshine/nvhttp.h"
-#include "sunshine/platform/common.h"
-#include "sunshine/thread_safe.h"
+#include <misc.h>
+#include <config.h>
+
+#include <main.h>
+#include <network.h>
+#include <nvhttp.h>
+#include <common.h>
+#include <thread_safe.h>
 
 #define _FN(x, ret, args)    \
   typedef ret(*x##_fn) args; \

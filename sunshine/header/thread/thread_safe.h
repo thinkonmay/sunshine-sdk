@@ -12,7 +12,7 @@
 #include <mutex>
 #include <vector>
 
-#include "utility.h"
+#include <utility.h>
 
 namespace safe {
 template<class T>

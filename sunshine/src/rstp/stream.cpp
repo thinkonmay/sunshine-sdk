@@ -2,7 +2,7 @@
 // Created by loki on 6/5/19.
 //
 
-#include "process.h"
+#include <current_process.h>
 
 #include <future>
 #include <queue>
@@ -11,19 +11,19 @@
 #include <openssl/err.h>
 
 extern "C" {
-#include <moonlight-common-c/src/RtpAudioQueue.h>
-#include <moonlight-common-c/src/Video.h>
+#include <RtpAudioQueue.h>
+#include <Video.h>
 #include <rs.h>
 }
 
-#include "config.h"
-#include "input.h"
-#include "main.h"
-#include "network.h"
-#include "stream.h"
-#include "sync.h"
-#include "thread_safe.h"
-#include "utility.h"
+#include <config.h>
+#include <input.h>
+#include <main.h>
+#include <network.h>
+#include <stream.h>
+#include <sync.h>
+#include <thread_safe.h>
+#include <utility.h>
 
 #define IDX_START_A 0
 #define IDX_START_B 1

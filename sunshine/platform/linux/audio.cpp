@@ -12,7 +12,7 @@
 
 #include "sunshine/platform/common.h"
 
-#include "sunshine/config.h"
+#include <config.h>
 #include "sunshine/main.h"
 #include "sunshine/thread_safe.h"
 

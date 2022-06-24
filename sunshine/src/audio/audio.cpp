@@ -2,13 +2,13 @@
 
 #include <opus/opus_multistream.h>
 
-#include "platform/common.h"
+#include <common.h>
 
-#include "audio.h"
-#include "config.h"
-#include "main.h"
-#include "thread_safe.h"
-#include "utility.h"
+#include <audio.h>
+#include <config.h>
+#include <main.h>
+#include <thread_safe.h>
+#include <utility.h>
 
 namespace audio {
 using namespace std::literals;

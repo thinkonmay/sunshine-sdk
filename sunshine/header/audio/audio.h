@@ -1,8 +1,8 @@
 #ifndef SUNSHINE_AUDIO_H
 #define SUNSHINE_AUDIO_H
 
-#include "thread_safe.h"
-#include "utility.h"
+#include <thread_safe.h>
+#include <utility.h>
 namespace audio {
 enum stream_config_e : int {
   STEREO,

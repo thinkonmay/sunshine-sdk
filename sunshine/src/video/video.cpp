@@ -10,14 +10,14 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
-#include "cbs.h"
-#include "config.h"
-#include "input.h"
-#include "main.h"
-#include "platform/common.h"
-#include "round_robin.h"
-#include "sync.h"
-#include "video.h"
+#include <cbs.h>
+#include <config.h>
+#include <input.h>
+#include <main.h>
+#include <common.h>
+#include <round_robin.h>
+#include <sync.h>
+#include <video_sdk.h>
 
 #ifdef _WIN32
 extern "C" {

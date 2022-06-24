@@ -11,7 +11,7 @@
 #include <openssl/sha.h>
 #include <openssl/x509.h>
 
-#include "utility.h"
+#include <utility.h>
 
 namespace crypto {
 struct creds_t {

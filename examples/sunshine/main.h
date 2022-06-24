@@ -7,8 +7,8 @@
 
 #include <string_view>
 
-#include "thread_pool.h"
-#include "thread_safe.h"
+#include <thread_pool.h>
+#include <thread_safe.h>
 
 #include <boost/log/common.hpp>
 

@@ -2,11 +2,11 @@
 // adapted from https://www.avahi.org/doxygen/html/client-publish-service_8c-example.html
 #include <thread>
 
-#include "misc.h"
-#include "sunshine/main.h"
-#include "sunshine/nvhttp.h"
-#include "sunshine/platform/common.h"
-#include "sunshine/utility.h"
+#include <misc.h>
+#include <main.h>
+#include <nvhttp.h>
+#include <common.h>
+#include <utility.h>
 
 using namespace std::literals;
 

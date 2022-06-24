@@ -1,10 +1,10 @@
-#include "sunshine/platform/macos/nv12_zero_device.h"
-#include "sunshine/platform/macos/av_img_t.h"
+#include <nv12_zero_device.h>
+#include <av_img_t.h>
 
-#include "sunshine/video.h"
+#include <video_sdk.h>
 
 extern "C" {
-#include "libavutil/imgutils.h"
+#include <imgutils.h>
 }
 
 namespace platf {

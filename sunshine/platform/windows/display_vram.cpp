@@ -10,9 +10,9 @@ extern "C" {
 #include <libavutil/hwcontext_d3d11va.h>
 }
 
-#include "display.h"
-#include "sunshine/main.h"
-#include "sunshine/video.h"
+#include <display.h>
+#include <main.h>
+#include <video_sdk.h>
 
 
 #define SUNSHINE_SHADERS_DIR SUNSHINE_ASSETS_DIR "/shaders/directx"

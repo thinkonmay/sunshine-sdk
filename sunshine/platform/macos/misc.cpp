@@ -5,9 +5,9 @@
 #include <net/if_dl.h>
 #include <pwd.h>
 
-#include "misc.h"
-#include "sunshine/main.h"
-#include "sunshine/platform/common.h"
+#include <misc.h>
+#include <main.h>
+#include <common.h>
 
 using namespace std::literals;
 namespace fs = std::filesystem;

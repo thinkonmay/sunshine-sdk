@@ -3,7 +3,7 @@
 #include "sunshine/platform/macos/av_video.h"
 #include "sunshine/platform/macos/nv12_zero_device.h"
 
-#include "sunshine/config.h"
+#include <config.h>
 #include "sunshine/main.h"
 
 namespace fs = std::filesystem;

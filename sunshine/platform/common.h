@@ -11,8 +11,8 @@
 #include <mutex>
 #include <string>
 
-#include "sunshine/thread_safe.h"
-#include "sunshine/utility.h"
+#include <thread_safe.h>
+#include <utility.h>
 
 struct sockaddr;
 struct AVFrame;

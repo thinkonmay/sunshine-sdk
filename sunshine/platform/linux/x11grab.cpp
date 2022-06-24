@@ -16,7 +16,7 @@
 #include <xcb/shm.h>
 #include <xcb/xfixes.h>
 
-#include "sunshine/config.h"
+#include <config.h>
 #include "sunshine/main.h"
 #include "sunshine/task_pool.h"
 

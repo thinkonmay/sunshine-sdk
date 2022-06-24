@@ -1,7 +1,7 @@
 #include "sunshine/platform/common.h"
 #include "sunshine/platform/macos/av_audio.h"
 
-#include "sunshine/config.h"
+#include <config.h>
 #include "sunshine/main.h"
 
 namespace platf {

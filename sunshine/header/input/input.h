@@ -7,8 +7,8 @@
 
 #include <functional>
 
-#include "platform/common.h"
-#include "thread_safe.h"
+#include <common.h>
+#include <thread_safe.h>
 
 namespace input {
 struct input_t;

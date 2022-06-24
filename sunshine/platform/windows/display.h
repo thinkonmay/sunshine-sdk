@@ -12,8 +12,8 @@
 #include <dxgi.h>
 #include <dxgi1_2.h>
 
-#include "sunshine/platform/common.h"
-#include "sunshine/utility.h"
+#include <common.h>
+#include <utility.h>
 
 namespace platf::dxgi {
 extern const char *format_str[];

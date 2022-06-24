@@ -5,9 +5,9 @@
 #ifndef SUNSHINE_VIDEO_H
 #define SUNSHINE_VIDEO_H
 
-#include "input.h"
-#include "platform/common.h"
-#include "thread_safe.h"
+#include <input.h>
+#include <common.h>
+#include <thread_safe.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>

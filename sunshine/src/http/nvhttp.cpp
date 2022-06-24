@@ -4,7 +4,7 @@
 
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 
-#include "process.h"
+#include <current_process.h>
 
 #include <filesystem>
 
@@ -19,16 +19,16 @@
 #include <boost/asio/ssl/context_base.hpp>
 
 
-#include "config.h"
-#include "crypto.h"
-#include "httpcommon.h"
-#include "main.h"
-#include "network.h"
-#include "nvhttp.h"
-#include "platform/common.h"
-#include "rtsp.h"
-#include "utility.h"
-#include "uuid.h"
+#include <config.h>
+#include <crypto.h>
+#include <httpcommon.h>
+#include <main.h>
+#include <network.h>
+#include <nvhttp.h>
+#include <common.h>
+#include <rtsp.h>
+#include <utility.h>
+#include <uuid.h>
 
 using namespace std::literals;
 namespace nvhttp {
