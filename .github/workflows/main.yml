@@ -45,10 +45,6 @@ jobs:
             wget
             yasm
 
-      - name: Install npm packages
-        run: |
-          npm install
-
       - name: Build Windows
         shell: msys2 {0}
         env:
