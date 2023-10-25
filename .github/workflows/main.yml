@@ -47,10 +47,6 @@ jobs:
 
       - name: Build Windows
         shell: msys2 {0}
-        env:
-          BRANCH: ${{ github.head_ref || github.ref_name }}
-          BUILD_VERSION: ${{ needs.check_changelog.outputs.next_version_bare }}
-          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           mkdir build
           cd build
