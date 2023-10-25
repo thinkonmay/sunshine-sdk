@@ -1,0 +1,65 @@
+name: build
+
+on:
+  pull_request:
+    branches: [master, nightly]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [master, nightly]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_win:
+    name: Windows
+    runs-on: windows-2019
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Dependencies Windows
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            base-devel
+            diffutils
+            git
+            make
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-curl
+            mingw-w64-x86_64-onevpl
+            mingw-w64-x86_64-nsis
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-opus
+            mingw-w64-x86_64-toolchain
+            nasm
+            wget
+            yasm
+
+      - name: Install npm packages
+        run: |
+          npm install
+
+      - name: Build Windows
+        shell: msys2 {0}
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          BUILD_VERSION: ${{ needs.check_changelog.outputs.next_version_bare }}
+          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DSUNSHINE_ASSETS_DIR=assets \
+            -G "MinGW Makefiles" \
+            ..
+          mingw32-make -j$(nproc)
