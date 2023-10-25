@@ -784,6 +784,7 @@ main(int argc, char *argv[]) {
   }
 #endif
 
+// rtsp_stream::launch_session_raise(make_launch_session(host_audio, args));
   rtsp_stream::rtpThread();
 
   httpThread.join();
