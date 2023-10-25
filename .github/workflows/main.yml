@@ -58,4 +58,4 @@ jobs:
             -DSUNSHINE_ASSETS_DIR=assets \
             -G "MinGW Makefiles" \
             ..
-          mingw32-make -j$(nproc)
+          mingw32-make 
