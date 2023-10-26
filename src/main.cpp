@@ -127,34 +127,6 @@ map_port(int port) {
 
 
 
-/**
- * 
-*/
-void
-videoBroadcastThreadmain() {
-  auto shutdown_event = mail::man->event<bool>(mail::broadcast_shutdown);
-  auto packets = mail::man->queue<video::packet_t>(mail::video_packets);
-  auto timebase = boost::posix_time::microsec_clock::universal_time();
-
-  // Video traffic is sent on this thread
-  platf::adjust_thread_priority(platf::thread_priority_e::high);
-
-
-  // IMPORTANT
-  while (auto packet = packets->pop()) {
-    if (shutdown_event->peek()) {
-      break;
-    }
-
-    BOOST_LOG(warning) << "Packet size: "sv << packet.get()->data_size();
-    BOOST_LOG(warning) << "Packet val: "sv << packet.get()->data();
-  }
-
-  shutdown_event->raise(true);
-}
-
-
-
 void Init() {
 #ifdef _WIN32
   // Switch default C standard library locale to UTF-8 on Windows 10 1803+
@@ -290,6 +262,78 @@ void DeInit(){
 #endif
 }
 
+
+
+
+typedef void (*DECODE_CALLBACK) (void* data,int size);
+
+/**
+ * @brief Main application entry point.
+ * @param argc The number of arguments.
+ * @param argv The arguments.
+ *
+ * EXAMPLES:
+ * ```cpp
+ * main(1, const char* args[] = {"sunshine", nullptr});
+ * ```
+ */
+int
+Start(DECODE_CALLBACK callback) {
+  auto video = std::thread {[](){
+    auto shutdown_event = mail::man->event<bool>(mail::broadcast_shutdown);
+    auto packets = mail::man->queue<video::packet_t>(mail::video_packets);
+    auto timebase = boost::posix_time::microsec_clock::universal_time();
+
+    // Video traffic is sent on this thread
+    platf::adjust_thread_priority(platf::thread_priority_e::high);
+    while (auto packet = packets->pop()) {
+      if (shutdown_event->peek()) {
+        break;
+      }
+
+      DECODE_CALLBACK callback = (DECODE_CALLBACK)packet->channel_data;
+      auto raw = packet.get();
+      callback(raw->data(),(int)raw->data_size());
+    }
+
+    shutdown_event->raise(true);
+  }};
+
+  // int width;  // Video width in pixels
+  // int height;  // Video height in pixels
+  // int framerate;  // Requested framerate, used in individual frame bitrate budget calculation
+  // int bitrate;  // Video bitrate in kilobits (1000 bits) for requested framerate
+  // int slicesPerFrame;  // Number of slices per frame
+  // int numRefFrames;  // Max number of reference frames
+
+  // /* Requested color range and SDR encoding colorspace, HDR encoding colorspace is always BT.2020+ST2084
+  //    Color range (encoderCscMode & 0x1) : 0 - limited, 1 - full
+  //    SDR encoding colorspace (encoderCscMode >> 1) : 0 - BT.601, 1 - BT.709, 2 - BT.2020 */
+  // int encoderCscMode;
+
+  // int videoFormat;  // 0 - H.264, 1 - HEVC, 2 - AV1
+
+  // /* Encoding color depth (bit depth): 0 - 8-bit, 1 - 10-bit
+  //    HDR encoding activates when color depth is higher than 8-bit and the display which is being captured is operating in HDR mode */
+  // int dynamicRange;
+  video::config_t monitor = { 1920, 1080, 60, 1000, 1, 0, 1, 0, 0 };
+
+  auto mail = std::make_shared<safe::mail_raw_t>();
+  auto capture = std::thread {[&](){video::capture(mail, monitor, (void*)callback);}};
+
+  // Create signal handler after logging has been initialized
+  mail::man->event<bool>(mail::shutdown)->view();
+  return 0;
+}
+
+
+
+
+void 
+DecodeCallbackEx(void* data, int size) {
+  printf("received packet with size %d\n",size);
+}
+
 /**
  * @brief Main application entry point.
  * @param argc The number of arguments.
@@ -303,20 +347,7 @@ void DeInit(){
 int
 main(int argc, char *argv[]) {
   Init();
-
-  auto video = std::thread { videoBroadcastThreadmain };
-
-  stream::config_t config;
-  config.monitor = { 1920, 1080, 60, 1000, 1, 0, 1, 0, 0 };
-  auto gcm_key = util::from_hex<crypto::aes_t>(std::string("localhost"), true);
-  auto iv      = util::from_hex<crypto::aes_t>(std::string("localhost"), true);
-  auto session = stream::session::alloc(config, gcm_key, iv);
-  auto capture = std::thread { stream::videoThread, &(*session) };
-
-
-
-  // Create signal handler after logging has been initialized
-  mail::man->event<bool>(mail::shutdown)->view();
+  Start(DecodeCallbackEx);
   DeInit();
   return 0;
 }
