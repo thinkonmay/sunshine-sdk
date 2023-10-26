@@ -126,10 +126,44 @@ map_port(int port) {
 }
 
 
+static video::config_t monitor = { 1920, 1080, 60, 6000, 1, 0, 1, 0, 0 };
 
-
+static std::shared_ptr<safe::mail_raw_t> privatemail;
+static std::chrono::steady_clock::time_point start; 
 extern void __cdecl
-Init() {
+Init(
+  int width,
+  int height,
+  int bitrate,
+  int framerate,
+  int codec
+) {
+  start = std::chrono::steady_clock::now(); 
+  monitor.width = width;
+  monitor.height = height;
+  monitor.framerate = framerate;
+
+  switch (codec)
+  {
+  case 2: // h265
+    monitor.videoFormat = 1;
+    config::video.hevc_mode = 1;
+    config::video.av1_mode = 0;
+    break;
+  case 3: // av1
+    monitor.videoFormat = 2;
+    config::video.hevc_mode = 0;
+    config::video.av1_mode = 1;
+    break;
+  default:
+    monitor.videoFormat = 0;
+    config::video.hevc_mode = 0;
+    config::video.av1_mode = 0;
+    break;
+  }
+
+
+
 #ifdef _WIN32
   // Switch default C standard library locale to UTF-8 on Windows 10 1803+
   setlocale(LC_ALL, ".UTF-8");
@@ -308,27 +342,9 @@ StartCallback(DECODE_CALLBACK callback) {
     shutdown_event->raise(true);
   }};
 
-  // int width;  // Video width in pixels
-  // int height;  // Video height in pixels
-  // int framerate;  // Requested framerate, used in individual frame bitrate budget calculation
-  // int bitrate;  // Video bitrate in kilobits (1000 bits) for requested framerate
-  // int slicesPerFrame;  // Number of slices per frame
-  // int numRefFrames;  // Max number of reference frames
 
-  // /* Requested color range and SDR encoding colorspace, HDR encoding colorspace is always BT.2020+ST2084
-  //    Color range (encoderCscMode & 0x1) : 0 - limited, 1 - full
-  //    SDR encoding colorspace (encoderCscMode >> 1) : 0 - BT.601, 1 - BT.709, 2 - BT.2020 */
-  // int encoderCscMode;
-
-  // int videoFormat;  // 0 - H.264, 1 - HEVC, 2 - AV1
-
-  // /* Encoding color depth (bit depth): 0 - 8-bit, 1 - 10-bit
-  //    HDR encoding activates when color depth is higher than 8-bit and the display which is being captured is operating in HDR mode */
-  // int dynamicRange;
-  video::config_t monitor = { 1920, 1080, 60, 1000, 1, 0, 1, 0, 0 };
-
-  auto mail = std::make_shared<safe::mail_raw_t>();
-  auto capture = std::thread {[&](){video::capture(mail, monitor, (void*)callback);}};
+  privatemail = std::make_shared<safe::mail_raw_t>();
+  auto capture = std::thread {[&](){video::capture(privatemail, monitor, (void*)callback);}};
 
   // Create signal handler after logging has been initialized
   mail::man->event<bool>(mail::shutdown)->view();
@@ -352,28 +368,11 @@ StartQueue() {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
     return 1;
   }
-  // int width;  // Video width in pixels
-  // int height;  // Video height in pixels
-  // int framerate;  // Requested framerate, used in individual frame bitrate budget calculation
-  // int bitrate;  // Video bitrate in kilobits (1000 bits) for requested framerate
-  // int slicesPerFrame;  // Number of slices per frame
-  // int numRefFrames;  // Max number of reference frames
 
-  // /* Requested color range and SDR encoding colorspace, HDR encoding colorspace is always BT.2020+ST2084
-  //    Color range (encoderCscMode & 0x1) : 0 - limited, 1 - full
-  //    SDR encoding colorspace (encoderCscMode >> 1) : 0 - BT.601, 1 - BT.709, 2 - BT.2020 */
-  // int encoderCscMode;
 
-  // int videoFormat;  // 0 - H.264, 1 - HEVC, 2 - AV1
-
-  // /* Encoding color depth (bit depth): 0 - 8-bit, 1 - 10-bit
-  //    HDR encoding activates when color depth is higher than 8-bit and the display which is being captured is operating in HDR mode */
-  // int dynamicRange;
-  video::config_t monitor = { 1920, 1080, 60, 1000, 1, 0, 1, 0, 0 };
-
+  privatemail = std::make_shared<safe::mail_raw_t>();
   void* null = 0;
-  auto mail = std::make_shared<safe::mail_raw_t>();
-  auto capture = std::thread {[&](){video::capture(mail, monitor, (void*)null);}};
+  auto capture = std::thread {[&](){video::capture(privatemail, monitor, (void*)null);}};
 
   // Create signal handler after logging has been initialized
   mail::man->event<bool>(mail::shutdown)->view();
@@ -386,9 +385,35 @@ PopFromQueue(void* data,int* duration)
 {
   auto packets = mail::man->queue<video::packet_t>(mail::video_packets);
   auto packet = packets->pop();
+
+  if(packet->frame_timestamp) {
+    auto duration_to_latency = [](const std::chrono::steady_clock::duration &duration) {
+      const auto duration_us = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+      return (uint16_t) std::clamp<decltype(duration_us)>((duration_us + 50) / 100, 0, std::numeric_limits<uint16_t>::max());
+    };
+
+
+    uint16_t latency = duration_to_latency(*packet->frame_timestamp - start);
+    *duration = latency;
+  }
+
   // packet->
   memcpy(data,packet->data(),packet->data_size());
   return packet->data_size();
+}
+
+void __cdecl 
+RaiseEvent(int event_id, int value) 
+{
+  switch (event_id)
+  {
+  case 1: // IDR FRAME
+    if (privatemail)
+      privatemail->event<bool>(mail::idr)->raise(true);
+    break;
+  default:
+    break;
+  }
 }
 
 void 
@@ -408,7 +433,7 @@ DecodeCallbackEx(void* data, int size) {
  */
 int
 main(int argc, char *argv[]) {
-  Init();
+  Init(1920,1080,6000,60,1);
   // StartCallback(DecodeCallbackEx);
 
   auto video = std::thread {[](){

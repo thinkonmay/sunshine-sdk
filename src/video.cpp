@@ -1993,6 +1993,7 @@ namespace video {
           }
 
           if (ctx->idr_events->peek()) {
+            BOOST_LOG(info) << "IDR frame generated"sv;
             pos->session->request_idr_frame();
             ctx->idr_events->pop();
           }
