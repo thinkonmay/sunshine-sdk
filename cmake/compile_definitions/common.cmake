@@ -44,6 +44,7 @@ set(SUNSHINE_TARGET_FILES
         src/config.cpp
         src/main.cpp
         src/main.h
+        src/dll.h
         src/crypto.cpp
         src/crypto.h
         src/rtsp.cpp

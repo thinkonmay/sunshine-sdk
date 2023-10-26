@@ -20,6 +20,7 @@
 // local includes
 #include "config.h"
 #include "main.h"
+#include "dll.h"
 #include "platform/common.h"
 #include "rtsp.h"
 #include "thread_pool.h"
@@ -127,7 +128,8 @@ map_port(int port) {
 
 
 
-void Init() {
+extern void __cdecl
+Init() {
 #ifdef _WIN32
   // Switch default C standard library locale to UTF-8 on Windows 10 1803+
   setlocale(LC_ALL, ".UTF-8");
@@ -247,12 +249,11 @@ void Init() {
 
   BOOST_LOG(error) << "Hello from thinkmay."sv;
   reed_solomon_init();
-  if (video::probe_encoders()) {
-    BOOST_LOG(error) << "Video failed to find working encoder"sv;
-  }
+
 }
 
-void DeInit(){
+extern void __cdecl
+DeInit(){
 #ifdef WIN32
   // Restore global NVIDIA control panel settings
   if (nvprefs_instance.owning_undo_file() && nvprefs_instance.load()) {
@@ -262,10 +263,13 @@ void DeInit(){
 #endif
 }
 
+extern void __cdecl
+Wait(){
+  mail::man->event<bool>(mail::shutdown)->view();
+}
 
 
 
-typedef void (*DECODE_CALLBACK) (void* data,int size);
 
 /**
  * @brief Main application entry point.
@@ -277,8 +281,12 @@ typedef void (*DECODE_CALLBACK) (void* data,int size);
  * main(1, const char* args[] = {"sunshine", nullptr});
  * ```
  */
-int
-Start(DECODE_CALLBACK callback) {
+extern int __cdecl 
+StartCallback(DECODE_CALLBACK callback) {
+  if (video::probe_encoders()) {
+    BOOST_LOG(error) << "Video failed to find working encoder"sv;
+    return 1;
+  }
   auto video = std::thread {[](){
     auto shutdown_event = mail::man->event<bool>(mail::broadcast_shutdown);
     auto packets = mail::man->queue<video::packet_t>(mail::video_packets);
@@ -290,6 +298,7 @@ Start(DECODE_CALLBACK callback) {
       if (shutdown_event->peek()) {
         break;
       }
+
 
       DECODE_CALLBACK callback = (DECODE_CALLBACK)packet->channel_data;
       auto raw = packet.get();
@@ -326,8 +335,60 @@ Start(DECODE_CALLBACK callback) {
   return 0;
 }
 
+/**
+ * @brief Main application entry point.
+ * @param argc The number of arguments.
+ * @param argv The arguments.
+ *
+ * EXAMPLES:
+ * ```cpp
+ * main(1, const char* args[] = {"sunshine", nullptr});
+ * ```
+ */
+extern int __cdecl 
+StartQueue() {
+  if (video::probe_encoders()) {
+    BOOST_LOG(error) << "Video failed to find working encoder"sv;
+    return 1;
+  }
+  // int width;  // Video width in pixels
+  // int height;  // Video height in pixels
+  // int framerate;  // Requested framerate, used in individual frame bitrate budget calculation
+  // int bitrate;  // Video bitrate in kilobits (1000 bits) for requested framerate
+  // int slicesPerFrame;  // Number of slices per frame
+  // int numRefFrames;  // Max number of reference frames
 
+  // /* Requested color range and SDR encoding colorspace, HDR encoding colorspace is always BT.2020+ST2084
+  //    Color range (encoderCscMode & 0x1) : 0 - limited, 1 - full
+  //    SDR encoding colorspace (encoderCscMode >> 1) : 0 - BT.601, 1 - BT.709, 2 - BT.2020 */
+  // int encoderCscMode;
 
+  // int videoFormat;  // 0 - H.264, 1 - HEVC, 2 - AV1
+
+  // /* Encoding color depth (bit depth): 0 - 8-bit, 1 - 10-bit
+  //    HDR encoding activates when color depth is higher than 8-bit and the display which is being captured is operating in HDR mode */
+  // int dynamicRange;
+  video::config_t monitor = { 1920, 1080, 60, 1000, 1, 0, 1, 0, 0 };
+
+  void* null = 0;
+  auto mail = std::make_shared<safe::mail_raw_t>();
+  auto capture = std::thread {[&](){video::capture(mail, monitor, (void*)null);}};
+
+  // Create signal handler after logging has been initialized
+  mail::man->event<bool>(mail::shutdown)->view();
+  DeInit();
+  return 0;
+}
+
+int __cdecl 
+PopFromQueue(void* data,int* duration) 
+{
+  auto packets = mail::man->queue<video::packet_t>(mail::video_packets);
+  auto packet = packets->pop();
+  // packet->
+  memcpy(data,packet->data(),packet->data_size());
+  return packet->data_size();
+}
 
 void 
 DecodeCallbackEx(void* data, int size) {
@@ -347,7 +408,29 @@ DecodeCallbackEx(void* data, int size) {
 int
 main(int argc, char *argv[]) {
   Init();
-  Start(DecodeCallbackEx);
-  DeInit();
+  // StartCallback(DecodeCallbackEx);
+
+  auto video = std::thread {[](){
+    auto shutdown_event = mail::man->event<bool>(mail::broadcast_shutdown);
+    // Video traffic is sent on this thread
+    platf::adjust_thread_priority(platf::thread_priority_e::high);
+
+    int duration = 0;
+    void* data = malloc(100 * 1000 * 1000);
+    while (true) {
+      int size = PopFromQueue(data,&duration);
+      if (shutdown_event->peek()) {
+        break;
+      }
+
+
+
+      DecodeCallbackEx(data,size);
+    }
+
+    shutdown_event->raise(true);
+  }};
+
+  StartQueue();
   return 0;
 }
