@@ -1211,50 +1211,7 @@ namespace config {
       return -1;
     }
 
-#ifdef _WIN32
-    // We have to wait until the config is loaded to handle these launches,
-    // because we need to have the correct base port loaded in our config.
-    if (service_admin_launch) {
-      // This is a relaunch as admin to start the service
-      service_ctrl::start_service();
 
-      // Always return 1 to ensure Sunshine doesn't start normally
-      return 1;
-    }
-    else if (shortcut_launch) {
-      if (!service_ctrl::is_service_running()) {
-        // If the service isn't running, relaunch ourselves as admin to start it
-        WCHAR executable[MAX_PATH];
-        GetModuleFileNameW(NULL, executable, ARRAYSIZE(executable));
-
-        SHELLEXECUTEINFOW shell_exec_info {};
-        shell_exec_info.cbSize = sizeof(shell_exec_info);
-        shell_exec_info.fMask = SEE_MASK_NOASYNC | SEE_MASK_NO_CONSOLE | SEE_MASK_NOCLOSEPROCESS;
-        shell_exec_info.lpVerb = L"runas";
-        shell_exec_info.lpFile = executable;
-        shell_exec_info.lpParameters = L"--shortcut-admin";
-        shell_exec_info.nShow = SW_NORMAL;
-        if (!ShellExecuteExW(&shell_exec_info)) {
-          auto winerr = GetLastError();
-          std::cout << "Error: ShellExecuteEx() failed:"sv << winerr << std::endl;
-          return 1;
-        }
-
-        // Wait for the elevated process to finish starting the service
-        WaitForSingleObject(shell_exec_info.hProcess, INFINITE);
-        CloseHandle(shell_exec_info.hProcess);
-
-        // Wait for the UI to be ready for connections
-        service_ctrl::wait_for_ui_ready();
-      }
-
-      // Launch the web UI
-      launch_ui();
-
-      // Always return 1 to ensure Sunshine doesn't start normally
-      return 1;
-    }
-#endif
 
     return 0;
   }

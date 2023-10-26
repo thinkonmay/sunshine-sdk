@@ -29,7 +29,6 @@
 #include "platform/common.h"
 #include "process.h"
 #include "rtsp.h"
-#include "system_tray.h"
 #include "utility.h"
 #include "uuid.h"
 #include "video.h"
@@ -517,9 +516,6 @@ namespace nvhttp {
           getservercert(ptr->second, tree, pin);
         }
         else {
-#if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
-          system_tray::update_tray_require_pin();
-#endif
           ptr->second.async_insert_pin.response = std::move(response);
 
           fg.disable();
@@ -717,8 +713,8 @@ namespace nvhttp {
   }
 
   void
-  launch(bool &host_audio, resp_https_t response, req_https_t request) {
-    print_req<SimpleWeb::HTTPS>(request);
+  launch(bool &host_audio, resp_http_t response, req_http_t request) {
+    print_req<SimpleWeb::HTTP>(request);
 
     pt::ptree tree;
     auto g = util::fail_guard([&]() {
@@ -797,8 +793,8 @@ namespace nvhttp {
   }
 
   void
-  resume(bool &host_audio, resp_https_t response, req_https_t request) {
-    print_req<SimpleWeb::HTTPS>(request);
+  resume(bool &host_audio, resp_http_t response, req_http_t request) {
+    print_req<SimpleWeb::HTTP>(request);
 
     pt::ptree tree;
     auto g = util::fail_guard([&]() {
@@ -868,8 +864,8 @@ namespace nvhttp {
   }
 
   void
-  cancel(resp_https_t response, req_https_t request) {
-    print_req<SimpleWeb::HTTPS>(request);
+  cancel(resp_http_t response, req_http_t request) {
+    print_req<SimpleWeb::HTTP>(request);
 
     pt::ptree tree;
     auto g = util::fail_guard([&]() {
@@ -922,6 +918,7 @@ namespace nvhttp {
    */
   void
   start() {
+    // char* secret = "";
     auto shutdown_event = mail::man->event<bool>(mail::shutdown);
 
     auto port_http = map_port(PORT_HTTP);
@@ -950,80 +947,13 @@ namespace nvhttp {
     // /launch will store it in host_audio
     bool host_audio {};
 
-    https_server_t https_server { config::nvhttp.cert, config::nvhttp.pkey };
     http_server_t http_server;
-
-    // Verify certificates after establishing connection
-    https_server.verify = [&cert_chain, add_cert](SSL *ssl) {
-      crypto::x509_t x509 { SSL_get_peer_certificate(ssl) };
-      if (!x509) {
-        BOOST_LOG(info) << "unknown -- denied"sv;
-        return 0;
-      }
-
-      int verified = 0;
-
-      auto fg = util::fail_guard([&]() {
-        char subject_name[256];
-
-        X509_NAME_oneline(X509_get_subject_name(x509.get()), subject_name, sizeof(subject_name));
-
-        BOOST_LOG(debug) << subject_name << " -- "sv << (verified ? "verified"sv : "denied"sv);
-      });
-
-      while (add_cert->peek()) {
-        char subject_name[256];
-
-        auto cert = add_cert->pop();
-        X509_NAME_oneline(X509_get_subject_name(cert.get()), subject_name, sizeof(subject_name));
-
-        BOOST_LOG(debug) << "Added cert ["sv << subject_name << ']';
-        cert_chain.add(std::move(cert));
-      }
-
-      auto err_str = cert_chain.verify(x509.get());
-      if (err_str) {
-        BOOST_LOG(warning) << "SSL Verification error :: "sv << err_str;
-
-        return verified;
-      }
-
-      verified = 1;
-
-      return verified;
-    };
-
-    https_server.on_verify_failed = [](resp_https_t resp, req_https_t req) {
-      pt::ptree tree;
-      auto g = util::fail_guard([&]() {
-        std::ostringstream data;
-
-        pt::write_xml(data, tree);
-        resp->write(data.str());
-        resp->close_connection_after_response = true;
-      });
-
-      tree.put("root.<xmlattr>.status_code"s, 401);
-      tree.put("root.<xmlattr>.query"s, req->path);
-      tree.put("root.<xmlattr>.status_message"s, "The client is not authorized. Certificate verification failed."s);
-    };
-
-    https_server.default_resource["GET"] = not_found<SimpleWeb::HTTPS>;
-    https_server.resource["^/serverinfo$"]["GET"] = serverinfo<SimpleWeb::HTTPS>;
-    https_server.resource["^/pair$"]["GET"] = [&add_cert](auto resp, auto req) { pair<SimpleWeb::HTTPS>(add_cert, resp, req); };
-    https_server.resource["^/applist$"]["GET"] = applist;
-    https_server.resource["^/appasset$"]["GET"] = appasset;
-    https_server.resource["^/launch$"]["GET"] = [&host_audio](auto resp, auto req) { launch(host_audio, resp, req); };
-    https_server.resource["^/resume$"]["GET"] = [&host_audio](auto resp, auto req) { resume(host_audio, resp, req); };
-    https_server.resource["^/cancel$"]["GET"] = cancel;
-
-    https_server.config.reuse_address = true;
-    https_server.config.address = net::af_to_any_address_string(address_family);
-    https_server.config.port = port_https;
 
     http_server.default_resource["GET"] = not_found<SimpleWeb::HTTP>;
     http_server.resource["^/serverinfo$"]["GET"] = serverinfo<SimpleWeb::HTTP>;
-    http_server.resource["^/pair$"]["GET"] = [&add_cert](auto resp, auto req) { pair<SimpleWeb::HTTP>(add_cert, resp, req); };
+    http_server.resource["^/launch$"]["GET"] = [&host_audio](auto resp, auto req) { launch(host_audio, resp, req); };
+    http_server.resource["^/resume$"]["GET"] = [&host_audio](auto resp, auto req) { resume(host_audio, resp, req); };
+    http_server.resource["^/cancel$"]["GET"] = cancel;
 
     http_server.config.reuse_address = true;
     http_server.config.address = net::af_to_any_address_string(address_family);
@@ -1044,16 +974,13 @@ namespace nvhttp {
         return;
       }
     };
-    std::thread ssl { accept_and_run, &https_server };
     std::thread tcp { accept_and_run, &http_server };
 
     // Wait for any event
     shutdown_event->view();
 
-    https_server.stop();
     http_server.stop();
 
-    ssl.join();
     tcp.join();
   }
 

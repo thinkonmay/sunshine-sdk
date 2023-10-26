@@ -19,18 +19,13 @@
 
 // local includes
 #include "config.h"
-#include "confighttp.h"
-#include "httpcommon.h"
 #include "main.h"
-#include "nvhttp.h"
 #include "platform/common.h"
-#include "process.h"
 #include "rtsp.h"
-#include "system_tray.h"
 #include "thread_pool.h"
-#include "upnp.h"
 #include "version.h"
 #include "video.h"
+#include "stream.h"
 
 extern "C" {
 #include <libavutil/log.h>
@@ -43,6 +38,8 @@ extern "C" {
 
 safe::mail_t mail::man;
 
+namespace asio = boost::asio;
+using asio::ip::udp;
 using namespace std::literals;
 namespace bl = boost::log;
 
@@ -133,276 +130,7 @@ namespace restore_nvprefs_undo {
 }  // namespace restore_nvprefs_undo
 #endif
 
-namespace lifetime {
-  static char **argv;
-  static std::atomic_int desired_exit_code;
 
-  /**
-   * @brief Terminates Sunshine gracefully with the provided exit code.
-   * @param exit_code The exit code to return from main().
-   * @param async Specifies whether our termination will be non-blocking.
-   */
-  void
-  exit_sunshine(int exit_code, bool async) {
-    // Store the exit code of the first exit_sunshine() call
-    int zero = 0;
-    desired_exit_code.compare_exchange_strong(zero, exit_code);
-
-    // Raise SIGINT to start termination
-    std::raise(SIGINT);
-
-    // Termination will happen asynchronously, but the caller may
-    // have wanted synchronous behavior.
-    while (!async) {
-      std::this_thread::sleep_for(1s);
-    }
-  }
-
-  /**
-   * @brief Gets the argv array passed to main().
-   */
-  char **
-  get_argv() {
-    return argv;
-  }
-}  // namespace lifetime
-
-#ifdef _WIN32
-namespace service_ctrl {
-  class service_controller {
-  public:
-    /**
-     * @brief Constructor for service_controller class.
-     * @param service_desired_access SERVICE_* desired access flags.
-     */
-    service_controller(DWORD service_desired_access) {
-      scm_handle = OpenSCManagerA(nullptr, nullptr, SC_MANAGER_CONNECT);
-      if (!scm_handle) {
-        auto winerr = GetLastError();
-        BOOST_LOG(error) << "OpenSCManager() failed: "sv << winerr;
-        return;
-      }
-
-      service_handle = OpenServiceA(scm_handle, "SunshineService", service_desired_access);
-      if (!service_handle) {
-        auto winerr = GetLastError();
-        BOOST_LOG(error) << "OpenService() failed: "sv << winerr;
-        return;
-      }
-    }
-
-    ~service_controller() {
-      if (service_handle) {
-        CloseServiceHandle(service_handle);
-      }
-
-      if (scm_handle) {
-        CloseServiceHandle(scm_handle);
-      }
-    }
-
-    /**
-     * @brief Asynchronously starts the Sunshine service.
-     */
-    bool
-    start_service() {
-      if (!service_handle) {
-        return false;
-      }
-
-      if (!StartServiceA(service_handle, 0, nullptr)) {
-        auto winerr = GetLastError();
-        if (winerr != ERROR_SERVICE_ALREADY_RUNNING) {
-          BOOST_LOG(error) << "StartService() failed: "sv << winerr;
-          return false;
-        }
-      }
-
-      return true;
-    }
-
-    /**
-     * @brief Query the service status.
-     * @param status The SERVICE_STATUS struct to populate.
-     */
-    bool
-    query_service_status(SERVICE_STATUS &status) {
-      if (!service_handle) {
-        return false;
-      }
-
-      if (!QueryServiceStatus(service_handle, &status)) {
-        auto winerr = GetLastError();
-        BOOST_LOG(error) << "QueryServiceStatus() failed: "sv << winerr;
-        return false;
-      }
-
-      return true;
-    }
-
-  private:
-    SC_HANDLE scm_handle = NULL;
-    SC_HANDLE service_handle = NULL;
-  };
-
-  /**
-   * @brief Check if the service is running.
-   *
-   * EXAMPLES:
-   * ```cpp
-   * is_service_running();
-   * ```
-   */
-  bool
-  is_service_running() {
-    service_controller sc { SERVICE_QUERY_STATUS };
-
-    SERVICE_STATUS status;
-    if (!sc.query_service_status(status)) {
-      return false;
-    }
-
-    return status.dwCurrentState == SERVICE_RUNNING;
-  }
-
-  /**
-   * @brief Start the service and wait for startup to complete.
-   *
-   * EXAMPLES:
-   * ```cpp
-   * start_service();
-   * ```
-   */
-  bool
-  start_service() {
-    service_controller sc { SERVICE_QUERY_STATUS | SERVICE_START };
-
-    std::cout << "Starting Sunshine..."sv;
-
-    // This operation is asynchronous, so we must wait for it to complete
-    if (!sc.start_service()) {
-      return false;
-    }
-
-    SERVICE_STATUS status;
-    do {
-      Sleep(1000);
-      std::cout << '.';
-    } while (sc.query_service_status(status) && status.dwCurrentState == SERVICE_START_PENDING);
-
-    if (status.dwCurrentState != SERVICE_RUNNING) {
-      BOOST_LOG(error) << SERVICE_NAME " failed to start: "sv << status.dwWin32ExitCode;
-      return false;
-    }
-
-    std::cout << std::endl;
-    return true;
-  }
-
-  /**
-   * @brief Wait for the UI to be ready after Sunshine startup.
-   *
-   * EXAMPLES:
-   * ```cpp
-   * wait_for_ui_ready();
-   * ```
-   */
-  bool
-  wait_for_ui_ready() {
-    std::cout << "Waiting for Web UI to be ready...";
-
-    // Wait up to 30 seconds for the web UI to start
-    for (int i = 0; i < 30; i++) {
-      PMIB_TCPTABLE tcp_table = nullptr;
-      ULONG table_size = 0;
-      ULONG err;
-
-      auto fg = util::fail_guard([&tcp_table]() {
-        free(tcp_table);
-      });
-
-      do {
-        // Query all open TCP sockets to look for our web UI port
-        err = GetTcpTable(tcp_table, &table_size, false);
-        if (err == ERROR_INSUFFICIENT_BUFFER) {
-          free(tcp_table);
-          tcp_table = (PMIB_TCPTABLE) malloc(table_size);
-        }
-      } while (err == ERROR_INSUFFICIENT_BUFFER);
-
-      if (err != NO_ERROR) {
-        BOOST_LOG(error) << "Failed to query TCP table: "sv << err;
-        return false;
-      }
-
-      uint16_t port_nbo = htons(map_port(confighttp::PORT_HTTPS));
-      for (DWORD i = 0; i < tcp_table->dwNumEntries; i++) {
-        auto &entry = tcp_table->table[i];
-
-        // Look for our port in the listening state
-        if (entry.dwLocalPort == port_nbo && entry.dwState == MIB_TCP_STATE_LISTEN) {
-          std::cout << std::endl;
-          return true;
-        }
-      }
-
-      Sleep(1000);
-      std::cout << '.';
-    }
-
-    std::cout << "timed out"sv << std::endl;
-    return false;
-  }
-}  // namespace service_ctrl
-
-/**
- * @brief Checks if NVIDIA's GameStream software is running.
- * @return `true` if GameStream is enabled.
- */
-bool
-is_gamestream_enabled() {
-  DWORD enabled;
-  DWORD size = sizeof(enabled);
-  return RegGetValueW(
-           HKEY_LOCAL_MACHINE,
-           L"SOFTWARE\\NVIDIA Corporation\\NvStream",
-           L"EnableStreaming",
-           RRF_RT_REG_DWORD,
-           nullptr,
-           &enabled,
-           &size) == ERROR_SUCCESS &&
-         enabled != 0;
-}
-
-#endif
-
-/**
- * @brief Launch the Web UI.
- *
- * EXAMPLES:
- * ```cpp
- * launch_ui();
- * ```
- */
-void
-launch_ui() {
-  std::string url = "https://localhost:" + std::to_string(map_port(confighttp::PORT_HTTPS));
-  platf::open_url(url);
-}
-
-/**
- * @brief Launch the Web UI at a specific endpoint.
- *
- * EXAMPLES:
- * ```cpp
- * launch_ui_with_path("/pin");
- * ```
- */
-void
-launch_ui_with_path(std::string path) {
-  std::string url = "https://localhost:" + std::to_string(map_port(confighttp::PORT_HTTPS)) + path;
-  platf::open_url(url);
-}
 
 /**
  * @brief Flush the log.
@@ -431,51 +159,37 @@ on_signal(int sig, FN &&fn) {
   std::signal(sig, on_signal_forwarder);
 }
 
-namespace gen_creds {
-  int
-  entry(const char *name, int argc, char *argv[]) {
-    if (argc < 2 || argv[0] == "help"sv || argv[1] == "help"sv) {
-      print_help(name);
-      return 0;
+
+
+
+
+
+
+/**
+ * 
+*/
+void
+videoBroadcastThreadmain() {
+  auto shutdown_event = mail::man->event<bool>(mail::broadcast_shutdown);
+  auto packets = mail::man->queue<video::packet_t>(mail::video_packets);
+  auto timebase = boost::posix_time::microsec_clock::universal_time();
+
+  // Video traffic is sent on this thread
+  platf::adjust_thread_priority(platf::thread_priority_e::high);
+
+
+  // IMPORTANT
+  while (auto packet = packets->pop()) {
+    if (shutdown_event->peek()) {
+      break;
     }
 
-    http::save_user_creds(config::sunshine.credentials_file, argv[0], argv[1]);
-
-    return 0;
+    BOOST_LOG(warning) << "Packet size: "sv << packet.get()->data_size();
+    BOOST_LOG(warning) << "Packet val: "sv << packet.get()->data();
   }
-}  // namespace gen_creds
 
-std::map<std::string_view, std::function<int(const char *name, int argc, char **argv)>> cmd_to_func {
-  { "creds"sv, gen_creds::entry },
-  { "help"sv, help::entry },
-  { "version"sv, version::entry },
-#ifdef _WIN32
-  { "restore-nvprefs-undo"sv, restore_nvprefs_undo::entry },
-#endif
-};
-
-#ifdef _WIN32
-LRESULT CALLBACK
-SessionMonitorWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-  switch (uMsg) {
-    case WM_CLOSE:
-      DestroyWindow(hwnd);
-      return 0;
-    case WM_DESTROY:
-      PostQuitMessage(0);
-      return 0;
-    case WM_ENDSESSION: {
-      // Terminate ourselves with a blocking exit call
-      std::cout << "Received WM_ENDSESSION"sv << std::endl;
-      lifetime::exit_sunshine(0, false);
-      return 0;
-    }
-    default:
-      return DefWindowProc(hwnd, uMsg, wParam, lParam);
-  }
+  shutdown_event->raise(true);
 }
-#endif
-
 /**
  * @brief Main application entry point.
  * @param argc The number of arguments.
@@ -488,8 +202,6 @@ SessionMonitorWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
  */
 int
 main(int argc, char *argv[]) {
-  lifetime::argv = argv;
-
   task_pool_util::TaskPool::task_id_t force_shutdown = nullptr;
 
 #ifdef _WIN32
@@ -586,22 +298,6 @@ main(int argc, char *argv[]) {
   bl::core::get()->add_sink(sink);
   auto fg = util::fail_guard(log_flush);
 
-  if (!config::sunshine.cmd.name.empty()) {
-    auto fn = cmd_to_func.find(config::sunshine.cmd.name);
-    if (fn == std::end(cmd_to_func)) {
-      BOOST_LOG(fatal) << "Unknown command: "sv << config::sunshine.cmd.name;
-
-      BOOST_LOG(info) << "Possible commands:"sv;
-      for (auto &[key, _] : cmd_to_func) {
-        BOOST_LOG(info) << '\t' << key;
-      }
-
-      return 7;
-    }
-
-    return fn->second(argv[0], config::sunshine.cmd.argc, config::sunshine.cmd.argv);
-  }
-
 #ifdef WIN32
   // Modify relevant NVIDIA control panel settings if the system has corresponding gpu
   if (nvprefs_instance.load()) {
@@ -617,86 +313,11 @@ main(int argc, char *argv[]) {
 
   // Wait as long as possible to terminate Sunshine.exe during logoff/shutdown
   SetProcessShutdownParameters(0x100, SHUTDOWN_NORETRY);
-
-  // We must create a hidden window to receive shutdown notifications since we load gdi32.dll
-  std::promise<HWND> session_monitor_hwnd_promise;
-  auto session_monitor_hwnd_future = session_monitor_hwnd_promise.get_future();
-  std::promise<void> session_monitor_join_thread_promise;
-  auto session_monitor_join_thread_future = session_monitor_join_thread_promise.get_future();
-
-  std::thread session_monitor_thread([&]() {
-    session_monitor_join_thread_promise.set_value_at_thread_exit();
-
-    WNDCLASSA wnd_class {};
-    wnd_class.lpszClassName = "SunshineSessionMonitorClass";
-    wnd_class.lpfnWndProc = SessionMonitorWindowProc;
-    if (!RegisterClassA(&wnd_class)) {
-      session_monitor_hwnd_promise.set_value(NULL);
-      BOOST_LOG(error) << "Failed to register session monitor window class"sv << std::endl;
-      return;
-    }
-
-    auto wnd = CreateWindowExA(
-      0,
-      wnd_class.lpszClassName,
-      "Sunshine Session Monitor Window",
-      0,
-      CW_USEDEFAULT,
-      CW_USEDEFAULT,
-      CW_USEDEFAULT,
-      CW_USEDEFAULT,
-      nullptr,
-      nullptr,
-      nullptr,
-      nullptr);
-
-    session_monitor_hwnd_promise.set_value(wnd);
-
-    if (!wnd) {
-      BOOST_LOG(error) << "Failed to create session monitor window"sv << std::endl;
-      return;
-    }
-
-    ShowWindow(wnd, SW_HIDE);
-
-    // Run the message loop for our window
-    MSG msg {};
-    while (GetMessage(&msg, nullptr, 0, 0) > 0) {
-      TranslateMessage(&msg);
-      DispatchMessage(&msg);
-    }
-  });
-
-  auto session_monitor_join_thread_guard = util::fail_guard([&]() {
-    if (session_monitor_hwnd_future.wait_for(1s) == std::future_status::ready) {
-      if (HWND session_monitor_hwnd = session_monitor_hwnd_future.get()) {
-        PostMessage(session_monitor_hwnd, WM_CLOSE, 0, 0);
-      }
-
-      if (session_monitor_join_thread_future.wait_for(1s) == std::future_status::ready) {
-        session_monitor_thread.join();
-        return;
-      }
-      else {
-        BOOST_LOG(warning) << "session_monitor_join_thread_future reached timeout";
-      }
-    }
-    else {
-      BOOST_LOG(warning) << "session_monitor_hwnd_future reached timeout";
-    }
-
-    session_monitor_thread.detach();
-  });
-
 #endif
 
   BOOST_LOG(info) << PROJECT_NAME << " version: " << PROJECT_VER << std::endl;
   task_pool.start(1);
 
-#if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
-  // create tray thread and detach it
-  system_tray::run_tray();
-#endif
 
   // Create signal handler after logging has been initialized
   auto shutdown_event = mail::man->event<bool>(mail::shutdown);
@@ -726,7 +347,6 @@ main(int argc, char *argv[]) {
     shutdown_event->raise(true);
   });
 
-  proc::refresh(config::stream.file_apps);
 
   // If any of the following fail, we log an error and continue event though sunshine will not function correctly.
   // This allows access to the UI to fix configuration problems or view the logs.
@@ -736,66 +356,30 @@ main(int argc, char *argv[]) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
   }
 
-  auto proc_deinit_guard = proc::init();
-  if (!proc_deinit_guard) {
-    BOOST_LOG(error) << "Proc failed to initialize"sv;
-  }
-
+  BOOST_LOG(error) << "Hello from thinkmay."sv;
   reed_solomon_init();
-  auto input_deinit_guard = input::init();
   if (video::probe_encoders()) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
   }
 
-  if (http::init()) {
-    BOOST_LOG(fatal) << "HTTP interface failed to initialize"sv;
 
-#ifdef _WIN32
-    BOOST_LOG(fatal) << "To relaunch Sunshine successfully, use the shortcut in the Start Menu. Do not run Sunshine.exe manually."sv;
-    std::this_thread::sleep_for(10s);
-#endif
 
-    return -1;
-  }
 
-  std::unique_ptr<platf::deinit_t> mDNS;
-  auto sync_mDNS = std::async(std::launch::async, [&mDNS]() {
-    mDNS = platf::publish::start();
-  });
+  auto video = std::thread { videoBroadcastThreadmain };
 
-  std::unique_ptr<platf::deinit_t> upnp_unmap;
-  auto sync_upnp = std::async(std::launch::async, [&upnp_unmap]() {
-    upnp_unmap = upnp::start();
-  });
+  stream::config_t config;
+  config.monitor = { 1920, 1080, 60, 1000, 1, 0, 1, 0, 0 };
+  auto gcm_key = util::from_hex<crypto::aes_t>(std::string("localhost"), true);
+  auto iv      = util::from_hex<crypto::aes_t>(std::string("localhost"), true);
+  auto session = stream::session::alloc(config, gcm_key, iv);
+  auto capture = std::thread { stream::videoThread, &(*session) };
 
-  // FIXME: Temporary workaround: Simple-Web_server needs to be updated or replaced
-  if (shutdown_event->peek()) {
-    return lifetime::desired_exit_code;
-  }
 
-  std::thread httpThread { nvhttp::start };
-  std::thread configThread { confighttp::start };
 
-#ifdef _WIN32
-  // If we're using the default port and GameStream is enabled, warn the user
-  if (config::sunshine.port == 47989 && is_gamestream_enabled()) {
-    BOOST_LOG(fatal) << "GameStream is still enabled in GeForce Experience! This *will* cause streaming problems with Sunshine!"sv;
-    BOOST_LOG(fatal) << "Disable GameStream on the SHIELD tab in GeForce Experience or change the Port setting on the Advanced tab in the Sunshine Web UI."sv;
-  }
-#endif
-
-  rtsp_stream::rtpThread();
-
-  httpThread.join();
-  configThread.join();
-
+  shutdown_event->view();
   task_pool.stop();
   task_pool.join();
 
-  // stop system tray
-#if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
-  system_tray::end_tray();
-#endif
 
 #ifdef WIN32
   // Restore global NVIDIA control panel settings
@@ -805,7 +389,7 @@ main(int argc, char *argv[]) {
   }
 #endif
 
-  return lifetime::desired_exit_code;
+  return 0;
 }
 
 /**

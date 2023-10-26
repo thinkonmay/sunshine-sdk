@@ -25,7 +25,6 @@ extern "C" {
 #include "stat_trackers.h"
 #include "stream.h"
 #include "sync.h"
-#include "system_tray.h"
 #include "thread_safe.h"
 #include "utility.h"
 
@@ -944,10 +943,10 @@ namespace stream {
           TUPLE_2D_REF(addr, port_session, *pos);
           auto session = port_session.second;
 
-          if (now > session->pingTimeout) {
-            BOOST_LOG(info) << addr << ": Ping Timeout"sv;
-            session::stop(*session);
-          }
+          // if (now > session->pingTimeout) {
+          //   BOOST_LOG(info) << addr << ": Ping Timeout"sv;
+          //   session::stop(*session);
+          // }
 
           if (session->state.load(std::memory_order_acquire) == session::state_e::STOPPING) {
             pos = server->_map_addr_session->erase(pos);
@@ -1606,20 +1605,20 @@ namespace stream {
       session::stop(*session);
     });
 
-    while_starting_do_nothing(session->state);
+    // while_starting_do_nothing(session->state);
 
-    auto ref = broadcast.ref();
-    auto port = recv_ping(ref, socket_e::video, session->video.peer, config::stream.ping_timeout);
-    if (port < 0) {
-      return;
-    }
+    // auto ref = broadcast.ref();
+    // auto port = recv_ping(ref, socket_e::video, session->video.peer, config::stream.ping_timeout);
+    // if (port < 0) {
+    //   return;
+    // }
 
     // Enable QoS tagging on video traffic if requested by the client
-    if (session->config.videoQosType) {
-      auto address = session->video.peer.address();
-      session->video.qos = platf::enable_socket_qos(ref->video_sock.native_handle(), address,
-        session->video.peer.port(), platf::qos_data_type_e::video);
-    }
+    // if (session->config.videoQosType) {
+    //   auto address = session->video.peer.address();
+    //   session->video.qos = platf::enable_socket_qos(ref->video_sock.native_handle(), address,
+    //     session->video.peer.port(), platf::qos_data_type_e::video);
+    // }
 
     BOOST_LOG(debug) << "Start capturing Video"sv;
     video::capture(session->mail, session->config.monitor, session);
@@ -1733,11 +1732,6 @@ namespace stream {
 
       // If this is the last session, invoke the platform callbacks
       if (--running_sessions == 0) {
-#if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
-        if (proc::proc.running()) {
-          system_tray::update_tray_pausing(proc::proc.get_last_run_app_name());
-        }
-#endif
         platf::streaming_will_stop();
       }
 
@@ -1781,10 +1775,7 @@ namespace stream {
 
       // If this is the first session, invoke the platform callbacks
       if (++running_sessions == 1) {
-        platf::streaming_will_start();
-#if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
-        system_tray::update_tray_playing(proc::proc.get_last_run_app_name());
-#endif
+
       }
 
       return 0;

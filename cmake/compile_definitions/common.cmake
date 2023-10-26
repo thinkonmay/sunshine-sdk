@@ -38,8 +38,6 @@ set(SUNSHINE_TARGET_FILES
         third-party/moonlight-common-c/src/RtspParser.c
         third-party/moonlight-common-c/src/Video.h
         third-party/tray/tray.h
-        src/upnp.cpp
-        src/upnp.h
         src/cbs.cpp
         src/utility.h
         src/uuid.h
@@ -53,8 +51,6 @@ set(SUNSHINE_TARGET_FILES
         src/nvhttp.h
         src/httpcommon.cpp
         src/httpcommon.h
-        src/confighttp.cpp
-        src/confighttp.h
         src/rtsp.cpp
         src/rtsp.h
         src/stream.cpp
@@ -73,8 +69,6 @@ set(SUNSHINE_TARGET_FILES
         src/network.cpp
         src/network.h
         src/move_by_copy.h
-        src/system_tray.cpp
-        src/system_tray.h
         src/task_pool.h
         src/thread_pool.h
         src/thread_safe.h
@@ -83,8 +77,6 @@ set(SUNSHINE_TARGET_FILES
         src/stat_trackers.h
         src/stat_trackers.cpp
         ${PLATFORM_TARGET_FILES})
-
-set_source_files_properties(src/upnp.cpp PROPERTIES COMPILE_FLAGS -Wno-pedantic)
 
 set_source_files_properties(third-party/nanors/rs.c
         PROPERTIES COMPILE_FLAGS "-include deps/obl/autoshim.h -ftree-vectorize")

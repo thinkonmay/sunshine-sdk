@@ -45,7 +45,19 @@
   #define PROC_THREAD_ATTRIBUTE_JOB_LIST ProcThreadAttributeValue(13, FALSE, TRUE, FALSE)
 #endif
 
+#ifndef HAS_QOS_FLOWID
+typedef UINT32 QOS_FLOWID;
+#endif
+
+#ifndef HAS_PQOS_FLOWID
+typedef UINT32 *PQOS_FLOWID;
+#endif
+
 #include <qos2.h>
+
+#ifndef QOS_NON_ADAPTIVE_FLOW
+#define QOS_NON_ADAPTIVE_FLOW 0x00000002
+#endif
 
 #ifndef WLAN_API_MAKE_VERSION
   #define WLAN_API_MAKE_VERSION(_major, _minor) (((DWORD) (_minor)) << 16 | (_major))
@@ -899,9 +911,6 @@ namespace platf {
       // Avoid racing with the new process by waiting until we're exiting to start it.
       atexit(restart_on_exit);
     }
-
-    // We use an async exit call here because we can't block the HTTP thread or we'll hang shutdown.
-    lifetime::exit_sunshine(0, true);
   }
 
   SOCKADDR_IN

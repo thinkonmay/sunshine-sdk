@@ -29,6 +29,7 @@ namespace stream {
 
     std::optional<int> gcmap;
   };
+  void videoThread(session_t *session);
 
   namespace session {
     enum class state_e : int {

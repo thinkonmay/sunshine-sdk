@@ -76,23 +76,3 @@ namespace mail {
 #undef MAIL
 
 }  // namespace mail
-
-namespace lifetime {
-  void
-  exit_sunshine(int exit_code, bool async);
-  char **
-  get_argv();
-}  // namespace lifetime
-
-#ifdef _WIN32
-namespace service_ctrl {
-  bool
-  is_service_running();
-
-  bool
-  start_service();
-
-  bool
-  wait_for_ui_ready();
-}  // namespace service_ctrl
-#endif
