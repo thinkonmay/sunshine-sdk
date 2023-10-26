@@ -38,18 +38,8 @@ int
 main(int argc, char *argv[]);
 void
 log_flush();
-void
-print_help(const char *name);
-std::string
-read_file(const char *path);
-int
-write_file(const char *path, const std::string_view &contents);
 std::uint16_t
 map_port(int port);
-void
-launch_ui();
-void
-launch_ui_with_path(std::string path);
 
 // namespaces
 namespace mail {

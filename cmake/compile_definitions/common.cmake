@@ -27,7 +27,6 @@ include_directories(SYSTEM third-party/nv-codec-headers/include)
 file(GLOB NVENC_SOURCES CONFIGURE_DEPENDS "src/nvenc/*.cpp" "src/nvenc/*.h")
 list(APPEND PLATFORM_TARGET_FILES ${NVENC_SOURCES})
 
-configure_file(src/version.h.in version.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 set(SUNSHINE_TARGET_FILES
@@ -47,10 +46,6 @@ set(SUNSHINE_TARGET_FILES
         src/main.h
         src/crypto.cpp
         src/crypto.h
-        src/nvhttp.cpp
-        src/nvhttp.h
-        src/httpcommon.cpp
-        src/httpcommon.h
         src/rtsp.cpp
         src/rtsp.h
         src/stream.cpp

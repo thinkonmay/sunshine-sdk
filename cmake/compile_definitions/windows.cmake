@@ -37,7 +37,6 @@ configure_file(src/platform/windows/windows.rs.in windows.rc @ONLY)
 
 set(PLATFORM_TARGET_FILES
         "${CMAKE_CURRENT_BINARY_DIR}/windows.rc"
-        src/platform/windows/publish.cpp
         src/platform/windows/misc.h
         src/platform/windows/misc.cpp
         src/platform/windows/input.cpp

@@ -23,7 +23,6 @@
 #include "platform/common.h"
 #include "rtsp.h"
 #include "thread_pool.h"
-#include "version.h"
 #include "video.h"
 #include "stream.h"
 
@@ -68,51 +67,6 @@ struct NoDelete {
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", int)
 
-/**
- * @brief Print help to stdout.
- * @param name The name of the program.
- *
- * EXAMPLES:
- * ```cpp
- * print_help("sunshine");
- * ```
- */
-void
-print_help(const char *name) {
-  std::cout
-    << "Usage: "sv << name << " [options] [/path/to/configuration_file] [--cmd]"sv << std::endl
-    << "    Any configurable option can be overwritten with: \"name=value\""sv << std::endl
-    << std::endl
-    << "    Note: The configuration will be created if it doesn't exist."sv << std::endl
-    << std::endl
-    << "    --help                    | print help"sv << std::endl
-    << "    --creds username password | set user credentials for the Web manager"sv << std::endl
-    << "    --version                 | print the version of sunshine"sv << std::endl
-    << std::endl
-    << "    flags"sv << std::endl
-    << "        -0 | Read PIN from stdin"sv << std::endl
-    << "        -1 | Do not load previously saved state and do retain any state after shutdown"sv << std::endl
-    << "           | Effectively starting as if for the first time without overwriting any pairings with your devices"sv << std::endl
-    << "        -2 | Force replacement of headers in video stream"sv << std::endl
-    << "        -p | Enable/Disable UPnP"sv << std::endl
-    << std::endl;
-}
-
-namespace help {
-  int
-  entry(const char *name, int argc, char *argv[]) {
-    print_help(name);
-    return 0;
-  }
-}  // namespace help
-
-namespace version {
-  int
-  entry(const char *name, int argc, char *argv[]) {
-    std::cout << PROJECT_NAME << " version: v" << PROJECT_VER << std::endl;
-    return 0;
-  }
-}  // namespace version
 
 #ifdef _WIN32
 namespace restore_nvprefs_undo {
@@ -145,22 +99,30 @@ log_flush() {
   sink->flush();
 }
 
-std::map<int, std::function<void()>> signal_handlers;
-void
-on_signal_forwarder(int sig) {
-  signal_handlers.at(sig)();
+/**
+ * @brief Map a specified port based on the base port.
+ * @param port The port to map as a difference from the base port.
+ * @return `std:uint16_t` : The mapped port number.
+ *
+ * EXAMPLES:
+ * ```cpp
+ * std::uint16_t mapped_port = map_port(1);
+ * ```
+ */
+std::uint16_t
+map_port(int port) {
+  // calculate the port from the config port
+  auto mapped_port = (std::uint16_t)((int) config::sunshine.port + port);
+
+  // Ensure port is in the range of 1024-65535
+  if (mapped_port < 1024 || mapped_port > 65535) {
+    BOOST_LOG(warning) << "Port out of range: "sv << mapped_port;
+  }
+
+  // TODO: Ensure port is not already in use by another application
+
+  return mapped_port;
 }
-
-template <class FN>
-void
-on_signal(int sig, FN &&fn) {
-  signal_handlers.emplace(sig, std::forward<FN>(fn));
-
-  std::signal(sig, on_signal_forwarder);
-}
-
-
-
 
 
 
@@ -190,20 +152,10 @@ videoBroadcastThreadmain() {
 
   shutdown_event->raise(true);
 }
-/**
- * @brief Main application entry point.
- * @param argc The number of arguments.
- * @param argv The arguments.
- *
- * EXAMPLES:
- * ```cpp
- * main(1, const char* args[] = {"sunshine", nullptr});
- * ```
- */
-int
-main(int argc, char *argv[]) {
-  task_pool_util::TaskPool::task_id_t force_shutdown = nullptr;
 
+
+
+void Init() {
 #ifdef _WIN32
   // Switch default C standard library locale to UTF-8 on Windows 10 1803+
   setlocale(LC_ALL, ".UTF-8");
@@ -211,12 +163,8 @@ main(int argc, char *argv[]) {
 
   // Use UTF-8 conversion for the default C++ locale (used by boost::log)
   std::locale::global(std::locale(std::locale(), new std::codecvt_utf8<wchar_t>));
-
   mail::man = std::make_shared<safe::mail_raw_t>();
 
-  if (config::parse(argc, argv)) {
-    return 0;
-  }
 
   if (config::sunshine.min_log_level >= 1) {
     av_log_set_level(AV_LOG_QUIET);
@@ -315,42 +263,11 @@ main(int argc, char *argv[]) {
   SetProcessShutdownParameters(0x100, SHUTDOWN_NORETRY);
 #endif
 
-  BOOST_LOG(info) << PROJECT_NAME << " version: " << PROJECT_VER << std::endl;
-  task_pool.start(1);
 
-
-  // Create signal handler after logging has been initialized
-  auto shutdown_event = mail::man->event<bool>(mail::shutdown);
-  on_signal(SIGINT, [&force_shutdown, shutdown_event]() {
-    BOOST_LOG(info) << "Interrupt handler called"sv;
-
-    auto task = []() {
-      BOOST_LOG(fatal) << "10 seconds passed, yet Sunshine's still running: Forcing shutdown"sv;
-      log_flush();
-      std::abort();
-    };
-    force_shutdown = task_pool.pushDelayed(task, 10s).task_id;
-
-    shutdown_event->raise(true);
-  });
-
-  on_signal(SIGTERM, [&force_shutdown, shutdown_event]() {
-    BOOST_LOG(info) << "Terminate handler called"sv;
-
-    auto task = []() {
-      BOOST_LOG(fatal) << "10 seconds passed, yet Sunshine's still running: Forcing shutdown"sv;
-      log_flush();
-      std::abort();
-    };
-    force_shutdown = task_pool.pushDelayed(task, 10s).task_id;
-
-    shutdown_event->raise(true);
-  });
 
 
   // If any of the following fail, we log an error and continue event though sunshine will not function correctly.
   // This allows access to the UI to fix configuration problems or view the logs.
-
   auto deinit_guard = platf::init();
   if (!deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
@@ -361,9 +278,31 @@ main(int argc, char *argv[]) {
   if (video::probe_encoders()) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
   }
+}
 
+void DeInit(){
+#ifdef WIN32
+  // Restore global NVIDIA control panel settings
+  if (nvprefs_instance.owning_undo_file() && nvprefs_instance.load()) {
+    nvprefs_instance.restore_global_profile();
+    nvprefs_instance.unload();
+  }
+#endif
+}
 
-
+/**
+ * @brief Main application entry point.
+ * @param argc The number of arguments.
+ * @param argv The arguments.
+ *
+ * EXAMPLES:
+ * ```cpp
+ * main(1, const char* args[] = {"sunshine", nullptr});
+ * ```
+ */
+int
+main(int argc, char *argv[]) {
+  Init();
 
   auto video = std::thread { videoBroadcastThreadmain };
 
@@ -376,97 +315,8 @@ main(int argc, char *argv[]) {
 
 
 
-  shutdown_event->view();
-  task_pool.stop();
-  task_pool.join();
-
-
-#ifdef WIN32
-  // Restore global NVIDIA control panel settings
-  if (nvprefs_instance.owning_undo_file() && nvprefs_instance.load()) {
-    nvprefs_instance.restore_global_profile();
-    nvprefs_instance.unload();
-  }
-#endif
-
+  // Create signal handler after logging has been initialized
+  mail::man->event<bool>(mail::shutdown)->view();
+  DeInit();
   return 0;
-}
-
-/**
- * @brief Read a file to string.
- * @param path The path of the file.
- * @return `std::string` : The contents of the file.
- *
- * EXAMPLES:
- * ```cpp
- * std::string contents = read_file("path/to/file");
- * ```
- */
-std::string
-read_file(const char *path) {
-  if (!std::filesystem::exists(path)) {
-    BOOST_LOG(debug) << "Missing file: " << path;
-    return {};
-  }
-
-  std::ifstream in(path);
-
-  std::string input;
-  std::string base64_cert;
-
-  while (!in.eof()) {
-    std::getline(in, input);
-    base64_cert += input + '\n';
-  }
-
-  return base64_cert;
-}
-
-/**
- * @brief Writes a file.
- * @param path The path of the file.
- * @param contents The contents to write.
- * @return `int` : `0` on success, `-1` on failure.
- *
- * EXAMPLES:
- * ```cpp
- * int write_status = write_file("path/to/file", "file contents");
- * ```
- */
-int
-write_file(const char *path, const std::string_view &contents) {
-  std::ofstream out(path);
-
-  if (!out.is_open()) {
-    return -1;
-  }
-
-  out << contents;
-
-  return 0;
-}
-
-/**
- * @brief Map a specified port based on the base port.
- * @param port The port to map as a difference from the base port.
- * @return `std:uint16_t` : The mapped port number.
- *
- * EXAMPLES:
- * ```cpp
- * std::uint16_t mapped_port = map_port(1);
- * ```
- */
-std::uint16_t
-map_port(int port) {
-  // calculate the port from the config port
-  auto mapped_port = (std::uint16_t)((int) config::sunshine.port + port);
-
-  // Ensure port is in the range of 1024-65535
-  if (mapped_port < 1024 || mapped_port > 65535) {
-    BOOST_LOG(warning) << "Port out of range: "sv << mapped_port;
-  }
-
-  // TODO: Ensure port is not already in use by another application
-
-  return mapped_port;
 }

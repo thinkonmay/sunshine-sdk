@@ -16,7 +16,6 @@
 
 #include "config.h"
 #include "main.h"
-#include "nvhttp.h"
 #include "rtsp.h"
 #include "utility.h"
 
@@ -379,30 +378,6 @@ namespace config {
     1  // channels
   };
 
-  nvhttp_t nvhttp {
-    "lan",  // origin web manager
-
-    PRIVATE_KEY_FILE,
-    CERTIFICATE_FILE,
-
-    boost::asio::ip::host_name(),  // sunshine_name,
-    "sunshine_state.json"s,  // file_state
-    {},  // external_ip
-    {
-      "352x240"s,
-      "480x360"s,
-      "858x480"s,
-      "1280x720"s,
-      "1920x1080"s,
-      "2560x1080"s,
-      "3440x1440"s,
-      "1920x1200"s,
-      "3840x2160"s,
-      "3840x1600"s,
-    },  // supported resolutions
-
-    { 10, 30, 60, 90, 120 },  // supported fps
-  };
 
   input_t input {
     {
@@ -523,32 +498,6 @@ namespace config {
     return std::make_pair(
       endl,
       std::make_pair(to_string(begin, end_name), to_string(begin_val, endl)));
-  }
-
-  std::unordered_map<std::string, std::string>
-  parse_config(const std::string_view &file_content) {
-    std::unordered_map<std::string, std::string> vars;
-
-    auto pos = std::begin(file_content);
-    auto end = std::end(file_content);
-
-    while (pos < end) {
-      // auto newline = std::find_if(pos, end, [](auto ch) { return ch == '\n' || ch == '\r'; });
-      TUPLE_2D(endl, var, parse_option(pos, end));
-
-      pos = endl;
-      if (pos != end) {
-        pos += (*pos == '\r') ? 2 : 1;
-      }
-
-      if (!var) {
-        continue;
-      }
-
-      vars.emplace(std::move(*var));
-    }
-
-    return vars;
   }
 
   void
@@ -977,26 +926,16 @@ namespace config {
     string_f(vars, "adapter_name", video.adapter_name);
     string_f(vars, "output_name", video.output_name);
 
-    path_f(vars, "pkey", nvhttp.pkey);
-    path_f(vars, "cert", nvhttp.cert);
-    string_f(vars, "sunshine_name", nvhttp.sunshine_name);
     path_f(vars, "log_path", config::sunshine.log_file);
-    path_f(vars, "file_state", nvhttp.file_state);
 
     // Must be run after "file_state"
-    config::sunshine.credentials_file = config::nvhttp.file_state;
     path_f(vars, "credentials_file", config::sunshine.credentials_file);
 
-    string_f(vars, "external_ip", nvhttp.external_ip);
-    list_string_f(vars, "resolutions"s, nvhttp.resolutions);
-    list_int_f(vars, "fps"s, nvhttp.fps);
     list_prep_cmd_f(vars, "global_prep_cmd", config::sunshine.prep_cmds);
 
     string_f(vars, "audio_sink", audio.sink);
     string_f(vars, "virtual_sink", audio.virtual_sink);
     bool_f(vars, "install_steam_audio_drivers", audio.install_steam_drivers);
-
-    string_restricted_f(vars, "origin_web_ui_allowed", nvhttp.origin_web_ui_allowed, { "pc"sv, "lan"sv, "wan"sv });
 
     int to = -1;
     int_between_f(vars, "ping_timeout", to, { -1, std::numeric_limits<int>::max() });
@@ -1049,7 +988,6 @@ namespace config {
     bool_f(vars, "always_send_scancodes", input.always_send_scancodes);
 
     int port = sunshine.port;
-    int_between_f(vars, "port"s, port, { 1024 + nvhttp::PORT_HTTPS, 65535 - rtsp_stream::RTSP_SETUP_PORT });
     sunshine.port = (std::uint16_t) port;
 
     string_restricted_f(vars, "address_family", sunshine.address_family, { "ipv4"sv, "both"sv });
@@ -1107,112 +1045,5 @@ namespace config {
         std::cout << "Warning: Unrecognized configurable option ["sv << var << ']' << std::endl;
       }
     }
-  }
-
-  int
-  parse(int argc, char *argv[]) {
-    std::unordered_map<std::string, std::string> cmd_vars;
-#ifdef _WIN32
-    bool shortcut_launch = false;
-    bool service_admin_launch = false;
-#endif
-
-    for (auto x = 1; x < argc; ++x) {
-      auto line = argv[x];
-
-      if (line == "--help"sv) {
-        print_help(*argv);
-        return 1;
-      }
-#ifdef _WIN32
-      else if (line == "--shortcut"sv) {
-        shortcut_launch = true;
-      }
-      else if (line == "--shortcut-admin"sv) {
-        service_admin_launch = true;
-      }
-#endif
-      else if (*line == '-') {
-        if (*(line + 1) == '-') {
-          sunshine.cmd.name = line + 2;
-          sunshine.cmd.argc = argc - x - 1;
-          sunshine.cmd.argv = argv + x + 1;
-
-          break;
-        }
-        if (apply_flags(line + 1)) {
-          print_help(*argv);
-          return -1;
-        }
-      }
-      else {
-        auto line_end = line + strlen(line);
-
-        auto pos = std::find(line, line_end, '=');
-        if (pos == line_end) {
-          sunshine.config_file = line;
-        }
-        else {
-          TUPLE_EL(var, 1, parse_option(line, line_end));
-          if (!var) {
-            print_help(*argv);
-            return -1;
-          }
-
-          TUPLE_EL_REF(name, 0, *var);
-
-          auto it = cmd_vars.find(name);
-          if (it != std::end(cmd_vars)) {
-            cmd_vars.erase(it);
-          }
-
-          cmd_vars.emplace(std::move(*var));
-        }
-      }
-    }
-
-    bool config_loaded = false;
-    try {
-      // Create appdata folder if it does not exist
-      if (!boost::filesystem::exists(platf::appdata().string())) {
-        boost::filesystem::create_directories(platf::appdata().string());
-      }
-
-      // Create empty config file if it does not exist
-      if (!fs::exists(sunshine.config_file)) {
-        std::ofstream { sunshine.config_file };
-      }
-
-      // Read config file
-      auto vars = parse_config(read_file(sunshine.config_file.c_str()));
-
-      for (auto &[name, value] : cmd_vars) {
-        vars.insert_or_assign(std::move(name), std::move(value));
-      }
-
-      // Apply the config. Note: This will try to create any paths
-      // referenced in the config, so we may receive exceptions if
-      // the path is incorrect or inaccessible.
-      apply_config(std::move(vars));
-      config_loaded = true;
-    }
-    catch (const std::filesystem::filesystem_error &err) {
-      BOOST_LOG(fatal) << "Failed to apply config: "sv << err.what();
-    }
-    catch (const boost::filesystem::filesystem_error &err) {
-      BOOST_LOG(fatal) << "Failed to apply config: "sv << err.what();
-    }
-
-    if (!config_loaded) {
-#ifdef _WIN32
-      BOOST_LOG(fatal) << "To relaunch Sunshine successfully, use the shortcut in the Start Menu. Do not run Sunshine.exe manually."sv;
-      std::this_thread::sleep_for(10s);
-#endif
-      return -1;
-    }
-
-
-
-    return 0;
   }
 }  // namespace config
