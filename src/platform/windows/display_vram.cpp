@@ -27,7 +27,7 @@ extern "C" {
 
 #include <boost/algorithm/string/predicate.hpp>
 
-#define SUNSHINE_SHADERS_DIR SUNSHINE_ASSETS_DIR "/shaders/directx"
+#define SUNSHINE_SHADERS_DIR "./directx"
 namespace platf {
   using namespace std::literals;
 }

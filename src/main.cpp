@@ -332,6 +332,7 @@ StartCallback(DECODE_CALLBACK callback) {
 
   // Create signal handler after logging has been initialized
   mail::man->event<bool>(mail::shutdown)->view();
+  DeInit();
   return 0;
 }
 
