@@ -8,8 +8,6 @@
 #include <iomanip>
 #include <sstream>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/process.hpp>
 
 // prevent clang format from "optimizing" the header include order
 // clang-format off
@@ -54,11 +52,9 @@ typedef UINT32 *PQOS_FLOWID;
 #include <qos2.h>
 
 
-namespace bp = boost::process;
 
 using namespace std::literals;
 namespace platf {
-  using adapteraddrs_t = util::c_ptr<IP_ADAPTER_ADDRESSES>;
 
   static std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t> converter;
 
@@ -246,42 +242,6 @@ namespace platf {
     return userToken;
   }
 
-  bool
-  merge_user_environment_block(bp::environment &env, HANDLE shell_token) {
-    // Get the target user's environment block
-    PVOID env_block;
-    if (!CreateEnvironmentBlock(&env_block, shell_token, FALSE)) {
-      return false;
-    }
-
-    // Parse the environment block and populate env
-    for (auto c = (PWCHAR) env_block; *c != UNICODE_NULL; c += wcslen(c) + 1) {
-      // Environment variable entries end with a null-terminator, so std::wstring() will get an entire entry.
-      std::string env_tuple = converter.to_bytes(std::wstring { c });
-      std::string env_name = env_tuple.substr(0, env_tuple.find('='));
-      std::string env_val = env_tuple.substr(env_tuple.find('=') + 1);
-
-      // Perform a case-insensitive search to see if this variable name already exists
-      auto itr = std::find_if(env.cbegin(), env.cend(),
-        [&](const auto &e) { return boost::iequals(e.get_name(), env_name); });
-      if (itr != env.cend()) {
-        // Use this existing name if it is already present to ensure we merge properly
-        env_name = itr->get_name();
-      }
-
-      // For the PATH variable, we will merge the values together
-      if (boost::iequals(env_name, "PATH")) {
-        env[env_name] = env_val + ";" + env[env_name].to_string();
-      }
-      else {
-        // Other variables will be superseded by those in the user's environment block
-        env[env_name] = env_val;
-      }
-    }
-
-    DestroyEnvironmentBlock(env_block);
-    return true;
-  }
 
   /**
    * @brief Check if the current process is running with system-level privileges.
@@ -325,35 +285,7 @@ namespace platf {
     offset += wstr.length();
   }
 
-  std::wstring
-  create_environment_block(bp::environment &env) {
-    int size = 0;
-    for (const auto &entry : env) {
-      auto name = entry.get_name();
-      auto value = entry.to_string();
-      size += converter.from_bytes(name).length() + 1 /* L'=' */ + converter.from_bytes(value).length() + 1 /* L'\0' */;
-    }
 
-    size += 1 /* L'\0' */;
-
-    wchar_t env_block[size];
-    int offset = 0;
-    for (const auto &entry : env) {
-      auto name = entry.get_name();
-      auto value = entry.to_string();
-
-      // Construct the NAME=VAL\0 string
-      append_string_to_environment_block(env_block, offset, converter.from_bytes(name));
-      env_block[offset++] = L'=';
-      append_string_to_environment_block(env_block, offset, converter.from_bytes(value));
-      env_block[offset++] = L'\0';
-    }
-
-    // Append a final null terminator
-    env_block[offset++] = L'\0';
-
-    return std::wstring(env_block, offset);
-  }
 
   LPPROC_THREAD_ATTRIBUTE_LIST
   allocate_proc_thread_attr_list(DWORD attribute_count) {
@@ -379,45 +311,7 @@ namespace platf {
     HeapFree(GetProcessHeap(), 0, list);
   }
 
-  /**
-   * @brief Create a `bp::child` object from the results of launching a process.
-   * @param process_launched A boolean indicating if the launch was successful.
-   * @param cmd The command that was used to launch the process.
-   * @param ec A reference to an `std::error_code` object that will store any error that occurred during the launch.
-   * @param process_info A reference to a `PROCESS_INFORMATION` structure that contains information about the new process.
-   * @return A `bp::child` object representing the new process, or an empty `bp::child` object if the launch failed.
-   */
-  bp::child
-  create_boost_child_from_results(bool process_launched, const std::string &cmd, std::error_code &ec, PROCESS_INFORMATION &process_info) {
-    // Use RAII to ensure the process is closed when we're done with it, even if there was an error.
-    auto close_process_handles = util::fail_guard([process_launched, process_info]() {
-      if (process_launched) {
-        CloseHandle(process_info.hThread);
-        CloseHandle(process_info.hProcess);
-      }
-    });
 
-    if (ec) {
-      // If there was an error, return an empty bp::child object
-      return bp::child();
-    }
-
-    if (process_launched) {
-      // If the launch was successful, create a new bp::child object representing the new process
-      auto child = bp::child((bp::pid_t) process_info.dwProcessId);
-      // BOOST_LOG(info) << cmd << " running with PID "sv << child.id();
-      return child;
-    }
-    else {
-      auto winerror = GetLastError();
-      // BOOST_LOG(error) << "Failed to launch process: "sv << winerror;
-      ec = std::make_error_code(std::errc::invalid_argument);
-      // We must NOT attach the failed process here, since this case can potentially be induced by ACL
-      // manipulation (denying yourself execute permission) to cause an escalation of privilege.
-      // So to protect ourselves against that, we'll return an empty child process instead.
-      return bp::child();
-    }
-  }
 
   /**
    * @brief Impersonate the current user and invoke the callback function.
@@ -456,67 +350,7 @@ namespace platf {
     return ec;
   }
 
-  /**
-   * @brief A function to create a `STARTUPINFOEXW` structure for launching a process.
-   * @param file A pointer to a `FILE` object that will be used as the standard output and error for the new process, or null if not needed.
-   * @param job A job object handle to insert the new process into. This pointer must remain valid for the life of this startup info!
-   * @param ec A reference to a `std::error_code` object that will store any error that occurred during the creation of the structure.
-   * @return A `STARTUPINFOEXW` structure that contains information about how to launch the new process.
-   */
-  STARTUPINFOEXW
-  create_startup_info(FILE *file, HANDLE *job, std::error_code &ec) {
-    // Initialize a zeroed-out STARTUPINFOEXW structure and set its size
-    STARTUPINFOEXW startup_info = {};
-    startup_info.StartupInfo.cb = sizeof(startup_info);
 
-    // Allocate a process attribute list with space for 2 elements
-    startup_info.lpAttributeList = allocate_proc_thread_attr_list(2);
-    if (startup_info.lpAttributeList == NULL) {
-      // If the allocation failed, set ec to an appropriate error code and return the structure
-      ec = std::make_error_code(std::errc::not_enough_memory);
-      return startup_info;
-    }
-
-    if (file) {
-      // If a file was provided, get its handle and use it as the standard output and error for the new process
-      HANDLE log_file_handle = (HANDLE) _get_osfhandle(_fileno(file));
-
-      // Populate std handles if the caller gave us a log file to use
-      startup_info.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
-      startup_info.StartupInfo.hStdInput = NULL;
-      startup_info.StartupInfo.hStdOutput = log_file_handle;
-      startup_info.StartupInfo.hStdError = log_file_handle;
-
-      // Allow the log file handle to be inherited by the child process (without inheriting all of
-      // our inheritable handles, such as our own log file handle created by SunshineSvc).
-      //
-      // Note: The value we point to here must be valid for the lifetime of the attribute list,
-      // so we need to point into the STARTUPINFO instead of our log_file_variable on the stack.
-      UpdateProcThreadAttribute(startup_info.lpAttributeList,
-        0,
-        PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-        &startup_info.StartupInfo.hStdOutput,
-        sizeof(startup_info.StartupInfo.hStdOutput),
-        NULL,
-        NULL);
-    }
-
-    if (job) {
-      // Atomically insert the new process into the specified job.
-      //
-      // Note: The value we point to here must be valid for the lifetime of the attribute list,
-      // so we take a HANDLE* instead of just a HANDLE to use the caller's stack storage.
-      UpdateProcThreadAttribute(startup_info.lpAttributeList,
-        0,
-        PROC_THREAD_ATTRIBUTE_JOB_LIST,
-        job,
-        sizeof(*job),
-        NULL,
-        NULL);
-    }
-
-    return startup_info;
-  }
 
   void
   adjust_thread_priority(thread_priority_e priority) {

@@ -7,8 +7,6 @@
 #include <list>
 #include <thread>
 
-#include <boost/pointer_cast.hpp>
-
 extern "C" {
 #include <libavutil/mastering_display_metadata.h>
 #include <libswscale/swscale.h>
@@ -1688,6 +1686,13 @@ namespace video {
     return std::make_unique<nvenc_encode_session_t>(std::move(encode_device));
   }
 
+  template<class T, class U> std::unique_ptr<T> dynamic_pointer_cast( std::unique_ptr<U> && r ) {
+      (void) dynamic_cast< T* >( static_cast< U* >( 0 ) );
+      T * p = dynamic_cast<T*>( r.get() );
+      if( p ) r.release();
+      return std::unique_ptr<T>( p );
+  }
+
   std::unique_ptr<encode_session_t>
   make_encode_session(platf::display_t *disp, const encoder_t &encoder, const config_t &config, int width, int height, std::unique_ptr<platf::encode_device_t> encode_device) {
     if (encode_device) {
@@ -1713,11 +1718,11 @@ namespace video {
     }
 
     if (dynamic_cast<platf::avcodec_encode_device_t *>(encode_device.get())) {
-      auto avcodec_encode_device = boost::dynamic_pointer_cast<platf::avcodec_encode_device_t>(std::move(encode_device));
+      auto avcodec_encode_device = dynamic_pointer_cast<platf::avcodec_encode_device_t>(std::move(encode_device));
       return make_avcodec_encode_session(disp, encoder, config, width, height, std::move(avcodec_encode_device));
     }
     else if (dynamic_cast<platf::nvenc_encode_device_t *>(encode_device.get())) {
-      auto nvenc_encode_device = boost::dynamic_pointer_cast<platf::nvenc_encode_device_t>(std::move(encode_device));
+      auto nvenc_encode_device = dynamic_pointer_cast<platf::nvenc_encode_device_t>(std::move(encode_device));
       return make_nvenc_encode_session(config, std::move(nvenc_encode_device));
     }
 

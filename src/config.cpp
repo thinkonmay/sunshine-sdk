@@ -18,9 +18,6 @@
 
 #include "platform/common.h"
 
-#ifdef _WIN32
-  #include <shellapi.h>
-#endif
 
 #ifndef __APPLE__
   // For NVENC legacy constants
