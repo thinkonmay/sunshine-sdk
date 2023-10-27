@@ -193,7 +193,6 @@ if (${SUNSHINE_TRAY} EQUAL 0 AND SUNSHINE_REQUIRE_TRAY)
 endif()
 
 list(APPEND PLATFORM_TARGET_FILES
-        src/platform/linux/publish.cpp
         src/platform/linux/vaapi.h
         src/platform/linux/vaapi.cpp
         src/platform/linux/cuda.h
@@ -202,7 +201,6 @@ list(APPEND PLATFORM_TARGET_FILES
         src/platform/linux/misc.h
         src/platform/linux/misc.cpp
         src/platform/linux/audio.cpp
-        src/platform/linux/input.cpp
         src/platform/linux/x11grab.h
         src/platform/linux/wayland.h
         third-party/glad/src/egl.c

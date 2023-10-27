@@ -14,7 +14,6 @@
 #include <boost/log/common.hpp>
 
 // local includes
-#include "thread_pool.h"
 #include "thread_safe.h"
 
 #ifdef _WIN32
@@ -23,7 +22,6 @@
 extern nvprefs::nvprefs_interface nvprefs_instance;
 #endif
 
-extern thread_pool_util::ThreadPool task_pool;
 extern bool display_cursor;
 
 extern boost::log::sources::severity_logger<int> verbose;

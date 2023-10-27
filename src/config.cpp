@@ -16,7 +16,6 @@
 
 #include "config.h"
 #include "main.h"
-#include "rtsp.h"
 #include "utility.h"
 
 #include "platform/common.h"
@@ -379,26 +378,6 @@ namespace config {
   };
 
 
-  input_t input {
-    {
-      { 0x10, 0xA0 },
-      { 0x11, 0xA2 },
-      { 0x12, 0xA4 },
-    },
-    -1ms,  // back_button_timeout
-    500ms,  // key_repeat_delay
-    std::chrono::duration<double> { 1 / 24.9 },  // key_repeat_period
-
-    {
-      platf::supported_gamepads().front().data(),
-      platf::supported_gamepads().front().size(),
-    },  // Default gamepad
-
-    true,  // keyboard enabled
-    true,  // mouse enabled
-    true,  // controller enabled
-    true,  // always send scancodes
-  };
 
   sunshine_t sunshine {
     2,  // min_log_level
@@ -948,44 +927,12 @@ namespace config {
     path_f(vars, "file_apps", stream.file_apps);
     int_between_f(vars, "fec_percentage", stream.fec_percentage, { 1, 255 });
 
-    map_int_int_f(vars, "keybindings"s, input.keybindings);
 
     // This config option will only be used by the UI
     // When editing in the config file itself, use "keybindings"
     bool map_rightalt_to_win = false;
     bool_f(vars, "key_rightalt_to_key_win", map_rightalt_to_win);
 
-    if (map_rightalt_to_win) {
-      input.keybindings.emplace(0xA5, 0x5B);
-    }
-
-    to = std::numeric_limits<int>::min();
-    int_f(vars, "back_button_timeout", to);
-
-    if (to > std::numeric_limits<int>::min()) {
-      input.back_button_timeout = std::chrono::milliseconds { to };
-    }
-
-    double repeat_frequency { 0 };
-    double_between_f(vars, "key_repeat_frequency", repeat_frequency, { 0, std::numeric_limits<double>::max() });
-
-    if (repeat_frequency > 0) {
-      config::input.key_repeat_period = std::chrono::duration<double> { 1 / repeat_frequency };
-    }
-
-    to = -1;
-    int_f(vars, "key_repeat_delay", to);
-    if (to >= 0) {
-      input.key_repeat_delay = std::chrono::milliseconds { to };
-    }
-
-    string_restricted_f(vars, "gamepad"s, input.gamepad, platf::supported_gamepads());
-
-    bool_f(vars, "mouse", input.mouse);
-    bool_f(vars, "keyboard", input.keyboard);
-    bool_f(vars, "controller", input.controller);
-
-    bool_f(vars, "always_send_scancodes", input.always_send_scancodes);
 
     int port = sunshine.port;
     sunshine.port = (std::uint16_t) port;

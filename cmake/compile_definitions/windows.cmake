@@ -39,7 +39,6 @@ set(PLATFORM_TARGET_FILES
         "${CMAKE_CURRENT_BINARY_DIR}/windows.rc"
         src/platform/windows/misc.h
         src/platform/windows/misc.cpp
-        src/platform/windows/input.cpp
         src/platform/windows/display.h
         src/platform/windows/display_base.cpp
         src/platform/windows/display_vram.cpp

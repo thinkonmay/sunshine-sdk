@@ -16,7 +16,6 @@ extern "C" {
 
 #include "cbs.h"
 #include "config.h"
-#include "input.h"
 #include "main.h"
 #include "nvenc/nvenc_base.h"
 #include "platform/common.h"
@@ -522,7 +521,6 @@ namespace video {
     safe::mail_raw_t::queue_t<packet_t> packets;
     safe::mail_raw_t::event_t<bool> idr_events;
     safe::mail_raw_t::event_t<hdr_info_t> hdr_events;
-    safe::mail_raw_t::event_t<input::touch_port_t> touch_port_events;
 
     config_t config;
     int frame_nr;
@@ -1805,36 +1803,6 @@ namespace video {
     }
   }
 
-  input::touch_port_t
-  make_port(platf::display_t *display, const config_t &config) {
-    float wd = display->width;
-    float hd = display->height;
-
-    float wt = config.width;
-    float ht = config.height;
-
-    auto scalar = std::fminf(wt / wd, ht / hd);
-
-    auto w2 = scalar * wd;
-    auto h2 = scalar * hd;
-
-    auto offsetX = (config.width - w2) * 0.5f;
-    auto offsetY = (config.height - h2) * 0.5f;
-
-    return input::touch_port_t {
-      {
-        display->offset_x,
-        display->offset_y,
-        config.width,
-        config.height,
-      },
-      display->env_width,
-      display->env_height,
-      offsetX,
-      offsetY,
-      1.0f / scalar,
-    };
-  }
 
   std::unique_ptr<platf::encode_device_t>
   make_encode_device(platf::display_t &disp, const encoder_t &encoder, const config_t &config) {
@@ -1867,9 +1835,6 @@ namespace video {
     if (!encode_device) {
       return std::nullopt;
     }
-
-    // absolute mouse coordinates require that the dimensions of the screen are known
-    ctx.touch_port_events->raise(make_port(disp, ctx.config));
 
     // Update client with our current HDR display state
     hdr_info_t hdr_info = std::make_unique<hdr_info_raw_t>(false);
@@ -2110,7 +2075,6 @@ namespace video {
 
     int frame_nr = 1;
 
-    auto touch_port_event = mail->event<input::touch_port_t>(mail::touch_port);
     auto hdr_event = mail->event<hdr_info_t>(mail::hdr);
 
     // Encoding takes place on this thread
@@ -2140,8 +2104,6 @@ namespace video {
         return;
       }
 
-      // absolute mouse coordinates require that the dimensions of the screen are known
-      touch_port_event->raise(make_port(display.get(), config));
 
       // Update client with our current HDR display state
       hdr_info_t hdr_info = std::make_unique<hdr_info_raw_t>(false);
@@ -2185,7 +2147,6 @@ namespace video {
         mail::man->queue<packet_t>(mail::video_packets),
         std::move(idr_events),
         mail->event<hdr_info_t>(mail::hdr),
-        mail->event<input::touch_port_t>(mail::touch_port),
         config,
         1,
         channel_data,

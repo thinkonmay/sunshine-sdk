@@ -45,31 +45,16 @@ set(SUNSHINE_TARGET_FILES
         src/main.cpp
         src/main.h
         src/dll.h
-        src/crypto.cpp
-        src/crypto.h
-        src/rtsp.cpp
-        src/rtsp.h
-        src/stream.cpp
-        src/stream.h
         src/video.cpp
         src/video.h
         src/video_colorspace.cpp
         src/video_colorspace.h
-        src/input.cpp
-        src/input.h
         src/audio.cpp
         src/audio.h
         src/platform/common.h
-        src/process.cpp
-        src/process.h
-        src/network.cpp
-        src/network.h
         src/move_by_copy.h
-        src/task_pool.h
-        src/thread_pool.h
         src/thread_safe.h
         src/sync.h
-        src/round_robin.h
         src/stat_trackers.h
         src/stat_trackers.cpp
         ${PLATFORM_TARGET_FILES})

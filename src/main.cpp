@@ -22,10 +22,7 @@
 #include "main.h"
 #include "dll.h"
 #include "platform/common.h"
-#include "rtsp.h"
-#include "thread_pool.h"
 #include "video.h"
-#include "stream.h"
 
 extern "C" {
 #include <libavutil/log.h>
@@ -38,8 +35,6 @@ extern "C" {
 
 safe::mail_t mail::man;
 
-namespace asio = boost::asio;
-using asio::ip::udp;
 using namespace std::literals;
 namespace bl = boost::log;
 
@@ -48,7 +43,6 @@ namespace bl = boost::log;
 nvprefs::nvprefs_interface nvprefs_instance;
 #endif
 
-thread_pool_util::ThreadPool task_pool;
 bl::sources::severity_logger<int> verbose(0);  // Dominating output
 bl::sources::severity_logger<int> debug(1);  // Follow what is happening
 bl::sources::severity_logger<int> info(2);  // Should be informed about
@@ -389,7 +383,7 @@ PopFromQueue(void* data,int* duration)
   if(packet->frame_timestamp) {
     auto duration_to_latency = [](const std::chrono::steady_clock::duration &duration) {
       const auto duration_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
-      return std::clamp<decltype(duration_ns)>((duration_ns + 50) / 100, 0, std::numeric_limits<uint>::max());
+      return std::clamp<decltype(duration_ns)>((duration_ns + 50) / 100, 0, std::numeric_limits<int>::max());
     };
 
 

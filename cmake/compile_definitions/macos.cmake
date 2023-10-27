@@ -30,13 +30,11 @@ set(PLATFORM_TARGET_FILES
         src/platform/macos/av_video.h
         src/platform/macos/av_video.m
         src/platform/macos/display.mm
-        src/platform/macos/input.cpp
         src/platform/macos/microphone.mm
         src/platform/macos/misc.mm
         src/platform/macos/misc.h
         src/platform/macos/nv12_zero_device.cpp
         src/platform/macos/nv12_zero_device.h
-        src/platform/macos/publish.cpp
         third-party/TPCircularBuffer/TPCircularBuffer.c
         third-party/TPCircularBuffer/TPCircularBuffer.h
         ${APPLE_PLIST_FILE})
