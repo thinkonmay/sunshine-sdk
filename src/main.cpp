@@ -388,13 +388,13 @@ PopFromQueue(void* data,int* duration)
 
   if(packet->frame_timestamp) {
     auto duration_to_latency = [](const std::chrono::steady_clock::duration &duration) {
-      const auto duration_us = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
-      return (uint16_t) std::clamp<decltype(duration_us)>((duration_us + 50) / 100, 0, std::numeric_limits<uint16_t>::max());
+      const auto duration_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+      return std::clamp<decltype(duration_ns)>((duration_ns + 50) / 100, 0, std::numeric_limits<uint>::max());
     };
 
 
-    uint16_t latency = duration_to_latency(*packet->frame_timestamp - start);
-    *duration = latency;
+    *duration = duration_to_latency(*packet->frame_timestamp - start);
+    start = *packet->frame_timestamp;
   }
 
   // packet->

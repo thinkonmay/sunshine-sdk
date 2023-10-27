@@ -29,6 +29,9 @@ extern "C" {
 }
 #endif
 
+// IMPRORTANT
+#define MAX_QUEUE_SIZE 100
+
 using namespace std::literals;
 namespace video {
 
@@ -1334,6 +1337,7 @@ namespace video {
 
       packet->replacements = &session.replacements;
       packet->channel_data = channel_data;
+      packets->wait(MAX_QUEUE_SIZE);
       packets->raise(std::move(packet));
     }
 
@@ -1357,6 +1361,7 @@ namespace video {
     packet->channel_data = channel_data;
     packet->after_ref_frame_invalidation = encoded_frame.after_ref_frame_invalidation;
     packet->frame_timestamp = frame_timestamp;
+    packets->wait(MAX_QUEUE_SIZE);
     packets->raise(std::move(packet));
 
     return 0;

@@ -14,6 +14,7 @@
 
 #include "utility.h"
 
+using namespace std::literals;
 namespace safe {
   template <class T>
   class event_t {
@@ -286,6 +287,22 @@ namespace safe {
     bool
     peek() {
       return _continue && !_queue.empty();
+    }
+
+    int
+    size() {
+      if(!_continue)
+        return -1;
+
+      return _queue.size();
+    }
+
+    void
+    wait(int max_size) {
+      while(size() > max_size) {
+        std::this_thread::sleep_for(1ms);
+      }
+      return;
     }
 
     template <class Rep, class Period>
