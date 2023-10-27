@@ -26,9 +26,9 @@
 
 extern "C" {
 #include <libavutil/log.h>
-
 #ifdef _WIN32
   #include <iphlpapi.h>
+  #include "platform/windows/nvprefs/nvprefs_interface.h"
 #endif
 }
 
@@ -80,50 +80,27 @@ namespace restore_nvprefs_undo {
 
 
 
-/**
- * @brief Flush the log.
- *
- * EXAMPLES:
- * ```cpp
- * log_flush();
- * ```
- */
 void
 log_flush() {
-  sink->flush();
 }
 
-/**
- * @brief Map a specified port based on the base port.
- * @param port The port to map as a difference from the base port.
- * @return `std:uint16_t` : The mapped port number.
- *
- * EXAMPLES:
- * ```cpp
- * std::uint16_t mapped_port = map_port(1);
- * ```
- */
-std::uint16_t
-map_port(int port) {
-  // calculate the port from the config port
-  auto mapped_port = (std::uint16_t)((int) config::sunshine.port + port);
 
-  // Ensure port is in the range of 1024-65535
-  if (mapped_port < 1024 || mapped_port > 65535) {
-    BOOST_LOG(warning) << "Port out of range: "sv << mapped_port;
+
+DeInit(){
+#ifdef WIN32
+  // Restore global NVIDIA control panel settings
+  if (nvprefs_instance.owning_undo_file() && nvprefs_instance.load()) {
+    nvprefs_instance.restore_global_profile();
+    nvprefs_instance.unload();
   }
-
-  // TODO: Ensure port is not already in use by another application
-
-  return mapped_port;
+#endif
 }
 
-
-static video::config_t monitor = { 1920, 1080, 60, 6000, 1, 0, 1, 0, 0 };
+static video::config_t monitor   = { 1920, 1080, 60, 6000, 1, 0, 1, 0, 0 };
 
 static std::shared_ptr<safe::mail_raw_t> privatemail;
 static std::chrono::steady_clock::time_point start; 
-extern void __cdecl
+extern int __cdecl
 Init(
   int width,
   int height,
@@ -169,10 +146,10 @@ Init(
 
   if (config::sunshine.min_log_level >= 1) {
     av_log_set_level(AV_LOG_QUIET);
-  }
-  else {
+  } else {
     av_log_set_level(AV_LOG_DEBUG);
   }
+
   av_log_set_callback([](void *ptr, int level, const char *fmt, va_list vl) {
     static int print_prefix = 1;
     char buffer[1024];
@@ -245,7 +222,7 @@ Init(
   sink->locked_backend()->auto_flush(true);
 
   bl::core::get()->add_sink(sink);
-  auto fg = util::fail_guard(log_flush);
+  auto fg = util::fail_guard([&sink](){ sink->flush(); });
 
 #ifdef WIN32
   // Modify relevant NVIDIA control panel settings if the system has corresponding gpu
@@ -269,22 +246,23 @@ Init(
   auto deinit_guard = platf::init();
   if (!deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
+    return 1;
+  } else if (video::probe_encoders()) {
+    BOOST_LOG(error) << "Video failed to find working encoder"sv;
+    return 1;
+  } else {
+    BOOST_LOG(error) << "Hello from thinkmay."sv;
+    return 0;
   }
 
-  BOOST_LOG(error) << "Hello from thinkmay."sv;
+  // auto mic = control->microphone(stream->mapping, stream->channelCount, stream->sampleRate, frame_size);
 
+  // Create signal handler after logging has been initialized
+  mail::man->event<bool>(mail::shutdown)->view();
+  DeInit();
 }
 
-extern void __cdecl
-DeInit(){
-#ifdef WIN32
-  // Restore global NVIDIA control panel settings
-  if (nvprefs_instance.owning_undo_file() && nvprefs_instance.load()) {
-    nvprefs_instance.restore_global_profile();
-    nvprefs_instance.unload();
-  }
-#endif
-}
+
 
 extern void __cdecl
 Wait(){
@@ -294,52 +272,6 @@ Wait(){
 
 
 
-/**
- * @brief Main application entry point.
- * @param argc The number of arguments.
- * @param argv The arguments.
- *
- * EXAMPLES:
- * ```cpp
- * main(1, const char* args[] = {"sunshine", nullptr});
- * ```
- */
-extern int __cdecl 
-StartCallback(DECODE_CALLBACK callback) {
-  if (video::probe_encoders()) {
-    BOOST_LOG(error) << "Video failed to find working encoder"sv;
-    return 1;
-  }
-  auto video = std::thread {[](){
-    auto shutdown_event = mail::man->event<bool>(mail::broadcast_shutdown);
-    auto packets = mail::man->queue<video::packet_t>(mail::video_packets);
-    auto timebase = boost::posix_time::microsec_clock::universal_time();
-
-    // Video traffic is sent on this thread
-    platf::adjust_thread_priority(platf::thread_priority_e::high);
-    while (auto packet = packets->pop()) {
-      if (shutdown_event->peek()) {
-        break;
-      }
-
-
-      DECODE_CALLBACK callback = (DECODE_CALLBACK)packet->channel_data;
-      auto raw = packet.get();
-      callback(raw->data(),(int)raw->data_size());
-    }
-
-    shutdown_event->raise(true);
-  }};
-
-
-  privatemail = std::make_shared<safe::mail_raw_t>();
-  auto capture = std::thread {[&](){video::capture(privatemail, monitor, (void*)callback);}};
-
-  // Create signal handler after logging has been initialized
-  mail::man->event<bool>(mail::shutdown)->view();
-  DeInit();
-  return 0;
-}
 
 /**
  * @brief Main application entry point.
@@ -353,19 +285,12 @@ StartCallback(DECODE_CALLBACK callback) {
  */
 extern int __cdecl 
 StartQueue() {
-  if (video::probe_encoders()) {
-    BOOST_LOG(error) << "Video failed to find working encoder"sv;
-    return 1;
-  }
-
-
-  privatemail = std::make_shared<safe::mail_raw_t>();
   void* null = 0;
+  privatemail = std::make_shared<safe::mail_raw_t>();
   auto capture = std::thread {[&](){video::capture(privatemail, monitor, (void*)null);}};
 
   // Create signal handler after logging has been initialized
   mail::man->event<bool>(mail::shutdown)->view();
-  DeInit();
   return 0;
 }
 

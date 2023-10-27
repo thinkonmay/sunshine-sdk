@@ -2,10 +2,6 @@
 	path = third-party/nv-codec-headers
 	url = https://github.com/FFmpeg/nv-codec-headers
 	branch = sdk/12.0
-[submodule "third-party/TPCircularBuffer"]
-	path = third-party/TPCircularBuffer
-	url = https://github.com/michaeltyson/TPCircularBuffer
-	branch = master
 [submodule "third-party/ffmpeg-windows-x86_64"]
 	path = third-party/ffmpeg-windows-x86_64
 	url = https://github.com/LizardByte/build-deps

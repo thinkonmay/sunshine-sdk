@@ -200,7 +200,6 @@ list(APPEND PLATFORM_TARGET_FILES
         src/platform/linux/graphics.cpp
         src/platform/linux/misc.h
         src/platform/linux/misc.cpp
-        src/platform/linux/audio.cpp
         src/platform/linux/x11grab.h
         src/platform/linux/wayland.h
         third-party/glad/src/egl.c

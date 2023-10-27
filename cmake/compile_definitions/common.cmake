@@ -42,8 +42,6 @@ set(SUNSHINE_TARGET_FILES
         src/video.h
         src/video_colorspace.cpp
         src/video_colorspace.h
-        src/audio.cpp
-        src/audio.h
         src/platform/common.h
         src/move_by_copy.h
         src/thread_safe.h

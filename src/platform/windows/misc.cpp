@@ -975,4 +975,19 @@ namespace platf {
     }
     return {};
   }
+
+
+  // It's not big enough to justify it's own source file :/
+  namespace dxgi {
+    int
+    init();
+  }
+
+  std::unique_ptr<deinit_t>
+  init() {
+    if (dxgi::init()) {
+      return nullptr;
+    }
+    return std::make_unique<deinit_t>();
+  }
 }  // namespace platf

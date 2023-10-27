@@ -36,7 +36,6 @@ set(PLATFORM_TARGET_FILES
         src/platform/windows/display_base.cpp
         src/platform/windows/display_vram.cpp
         src/platform/windows/display_ram.cpp
-        src/platform/windows/audio.cpp
         ${NVPREFS_FILES})
 
 set(OPENSSL_LIBRARIES

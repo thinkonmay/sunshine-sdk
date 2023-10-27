@@ -24,8 +24,6 @@ set(APPLE_PLIST_FILE ${SUNSHINE_SOURCE_ASSETS_DIR}/macos/assets/Info.plist)
 set(SUNSHINE_TRAY 0)
 
 set(PLATFORM_TARGET_FILES
-        src/platform/macos/av_audio.h
-        src/platform/macos/av_audio.m
         src/platform/macos/av_img_t.h
         src/platform/macos/av_video.h
         src/platform/macos/av_video.m
@@ -35,8 +33,6 @@ set(PLATFORM_TARGET_FILES
         src/platform/macos/misc.h
         src/platform/macos/nv12_zero_device.cpp
         src/platform/macos/nv12_zero_device.h
-        third-party/TPCircularBuffer/TPCircularBuffer.c
-        third-party/TPCircularBuffer/TPCircularBuffer.h
         ${APPLE_PLIST_FILE})
 
 if(SUNSHINE_ENABLE_TRAY)
