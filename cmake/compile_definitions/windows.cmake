@@ -21,11 +21,6 @@ file(GLOB NVPREFS_FILES CONFIGURE_DEPENDS
         "src/platform/windows/nvprefs/*.cpp"
         "src/platform/windows/nvprefs/*.h")
 
-# sunshine icon
-if(NOT DEFINED SUNSHINE_ICON_PATH)
-    set(SUNSHINE_ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/sunshine.ico")
-endif()
-
 configure_file(src/platform/windows/windows.rs.in windows.rc @ONLY)
 
 set(PLATFORM_TARGET_FILES
