@@ -1,22 +1,6 @@
 # load common dependencies
 # this file will also load platform specific dependencies
 
-# submodules
-# moonlight common library
-set(ENET_NO_INSTALL ON CACHE BOOL "Don't install any libraries build for enet")
-add_subdirectory(third-party/moonlight-common-c/enet)
-
-# web server
-add_subdirectory(third-party/Simple-Web-Server)
-
-# miniupnp
-set(UPNPC_BUILD_SHARED OFF CACHE BOOL "No shared libraries")
-set(UPNPC_BUILD_TESTS OFF CACHE BOOL "Don't build tests for miniupnpc")
-set(UPNPC_BUILD_SAMPLE OFF CACHE BOOL "Don't build samples for miniupnpc")
-set(UPNPC_NO_INSTALL ON CACHE BOOL "Don't install any libraries build for miniupnpc")
-add_subdirectory(third-party/miniupnp/miniupnpc)
-include_directories(SYSTEM third-party/miniupnp/miniupnpc/include)
-
 # ffmpeg pre-compiled binaries
 if(WIN32)
     if(NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")

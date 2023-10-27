@@ -182,71 +182,9 @@ namespace platf {
     }
   }
 
-  /**
-   * @brief Open a url in the default web browser.
-   * @param url The url to open.
-   */
-  void
-  open_url(const std::string &url) {
-    // set working dir to user home directory
-    auto working_dir = boost::filesystem::path(std::getenv("HOME"));
-    std::string cmd = R"(xdg-open ")" + url + R"(")";
-
-    boost::process::environment _env = boost::this_process::environment();
-    std::error_code ec;
-    auto child = run_command(false, false, cmd, working_dir, _env, nullptr, ec, nullptr);
-    if (ec) {
-      BOOST_LOG(warning) << "Couldn't open url ["sv << url << "]: System: "sv << ec.message();
-    }
-    else {
-      BOOST_LOG(info) << "Opened url ["sv << url << "]"sv;
-      child.detach();
-    }
-  }
-
   void
   adjust_thread_priority(thread_priority_e priority) {
     // Unimplemented
-  }
-
-  void
-  streaming_will_start() {
-    // Nothing to do
-  }
-
-  void
-  streaming_will_stop() {
-    // Nothing to do
-  }
-
-  void
-  restart_on_exit() {
-    char executable[PATH_MAX];
-    ssize_t len = readlink("/proc/self/exe", executable, PATH_MAX - 1);
-    if (len == -1) {
-      BOOST_LOG(fatal) << "readlink() failed: "sv << errno;
-      return;
-    }
-    executable[len] = '\0';
-
-    // ASIO doesn't use O_CLOEXEC, so we have to close all fds ourselves
-    int openmax = (int) sysconf(_SC_OPEN_MAX);
-    for (int fd = STDERR_FILENO + 1; fd < openmax; fd++) {
-      close(fd);
-    }
-
-    // Re-exec ourselves with the same arguments
-    if (execv(executable, lifetime::get_argv()) < 0) {
-      BOOST_LOG(fatal) << "execv() failed: "sv << errno;
-      return;
-    }
-  }
-
-  void
-  restart() {
-    // Gracefully clean up and restart ourselves instead of exiting
-    atexit(restart_on_exit);
-    lifetime::exit_sunshine(0, true);
   }
 
   struct sockaddr_in

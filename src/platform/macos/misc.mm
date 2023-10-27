@@ -128,45 +128,6 @@ namespace platf {
     return { port, std::string { data } };
   }
 
-  std::string
-  get_mac_address(const std::string_view &address) {
-    auto ifaddrs = get_ifaddrs();
-
-    for (auto pos = ifaddrs.get(); pos != nullptr; pos = pos->ifa_next) {
-      if (pos->ifa_addr && address == from_sockaddr(pos->ifa_addr)) {
-        BOOST_LOG(verbose) << "Looking for MAC of "sv << pos->ifa_name;
-
-        struct ifaddrs *ifap, *ifaptr;
-        unsigned char *ptr;
-        std::string mac_address;
-
-        if (getifaddrs(&ifap) == 0) {
-          for (ifaptr = ifap; ifaptr != NULL; ifaptr = (ifaptr)->ifa_next) {
-            if (!strcmp((ifaptr)->ifa_name, pos->ifa_name) && (((ifaptr)->ifa_addr)->sa_family == AF_LINK)) {
-              ptr = (unsigned char *) LLADDR((struct sockaddr_dl *) (ifaptr)->ifa_addr);
-              char buff[100];
-
-              snprintf(buff, sizeof(buff), "%02x:%02x:%02x:%02x:%02x:%02x",
-                *ptr, *(ptr + 1), *(ptr + 2), *(ptr + 3), *(ptr + 4), *(ptr + 5));
-              mac_address = buff;
-              break;
-            }
-          }
-
-          freeifaddrs(ifap);
-
-          if (ifaptr != NULL) {
-            BOOST_LOG(verbose) << "Found MAC of "sv << pos->ifa_name << ": "sv << mac_address;
-            return mac_address;
-          }
-        }
-      }
-    }
-
-    BOOST_LOG(warning) << "Unable to find MAC address for "sv << address;
-    return "00:00:00:00:00:00"s;
-  }
-
   bp::child
   run_command(bool elevated, bool interactive, const std::string &cmd, boost::filesystem::path &working_dir, const bp::environment &env, FILE *file, std::error_code &ec, bp::group *group) {
     if (!group) {
@@ -187,62 +148,11 @@ namespace platf {
     }
   }
 
-  /**
-   * @brief Open a url in the default web browser.
-   * @param url The url to open.
-   */
-  void
-  open_url(const std::string &url) {
-    boost::filesystem::path working_dir;
-    std::string cmd = R"(open ")" + url + R"(")";
 
-    boost::process::environment _env = boost::this_process::environment();
-    std::error_code ec;
-    auto child = run_command(false, false, cmd, working_dir, _env, nullptr, ec, nullptr);
-    if (ec) {
-      BOOST_LOG(warning) << "Couldn't open url ["sv << url << "]: System: "sv << ec.message();
-    }
-    else {
-      BOOST_LOG(info) << "Opened url ["sv << url << "]"sv;
-      child.detach();
-    }
-  }
 
   void
   adjust_thread_priority(thread_priority_e priority) {
     // Unimplemented
-  }
-
-  void
-  streaming_will_start() {
-    // Nothing to do
-  }
-
-  void
-  streaming_will_stop() {
-    // Nothing to do
-  }
-
-  void
-  restart_on_exit() {
-    char executable[2048];
-    uint32_t size = sizeof(executable);
-    if (_NSGetExecutablePath(executable, &size) < 0) {
-      BOOST_LOG(fatal) << "NSGetExecutablePath() failed: "sv << errno;
-      return;
-    }
-
-    // ASIO doesn't use O_CLOEXEC, so we have to close all fds ourselves
-    int openmax = (int) sysconf(_SC_OPEN_MAX);
-    for (int fd = STDERR_FILENO + 1; fd < openmax; fd++) {
-      close(fd);
-    }
-  }
-
-  void
-  restart() {
-    // Gracefully clean up and restart ourselves instead of exiting
-    atexit(restart_on_exit);
   }
 
   struct sockaddr_in

@@ -42,6 +42,4 @@ set(PLATFORM_TARGET_FILES
 if(SUNSHINE_ENABLE_TRAY)
     list(APPEND SUNSHINE_EXTERNAL_LIBRARIES
             ${COCOA})
-    list(APPEND PLATFORM_TARGET_FILES
-            third-party/tray/tray_darwin.m)
 endif()

@@ -21,13 +21,6 @@ file(GLOB NVPREFS_FILES CONFIGURE_DEPENDS
         "src/platform/windows/nvprefs/*.cpp"
         "src/platform/windows/nvprefs/*.h")
 
-# vigem
-include_directories(SYSTEM third-party/ViGEmClient/include)
-set_source_files_properties(third-party/ViGEmClient/src/ViGEmClient.cpp
-        PROPERTIES COMPILE_DEFINITIONS "UNICODE=1;ERROR_INVALID_DEVICE_OBJECT_PARAMETER=650")
-set_source_files_properties(third-party/ViGEmClient/src/ViGEmClient.cpp
-        PROPERTIES COMPILE_FLAGS "-Wno-unknown-pragmas -Wno-misleading-indentation -Wno-class-memaccess")
-
 # sunshine icon
 if(NOT DEFINED SUNSHINE_ICON_PATH)
     set(SUNSHINE_ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/sunshine.ico")
@@ -44,11 +37,6 @@ set(PLATFORM_TARGET_FILES
         src/platform/windows/display_vram.cpp
         src/platform/windows/display_ram.cpp
         src/platform/windows/audio.cpp
-        third-party/ViGEmClient/src/ViGEmClient.cpp
-        third-party/ViGEmClient/include/ViGEm/Client.h
-        third-party/ViGEmClient/include/ViGEm/Common.h
-        third-party/ViGEmClient/include/ViGEm/Util.h
-        third-party/ViGEmClient/include/ViGEm/km/BusShared.h
         ${NVPREFS_FILES})
 
 set(OPENSSL_LIBRARIES
@@ -69,8 +57,3 @@ list(PREPEND PLATFORM_LIBRARIES
         synchronization.lib
         avrt
         ${CURL_STATIC_LIBRARIES})
-
-if(SUNSHINE_ENABLE_TRAY)
-    list(APPEND PLATFORM_TARGET_FILES
-            third-party/tray/tray_windows.c)
-endif()

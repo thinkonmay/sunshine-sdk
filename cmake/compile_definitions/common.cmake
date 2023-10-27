@@ -30,13 +30,6 @@ list(APPEND PLATFORM_TARGET_FILES ${NVENC_SOURCES})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 set(SUNSHINE_TARGET_FILES
-        third-party/nanors/rs.c
-        third-party/nanors/rs.h
-        third-party/moonlight-common-c/src/Input.h
-        third-party/moonlight-common-c/src/Rtsp.h
-        third-party/moonlight-common-c/src/RtspParser.c
-        third-party/moonlight-common-c/src/Video.h
-        third-party/tray/tray.h
         src/cbs.cpp
         src/utility.h
         src/uuid.h
@@ -59,8 +52,6 @@ set(SUNSHINE_TARGET_FILES
         src/stat_trackers.cpp
         ${PLATFORM_TARGET_FILES})
 
-set_source_files_properties(third-party/nanors/rs.c
-        PROPERTIES COMPILE_FLAGS "-include deps/obl/autoshim.h -ftree-vectorize")
 
 if(NOT SUNSHINE_ASSETS_DIR_DEF)
     set(SUNSHINE_ASSETS_DIR_DEF "${SUNSHINE_ASSETS_DIR}")
@@ -74,9 +65,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(
         SYSTEM
         ${CMAKE_CURRENT_SOURCE_DIR}/third-party
-        ${CMAKE_CURRENT_SOURCE_DIR}/third-party/moonlight-common-c/enet/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/third-party/nanors
-        ${CMAKE_CURRENT_SOURCE_DIR}/third-party/nanors/deps/obl
         ${FFMPEG_INCLUDE_DIRS}
         ${PLATFORM_INCLUDE_DIRS}
 )
@@ -91,9 +79,7 @@ else()
 endif()
 
 list(APPEND SUNSHINE_EXTERNAL_LIBRARIES
-        libminiupnpc-static
         ${CMAKE_THREAD_LIBS_INIT}
-        enet
         opus
         ${FFMPEG_LIBRARIES}
         ${Boost_LIBRARIES}

@@ -26,7 +26,6 @@
 
 extern "C" {
 #include <libavutil/log.h>
-#include <rs.h>
 
 #ifdef _WIN32
   #include <iphlpapi.h>
@@ -260,9 +259,6 @@ Init(
     // Unload dynamic library to survive driver reinstallation
     nvprefs_instance.unload();
   }
-
-  // Wait as long as possible to terminate Sunshine.exe during logoff/shutdown
-  SetProcessShutdownParameters(0x100, SHUTDOWN_NORETRY);
 #endif
 
 
@@ -276,7 +272,6 @@ Init(
   }
 
   BOOST_LOG(error) << "Hello from thinkmay."sv;
-  reed_solomon_init();
 
 }
 

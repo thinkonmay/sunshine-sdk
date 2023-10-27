@@ -16,9 +16,29 @@
 #include "src/video_colorspace.h"
 
 extern "C" {
-#include <moonlight-common-c/src/Limelight.h>
 }
+typedef struct _SS_HDR_METADATA {
+    // RGB order
+    struct {
+        uint16_t x; // Normalized to 50,000
+        uint16_t y; // Normalized to 50,000
+    } displayPrimaries[3];
 
+    struct {
+        uint16_t x; // Normalized to 50,000
+        uint16_t y; // Normalized to 50,000
+    } whitePoint;
+
+    uint16_t maxDisplayLuminance; // Nits
+    uint16_t minDisplayLuminance; // 1/10000th of a nit
+
+    // These are content-specific values which may not be available for all hosts.
+    uint16_t maxContentLightLevel; // Nits
+    uint16_t maxFrameAverageLightLevel; // Nits
+
+    // These are display-specific values which may not be available for all hosts.
+    uint16_t maxFullFrameLuminance; // Nits
+} SS_HDR_METADATA, *PSS_HDR_METADATA;
 struct sockaddr;
 struct AVFrame;
 struct AVBufferRef;
@@ -523,15 +543,13 @@ namespace platf {
     virtual ~audio_control_t() = default;
   };
 
-  void
-  freeInput(void *);
+
 
 
   std::filesystem::path
   appdata();
 
-  std::string
-  get_mac_address(const std::string_view &address);
+
 
   std::string
   from_sockaddr(const sockaddr *const);
@@ -569,14 +587,7 @@ namespace platf {
   void
   adjust_thread_priority(thread_priority_e priority);
 
-  // Allow OS-specific actions to be taken to prepare for streaming
-  void
-  streaming_will_start();
-  void
-  streaming_will_stop();
 
-  void
-  restart();
 
   struct batched_send_info_t {
     const char *buffer;
@@ -610,51 +621,8 @@ namespace platf {
   std::unique_ptr<deinit_t>
   enable_socket_qos(uintptr_t native_socket, boost::asio::ip::address &address, uint16_t port, qos_data_type_e data_type);
 
-  /**
-   * @brief Open a url in the default web browser.
-   * @param url The url to open.
-   */
-  void
-  open_url(const std::string &url);
-
-
 
   typedef deinit_t client_input_t;
-
-
-  /**
-   * @brief Sends a touch event to the OS.
-   * @param input The client-specific input context.
-   * @param touch_port The current viewport for translating to screen coordinates.
-   * @param touch The touch event.
-   */
-  void
-  touch(client_input_t *input, const touch_port_t &touch_port, const touch_input_t &touch);
-
-  /**
-   * @brief Sends a pen event to the OS.
-   * @param input The client-specific input context.
-   * @param touch_port The current viewport for translating to screen coordinates.
-   * @param pen The pen event.
-   */
-  void
-  pen(client_input_t *input, const touch_port_t &touch_port, const pen_input_t &pen);
-
-
-  /**
-   * @brief Returns the supported platform capabilities to advertise to the client.
-   * @return Capability flags.
-   */
-  platform_caps::caps_t
-  get_capabilities();
-
-#define SERVICE_NAME "Sunshine"
-#define SERVICE_TYPE "_nvstream._tcp"
-
-  namespace publish {
-    [[nodiscard]] std::unique_ptr<deinit_t>
-    start();
-  }
 
   [[nodiscard]] std::unique_ptr<deinit_t>
   init();
