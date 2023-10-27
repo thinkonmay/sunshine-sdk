@@ -59,7 +59,7 @@ namespace platf::dxgi {
     buf_t::pointer buf_p;
     auto status = device->CreateBuffer(&buffer_desc, &init_data, &buf_p);
     if (status) {
-      BOOST_LOG(error) << "Failed to create buffer: [0x"sv << util::hex(status).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to create buffer: [0x"sv << util::hex(status).to_string_view() << ']';
       return nullptr;
     }
 
@@ -95,7 +95,7 @@ namespace platf::dxgi {
     blend_t blend;
     auto status = device->CreateBlendState(&bdesc, &blend);
     if (status) {
-      BOOST_LOG(error) << "Failed to create blend state: [0x"sv << util::hex(status).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to create blend state: [0x"sv << util::hex(status).to_string_view() << ']';
       return nullptr;
     }
 
@@ -180,7 +180,7 @@ namespace platf::dxgi {
         _locked = true;
       }
       else {
-        BOOST_LOG(error) << "Failed to acquire texture mutex [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to acquire texture mutex [0x"sv << util::hex(status).to_string_view() << ']';
       }
       return _locked;
     }
@@ -209,7 +209,7 @@ namespace platf::dxgi {
           }
           else {
             // Other alpha values are illegal in masked color cursors
-            BOOST_LOG(warning) << "Illegal alpha value in masked color cursor: " << alpha;
+            // BOOST_LOG(warning) << "Illegal alpha value in masked color cursor: " << alpha;
           }
         });
         return cursor_img;
@@ -218,7 +218,7 @@ namespace platf::dxgi {
         // Monochrome is handled below
         break;
       default:
-        BOOST_LOG(error) << "Invalid cursor shape type: " << shape_info.Type;
+        // BOOST_LOG(error) << "Invalid cursor shape type: " << shape_info.Type;
         return {};
     }
 
@@ -279,7 +279,7 @@ namespace platf::dxgi {
           }
           else {
             // Other alpha values are illegal in masked color cursors
-            BOOST_LOG(warning) << "Illegal alpha value in masked color cursor: " << alpha;
+            // BOOST_LOG(warning) << "Illegal alpha value in masked color cursor: " << alpha;
           }
         });
         return cursor_img;
@@ -291,7 +291,7 @@ namespace platf::dxgi {
         // Monochrome cursors are handled below.
         break;
       default:
-        BOOST_LOG(error) << "Invalid cursor shape type: " << shape_info.Type;
+        // BOOST_LOG(error) << "Invalid cursor shape type: " << shape_info.Type;
         return {};
     }
 
@@ -348,12 +348,12 @@ namespace platf::dxgi {
     auto status = D3DCompileFromFile(wFile.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entrypoint, shader_model, flags, 0, &compiled_p, &msg_p);
 
     if (msg_p) {
-      BOOST_LOG(warning) << std::string_view { (const char *) msg_p->GetBufferPointer(), msg_p->GetBufferSize() - 1 };
+      // BOOST_LOG(warning) << std::string_view { (const char *) msg_p->GetBufferPointer(), msg_p->GetBufferSize() - 1 };
       msg_p->Release();
     }
 
     if (status) {
-      BOOST_LOG(error) << "Couldn't compile ["sv << file << "] [0x"sv << util::hex(status).to_string_view() << ']';
+      // BOOST_LOG(error) << "Couldn't compile ["sv << file << "] [0x"sv << util::hex(status).to_string_view() << ']';
       return nullptr;
     }
 
@@ -395,7 +395,7 @@ namespace platf::dxgi {
       // Acquire encoder mutex to synchronize with capture code
       auto status = img_ctx.encoder_mutex->AcquireSync(0, INFINITE);
       if (status != S_OK) {
-        BOOST_LOG(error) << "Failed to acquire encoder mutex [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to acquire encoder mutex [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
@@ -426,13 +426,13 @@ namespace platf::dxgi {
       auto color_vectors = ::video::color_vectors_from_colorspace(colorspace);
 
       if (!color_vectors) {
-        BOOST_LOG(error) << "No vector data for colorspace"sv;
+        // BOOST_LOG(error) << "No vector data for colorspace"sv;
         return;
       }
 
       auto color_matrix = make_buffer(device.get(), *color_vectors);
       if (!color_matrix) {
-        BOOST_LOG(warning) << "Failed to create color matrix"sv;
+        // BOOST_LOG(warning) << "Failed to create color matrix"sv;
         return;
       }
 
@@ -468,7 +468,7 @@ namespace platf::dxgi {
       subsample_offset = make_buffer(device.get(), subsample_offset_in);
 
       if (!subsample_offset) {
-        BOOST_LOG(error) << "Failed to create subsample offset vertex constant buffer";
+        // BOOST_LOG(error) << "Failed to create subsample offset vertex constant buffer";
         return -1;
       }
       device_ctx->VSSetConstantBuffers(0, 1, &subsample_offset);
@@ -478,7 +478,7 @@ namespace platf::dxgi {
         int32_t rotation_data[16 / sizeof(int32_t)] { -rotation_modifier };  // aligned to 16-byte
         auto rotation = make_buffer(device.get(), rotation_data);
         if (!rotation) {
-          BOOST_LOG(error) << "Failed to create display rotation vertex constant buffer";
+          // BOOST_LOG(error) << "Failed to create display rotation vertex constant buffer";
           return -1;
         }
         device_ctx->VSSetConstantBuffers(1, 1, &rotation);
@@ -491,7 +491,7 @@ namespace platf::dxgi {
 
       auto status = device->CreateRenderTargetView(output_texture.get(), &nv12_rt_desc, &nv12_Y_rt);
       if (FAILED(status)) {
-        BOOST_LOG(error) << "Failed to create render target view [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to create render target view [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
@@ -499,7 +499,7 @@ namespace platf::dxgi {
 
       status = device->CreateRenderTargetView(output_texture.get(), &nv12_rt_desc, &nv12_UV_rt);
       if (FAILED(status)) {
-        BOOST_LOG(error) << "Failed to create render target view [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to create render target view [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
@@ -536,32 +536,32 @@ namespace platf::dxgi {
         &device_ctx);
 
       if (FAILED(status)) {
-        BOOST_LOG(error) << "Failed to create encoder D3D11 device [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to create encoder D3D11 device [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
       dxgi::dxgi_t dxgi;
       status = device->QueryInterface(IID_IDXGIDevice, (void **) &dxgi);
       if (FAILED(status)) {
-        BOOST_LOG(warning) << "Failed to query DXGI interface from device [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(warning) << "Failed to query DXGI interface from device [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
       status = dxgi->SetGPUThreadPriority(7);
       if (FAILED(status)) {
-        BOOST_LOG(warning) << "Failed to increase encoding GPU thread priority. Please run application as administrator for optimal performance.";
+        // BOOST_LOG(warning) << "Failed to increase encoding GPU thread priority. Please run application as administrator for optimal performance.";
       }
 
       format = (pix_fmt == pix_fmt_e::nv12 ? DXGI_FORMAT_NV12 : DXGI_FORMAT_P010);
       status = device->CreateVertexShader(convert_yuv420_planar_y_vs_hlsl->GetBufferPointer(), convert_yuv420_planar_y_vs_hlsl->GetBufferSize(), nullptr, &scene_vs);
       if (status) {
-        BOOST_LOG(error) << "Failed to create scene vertex shader [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to create scene vertex shader [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
       status = device->CreateVertexShader(convert_yuv420_packed_uv_type0_vs_hlsl->GetBufferPointer(), convert_yuv420_packed_uv_type0_vs_hlsl->GetBufferSize(), nullptr, &convert_UV_vs);
       if (status) {
-        BOOST_LOG(error) << "Failed to create convertUV vertex shader [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to create convertUV vertex shader [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
@@ -569,13 +569,13 @@ namespace platf::dxgi {
       if (format == DXGI_FORMAT_P010 && display->is_hdr()) {
         status = device->CreatePixelShader(convert_yuv420_planar_y_ps_perceptual_quantizer_hlsl->GetBufferPointer(), convert_yuv420_planar_y_ps_perceptual_quantizer_hlsl->GetBufferSize(), nullptr, &convert_Y_fp16_ps);
         if (status) {
-          BOOST_LOG(error) << "Failed to create convertY pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
+          // BOOST_LOG(error) << "Failed to create convertY pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
           return -1;
         }
 
         status = device->CreatePixelShader(convert_yuv420_packed_uv_type0_ps_perceptual_quantizer_hlsl->GetBufferPointer(), convert_yuv420_packed_uv_type0_ps_perceptual_quantizer_hlsl->GetBufferSize(), nullptr, &convert_UV_fp16_ps);
         if (status) {
-          BOOST_LOG(error) << "Failed to create convertUV pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
+          // BOOST_LOG(error) << "Failed to create convertUV pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
           return -1;
         }
       }
@@ -584,13 +584,13 @@ namespace platf::dxgi {
         // scRGB uses linear gamma, so we must use our linear to sRGB conversion shaders.
         status = device->CreatePixelShader(convert_yuv420_planar_y_ps_linear_hlsl->GetBufferPointer(), convert_yuv420_planar_y_ps_linear_hlsl->GetBufferSize(), nullptr, &convert_Y_fp16_ps);
         if (status) {
-          BOOST_LOG(error) << "Failed to create convertY pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
+          // BOOST_LOG(error) << "Failed to create convertY pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
           return -1;
         }
 
         status = device->CreatePixelShader(convert_yuv420_packed_uv_type0_ps_linear_hlsl->GetBufferPointer(), convert_yuv420_packed_uv_type0_ps_linear_hlsl->GetBufferSize(), nullptr, &convert_UV_fp16_ps);
         if (status) {
-          BOOST_LOG(error) << "Failed to create convertUV pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
+          // BOOST_LOG(error) << "Failed to create convertUV pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
           return -1;
         }
       }
@@ -598,25 +598,25 @@ namespace platf::dxgi {
       // These shaders consume standard 8-bit sRGB input
       status = device->CreatePixelShader(convert_yuv420_planar_y_ps_hlsl->GetBufferPointer(), convert_yuv420_planar_y_ps_hlsl->GetBufferSize(), nullptr, &convert_Y_ps);
       if (status) {
-        BOOST_LOG(error) << "Failed to create convertY pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to create convertY pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
       status = device->CreatePixelShader(convert_yuv420_packed_uv_type0_ps_hlsl->GetBufferPointer(), convert_yuv420_packed_uv_type0_ps_hlsl->GetBufferSize(), nullptr, &convert_UV_ps);
       if (status) {
-        BOOST_LOG(error) << "Failed to create convertUV pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to create convertUV pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
       auto default_color_vectors = ::video::color_vectors_from_colorspace(::video::colorspace_e::rec601, false);
       if (!default_color_vectors) {
-        BOOST_LOG(error) << "Missing color vectors for Rec. 601"sv;
+        // BOOST_LOG(error) << "Missing color vectors for Rec. 601"sv;
         return -1;
       }
 
       color_matrix = make_buffer(device.get(), *default_color_vectors);
       if (!color_matrix) {
-        BOOST_LOG(error) << "Failed to create color matrix buffer"sv;
+        // BOOST_LOG(error) << "Failed to create color matrix buffer"sv;
         return -1;
       }
       device_ctx->PSSetConstantBuffers(0, 1, &color_matrix);
@@ -643,7 +643,7 @@ namespace platf::dxgi {
 
       status = device->CreateSamplerState(&sampler_desc, &sampler_linear);
       if (FAILED(status)) {
-        BOOST_LOG(error) << "Failed to create point sampler state [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to create point sampler state [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
@@ -689,28 +689,28 @@ namespace platf::dxgi {
       device1_t device1;
       auto status = device->QueryInterface(__uuidof(ID3D11Device1), (void **) &device1);
       if (FAILED(status)) {
-        BOOST_LOG(error) << "Failed to query ID3D11Device1 [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to query ID3D11Device1 [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
       // Open a handle to the shared texture
       status = device1->OpenSharedResource1(img.encoder_texture_handle, __uuidof(ID3D11Texture2D), (void **) &img_ctx.encoder_texture);
       if (FAILED(status)) {
-        BOOST_LOG(error) << "Failed to open shared image texture [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to open shared image texture [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
       // Get the keyed mutex to synchronize with the capture code
       status = img_ctx.encoder_texture->QueryInterface(__uuidof(IDXGIKeyedMutex), (void **) &img_ctx.encoder_mutex);
       if (FAILED(status)) {
-        BOOST_LOG(error) << "Failed to query IDXGIKeyedMutex [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to query IDXGIKeyedMutex [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
       // Create the SRV for the encoder texture
       status = device->CreateShaderResourceView(img_ctx.encoder_texture.get(), nullptr, &img_ctx.encoder_input_res);
       if (FAILED(status)) {
-        BOOST_LOG(error) << "Failed to create shader resource view for encoding [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to create shader resource view for encoding [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
@@ -800,7 +800,7 @@ namespace platf::dxgi {
 
         auto status = base.device->QueryInterface(IID_ID3D11Multithread, (void **) &mt);
         if (FAILED(status)) {
-          BOOST_LOG(warning) << "Failed to query ID3D11Multithread interface from device [0x"sv << util::hex(status).to_string_view() << ']';
+          // BOOST_LOG(warning) << "Failed to query ID3D11Multithread interface from device [0x"sv << util::hex(status).to_string_view() << ']';
           return -1;
         }
 
@@ -820,7 +820,7 @@ namespace platf::dxgi {
         auto err = av_hwframe_get_buffer(hw_frames_ctx, frame, 0);
         if (err) {
           char err_str[AV_ERROR_MAX_STRING_SIZE] { 0 };
-          BOOST_LOG(error) << "Failed to get hwframe buffer: "sv << av_make_error_string(err_str, AV_ERROR_MAX_STRING_SIZE, err);
+          // BOOST_LOG(error) << "Failed to get hwframe buffer: "sv << av_make_error_string(err_str, AV_ERROR_MAX_STRING_SIZE, err);
           return -1;
         }
       }
@@ -835,7 +835,7 @@ namespace platf::dxgi {
         auto err = av_hwframe_map(d3d11_frame.get(), frame, AV_HWFRAME_MAP_WRITE | AV_HWFRAME_MAP_OVERWRITE);
         if (err) {
           char err_str[AV_ERROR_MAX_STRING_SIZE] { 0 };
-          BOOST_LOG(error) << "Failed to map D3D11 frame: "sv << av_make_error_string(err_str, AV_ERROR_MAX_STRING_SIZE, err);
+          // BOOST_LOG(error) << "Failed to map D3D11 frame: "sv << av_make_error_string(err_str, AV_ERROR_MAX_STRING_SIZE, err);
           return -1;
         }
 
@@ -861,7 +861,7 @@ namespace platf::dxgi {
     init_device(std::shared_ptr<platf::display_t> display, adapter_t::pointer adapter_p, pix_fmt_e pix_fmt) {
       buffer_format = nvenc::nvenc_format_from_sunshine_format(pix_fmt);
       if (buffer_format == NV_ENC_BUFFER_FORMAT_UNDEFINED) {
-        BOOST_LOG(error) << "Unexpected pixel format for NvENC ["sv << from_pix_fmt(pix_fmt) << ']';
+        // BOOST_LOG(error) << "Unexpected pixel format for NvENC ["sv << from_pix_fmt(pix_fmt) << ']';
         return false;
       }
 
@@ -924,7 +924,7 @@ namespace platf::dxgi {
     texture2d_t texture;
     auto status = device->CreateTexture2D(&t, &data, &texture);
     if (FAILED(status)) {
-      BOOST_LOG(error) << "Failed to create mouse texture [0x"sv << util::hex(status).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to create mouse texture [0x"sv << util::hex(status).to_string_view() << ']';
       return false;
     }
 
@@ -932,7 +932,7 @@ namespace platf::dxgi {
     cursor.input_res.reset();
     status = device->CreateShaderResourceView(texture.get(), nullptr, &cursor.input_res);
     if (FAILED(status)) {
-      BOOST_LOG(error) << "Failed to create cursor shader resource view [0x"sv << util::hex(status).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to create cursor shader resource view [0x"sv << util::hex(status).to_string_view() << ']';
       return false;
     }
 
@@ -976,7 +976,7 @@ namespace platf::dxgi {
       UINT dummy;
       status = dup.dup->GetFramePointerShape(img_data.size(), std::begin(img_data), &dummy, &shape_info);
       if (FAILED(status)) {
-        BOOST_LOG(error) << "Failed to get new pointer shape [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to get new pointer shape [0x"sv << util::hex(status).to_string_view() << ']';
 
         return capture_e::error;
       }
@@ -1005,7 +1005,7 @@ namespace platf::dxgi {
       // Get the texture object from this frame
       status = res->QueryInterface(IID_ID3D11Texture2D, (void **) &src);
       if (FAILED(status)) {
-        BOOST_LOG(error) << "Couldn't query interface [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Couldn't query interface [0x"sv << util::hex(status).to_string_view() << ']';
         return capture_e::error;
       }
 
@@ -1015,20 +1015,20 @@ namespace platf::dxgi {
       // It's possible for our display enumeration to race with mode changes and result in
       // mismatched image pool and desktop texture sizes. If this happens, just reinit again.
       if (desc.Width != width_before_rotation || desc.Height != height_before_rotation) {
-        BOOST_LOG(info) << "Capture size changed ["sv << width << 'x' << height << " -> "sv << desc.Width << 'x' << desc.Height << ']';
+        // BOOST_LOG(info) << "Capture size changed ["sv << width << 'x' << height << " -> "sv << desc.Width << 'x' << desc.Height << ']';
         return capture_e::reinit;
       }
 
       // If we don't know the capture format yet, grab it from this texture
       if (capture_format == DXGI_FORMAT_UNKNOWN) {
         capture_format = desc.Format;
-        BOOST_LOG(info) << "Capture format ["sv << dxgi_format_to_string(capture_format) << ']';
+        // BOOST_LOG(info) << "Capture format ["sv << dxgi_format_to_string(capture_format) << ']';
       }
 
       // It's also possible for the capture format to change on the fly. If that happens,
       // reinitialize capture to try format detection again and create new images.
       if (capture_format != desc.Format) {
-        BOOST_LOG(info) << "Capture format changed ["sv << dxgi_format_to_string(capture_format) << " -> "sv << dxgi_format_to_string(desc.Format) << ']';
+        // BOOST_LOG(info) << "Capture format changed ["sv << dxgi_format_to_string(capture_format) << " -> "sv << dxgi_format_to_string(desc.Format) << ']';
         return capture_e::reinit;
       }
     }
@@ -1125,7 +1125,7 @@ namespace platf::dxgi {
       t.BindFlags = 0;
       status = device->CreateTexture2D(&t, nullptr, &surface);
       if (FAILED(status)) {
-        BOOST_LOG(error) << "Failed to create frame copy texture [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to create frame copy texture [0x"sv << util::hex(status).to_string_view() << ']';
         return false;
       }
 
@@ -1143,7 +1143,7 @@ namespace platf::dxgi {
       // we must acquire lock before doing anything to it.
       texture_lock_helper lock_helper(d3d_img->capture_mutex.get());
       if (!lock_helper.lock()) {
-        BOOST_LOG(error) << "Failed to lock capture texture";
+        // BOOST_LOG(error) << "Failed to lock capture texture";
         return { nullptr, nullptr };
       }
 
@@ -1158,7 +1158,7 @@ namespace platf::dxgi {
       case lfa::replace_surface_with_img: {
         auto p_surface = std::get_if<texture2d_t>(&last_frame_variant);
         if (!p_surface) {
-          BOOST_LOG(error) << "Logical error at " << __FILE__ << ":" << __LINE__;
+          // BOOST_LOG(error) << "Logical error at " << __FILE__ << ":" << __LINE__;
           return capture_e::error;
         }
 
@@ -1181,7 +1181,7 @@ namespace platf::dxgi {
       case lfa::replace_img_with_surface: {
         auto p_img = std::get_if<std::shared_ptr<platf::img_t>>(&last_frame_variant);
         if (!p_img) {
-          BOOST_LOG(error) << "Logical error at " << __FILE__ << ":" << __LINE__;
+          // BOOST_LOG(error) << "Logical error at " << __FILE__ << ":" << __LINE__;
           return capture_e::error;
         }
         auto [d3d_img, lock] = get_locked_d3d_img(*p_img);
@@ -1258,7 +1258,7 @@ namespace platf::dxgi {
       case ofa::forward_last_img: {
         auto p_img = std::get_if<std::shared_ptr<platf::img_t>>(&last_frame_variant);
         if (!p_img) {
-          BOOST_LOG(error) << "Logical error at " << __FILE__ << ":" << __LINE__;
+          // BOOST_LOG(error) << "Logical error at " << __FILE__ << ":" << __LINE__;
           return capture_e::error;
         }
         img_out = *p_img;
@@ -1268,11 +1268,11 @@ namespace platf::dxgi {
       case ofa::copy_last_surface_and_blend_cursor: {
         auto p_surface = std::get_if<texture2d_t>(&last_frame_variant);
         if (!p_surface) {
-          BOOST_LOG(error) << "Logical error at " << __FILE__ << ":" << __LINE__;
+          // BOOST_LOG(error) << "Logical error at " << __FILE__ << ":" << __LINE__;
           return capture_e::error;
         }
         if (!blend_mouse_cursor_flag) {
-          BOOST_LOG(error) << "Logical error at " << __FILE__ << ":" << __LINE__;
+          // BOOST_LOG(error) << "Logical error at " << __FILE__ << ":" << __LINE__;
           return capture_e::error;
         }
 
@@ -1340,13 +1340,13 @@ namespace platf::dxgi {
 
     auto status = device->CreateSamplerState(&sampler_desc, &sampler_linear);
     if (FAILED(status)) {
-      BOOST_LOG(error) << "Failed to create point sampler state [0x"sv << util::hex(status).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to create point sampler state [0x"sv << util::hex(status).to_string_view() << ']';
       return -1;
     }
 
     status = device->CreateVertexShader(cursor_vs_hlsl->GetBufferPointer(), cursor_vs_hlsl->GetBufferSize(), nullptr, &cursor_vs);
     if (status) {
-      BOOST_LOG(error) << "Failed to create scene vertex shader [0x"sv << util::hex(status).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to create scene vertex shader [0x"sv << util::hex(status).to_string_view() << ']';
       return -1;
     }
 
@@ -1355,7 +1355,7 @@ namespace platf::dxgi {
       int32_t rotation_data[16 / sizeof(int32_t)] { rotation_modifier };  // aligned to 16-byte
       auto rotation = make_buffer(device.get(), rotation_data);
       if (!rotation) {
-        BOOST_LOG(error) << "Failed to create display rotation vertex constant buffer";
+        // BOOST_LOG(error) << "Failed to create display rotation vertex constant buffer";
         return -1;
       }
       device_ctx->VSSetConstantBuffers(2, 1, &rotation);
@@ -1365,7 +1365,7 @@ namespace platf::dxgi {
       // This shader will normalize scRGB white levels to a user-defined white level
       status = device->CreatePixelShader(cursor_ps_normalize_white_hlsl->GetBufferPointer(), cursor_ps_normalize_white_hlsl->GetBufferSize(), nullptr, &cursor_ps);
       if (status) {
-        BOOST_LOG(error) << "Failed to create cursor blending (normalized white) pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to create cursor blending (normalized white) pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
@@ -1375,7 +1375,7 @@ namespace platf::dxgi {
       float white_multiplier_data[16 / sizeof(float)] { 300.0f / 80.f };  // aligned to 16-byte
       auto white_multiplier = make_buffer(device.get(), white_multiplier_data);
       if (!white_multiplier) {
-        BOOST_LOG(warning) << "Failed to create cursor blending (normalized white) white multiplier constant buffer";
+        // BOOST_LOG(warning) << "Failed to create cursor blending (normalized white) white multiplier constant buffer";
         return -1;
       }
 
@@ -1384,7 +1384,7 @@ namespace platf::dxgi {
     else {
       status = device->CreatePixelShader(cursor_ps_hlsl->GetBufferPointer(), cursor_ps_hlsl->GetBufferSize(), nullptr, &cursor_ps);
       if (status) {
-        BOOST_LOG(error) << "Failed to create cursor blending pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
+        // BOOST_LOG(error) << "Failed to create cursor blending pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
     }
@@ -1428,7 +1428,7 @@ namespace platf::dxgi {
 
     // If this is not a dummy image, we must know the format by now
     if (!dummy && capture_format == DXGI_FORMAT_UNKNOWN) {
-      BOOST_LOG(error) << "display_vram_t::complete_img() called with unknown capture format!";
+      // BOOST_LOG(error) << "display_vram_t::complete_img() called with unknown capture format!";
       return -1;
     }
 
@@ -1474,34 +1474,34 @@ namespace platf::dxgi {
       status = device->CreateTexture2D(&t, nullptr, &img->capture_texture);
     }
     if (FAILED(status)) {
-      BOOST_LOG(error) << "Failed to create img buf texture [0x"sv << util::hex(status).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to create img buf texture [0x"sv << util::hex(status).to_string_view() << ']';
       return -1;
     }
 
     status = device->CreateRenderTargetView(img->capture_texture.get(), nullptr, &img->capture_rt);
     if (FAILED(status)) {
-      BOOST_LOG(error) << "Failed to create render target view [0x"sv << util::hex(status).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to create render target view [0x"sv << util::hex(status).to_string_view() << ']';
       return -1;
     }
 
     // Get the keyed mutex to synchronize with the encoding code
     status = img->capture_texture->QueryInterface(__uuidof(IDXGIKeyedMutex), (void **) &img->capture_mutex);
     if (FAILED(status)) {
-      BOOST_LOG(error) << "Failed to query IDXGIKeyedMutex [0x"sv << util::hex(status).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to query IDXGIKeyedMutex [0x"sv << util::hex(status).to_string_view() << ']';
       return -1;
     }
 
     resource1_t resource;
     status = img->capture_texture->QueryInterface(__uuidof(IDXGIResource1), (void **) &resource);
     if (FAILED(status)) {
-      BOOST_LOG(error) << "Failed to query IDXGIResource1 [0x"sv << util::hex(status).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to query IDXGIResource1 [0x"sv << util::hex(status).to_string_view() << ']';
       return -1;
     }
 
     // Create a handle for the encoder device to use to open this texture
     status = resource->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &img->encoder_texture_handle);
     if (FAILED(status)) {
-      BOOST_LOG(error) << "Failed to create shared texture handle [0x"sv << util::hex(status).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to create shared texture handle [0x"sv << util::hex(status).to_string_view() << ']';
       return -1;
     }
 
@@ -1574,37 +1574,37 @@ namespace platf::dxgi {
             if (config.videoFormat == 2 && version < AMF_MAKE_FULL_VERSION(1, 4, 30, 0)) {
               // AMF 1.4.30 adds ultra low latency mode for AV1. Don't use AV1 on earlier versions.
               // This corresponds to driver version 23.5.2 (23.10.01.45) or newer.
-              BOOST_LOG(warning) << "AV1 encoding is disabled on AMF version "sv
-                                 << AMF_GET_MAJOR_VERSION(version) << '.'
-                                 << AMF_GET_MINOR_VERSION(version) << '.'
-                                 << AMF_GET_SUBMINOR_VERSION(version) << '.'
-                                 << AMF_GET_BUILD_VERSION(version);
-              BOOST_LOG(warning) << "If your AMD GPU supports AV1 encoding, update your graphics drivers!"sv;
+              // BOOST_LOG(warning) << "AV1 encoding is disabled on AMF version "sv
+                                //  << AMF_GET_MAJOR_VERSION(version) << '.'
+                                //  << AMF_GET_MINOR_VERSION(version) << '.'
+                                //  << AMF_GET_SUBMINOR_VERSION(version) << '.'
+                                //  << AMF_GET_BUILD_VERSION(version);
+              // BOOST_LOG(warning) << "If your AMD GPU supports AV1 encoding, update your graphics drivers!"sv;
               return false;
             }
             else if (config.dynamicRange && version < AMF_MAKE_FULL_VERSION(1, 4, 23, 0)) {
               // Older versions of the AMD AMF runtime can crash when fed P010 surfaces.
               // Fail if AMF version is below 1.4.23 where HEVC Main10 encoding was introduced.
               // AMF 1.4.23 corresponds to driver version 21.12.1 (21.40.11.03) or newer.
-              BOOST_LOG(warning) << "HDR encoding is disabled on AMF version "sv
-                                 << AMF_GET_MAJOR_VERSION(version) << '.'
-                                 << AMF_GET_MINOR_VERSION(version) << '.'
-                                 << AMF_GET_SUBMINOR_VERSION(version) << '.'
-                                 << AMF_GET_BUILD_VERSION(version);
-              BOOST_LOG(warning) << "If your AMD GPU supports HEVC Main10 encoding, update your graphics drivers!"sv;
+              // BOOST_LOG(warning) << "HDR encoding is disabled on AMF version "sv
+                                //  << AMF_GET_MAJOR_VERSION(version) << '.'
+                                //  << AMF_GET_MINOR_VERSION(version) << '.'
+                                //  << AMF_GET_SUBMINOR_VERSION(version) << '.'
+                                //  << AMF_GET_BUILD_VERSION(version);
+              // BOOST_LOG(warning) << "If your AMD GPU supports HEVC Main10 encoding, update your graphics drivers!"sv;
               return false;
             }
           }
           else {
-            BOOST_LOG(warning) << "AMFQueryVersion() failed: "sv << result;
+            // BOOST_LOG(warning) << "AMFQueryVersion() failed: "sv << result;
           }
         }
         else {
-          BOOST_LOG(warning) << "AMF DLL missing export: "sv << AMF_QUERY_VERSION_FUNCTION_NAME;
+          // BOOST_LOG(warning) << "AMF DLL missing export: "sv << AMF_QUERY_VERSION_FUNCTION_NAME;
         }
       }
       else {
-        BOOST_LOG(warning) << "Detected AMD GPU but AMF failed to load"sv;
+        // BOOST_LOG(warning) << "Detected AMD GPU but AMF failed to load"sv;
       }
     }
     else if (adapter_desc.VendorId == 0x8086) {  // Intel
@@ -1620,7 +1620,7 @@ namespace platf::dxgi {
       }
     }
     else {
-      BOOST_LOG(warning) << "Unknown GPU vendor ID: " << util::hex(adapter_desc.VendorId).to_string_view();
+      // BOOST_LOG(warning) << "Unknown GPU vendor ID: " << util::hex(adapter_desc.VendorId).to_string_view();
     }
 
     return true;
@@ -1629,7 +1629,7 @@ namespace platf::dxgi {
   std::unique_ptr<avcodec_encode_device_t>
   display_vram_t::make_avcodec_encode_device(pix_fmt_e pix_fmt) {
     if (pix_fmt != platf::pix_fmt_e::nv12 && pix_fmt != platf::pix_fmt_e::p010) {
-      BOOST_LOG(error) << "display_vram_t doesn't support pixel format ["sv << from_pix_fmt(pix_fmt) << ']';
+      // BOOST_LOG(error) << "display_vram_t doesn't support pixel format ["sv << from_pix_fmt(pix_fmt) << ']';
 
       return nullptr;
     }
@@ -1656,7 +1656,7 @@ namespace platf::dxgi {
 
   int
   init() {
-    BOOST_LOG(info) << "Compiling shaders..."sv;
+    // BOOST_LOG(info) << "Compiling shaders..."sv;
 
 #define compile_vertex_shader_helper(x) \
   if (!(x##_hlsl = compile_vertex_shader(SUNSHINE_SHADERS_DIR "/" #x ".hlsl"))) return -1;
@@ -1675,7 +1675,7 @@ namespace platf::dxgi {
     compile_pixel_shader_helper(cursor_ps_normalize_white);
     compile_vertex_shader_helper(cursor_vs);
 
-    BOOST_LOG(info) << "Compiled shaders"sv;
+    // BOOST_LOG(info) << "Compiled shaders"sv;
 
 #undef compile_vertex_shader_helper
 #undef compile_pixel_shader_helper

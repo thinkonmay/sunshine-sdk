@@ -9,7 +9,6 @@
 #include <sstream>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/asio/ip/address.hpp>
 #include <boost/process.hpp>
 
 // prevent clang format from "optimizing" the header include order
@@ -33,7 +32,6 @@
 #include "src/utility.h"
 #include <iterator>
 
-#include "nvprefs/nvprefs_interface.h"
 
 // UDP_SEND_MSG_SIZE was added in the Windows 10 20H1 SDK
 #ifndef UDP_SEND_MSG_SIZE
@@ -126,14 +124,14 @@ namespace platf {
     auto hDesk = OpenInputDesktop(DF_ALLOWOTHERACCOUNTHOOK, FALSE, GENERIC_ALL);
     if (!hDesk) {
       auto err = GetLastError();
-      BOOST_LOG(error) << "Failed to Open Input Desktop [0x"sv << util::hex(err).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to Open Input Desktop [0x"sv << util::hex(err).to_string_view() << ']';
 
       return nullptr;
     }
 
     if (!SetThreadDesktop(hDesk)) {
       auto err = GetLastError();
-      BOOST_LOG(error) << "Failed to sync desktop to thread [0x"sv << util::hex(err).to_string_view() << ']';
+      // BOOST_LOG(error) << "Failed to sync desktop to thread [0x"sv << util::hex(err).to_string_view() << ']';
     }
 
     CloseDesktop(hDesk);
@@ -153,7 +151,7 @@ namespace platf {
       sizeof(err_string),
       nullptr);
 
-    BOOST_LOG(error) << prefix << ": "sv << std::string_view { err_string, bytes };
+    // BOOST_LOG(error) << prefix << ": "sv << std::string_view { err_string, bytes };
   }
 
   bool
@@ -171,12 +169,12 @@ namespace platf {
     if (ret) {
       if (!CheckTokenMembership(user_token, AdministratorsGroup, &ret)) {
         ret = false;
-        BOOST_LOG(error) << "Failed to verify token membership for administrative access: " << GetLastError();
+        // BOOST_LOG(error) << "Failed to verify token membership for administrative access: " << GetLastError();
       }
       FreeSid(AdministratorsGroup);
     }
     else {
-      BOOST_LOG(error) << "Unable to allocate SID to check administrative access: " << GetLastError();
+      // BOOST_LOG(error) << "Unable to allocate SID to check administrative access: " << GetLastError();
     }
 
     return ret;
@@ -197,13 +195,13 @@ namespace platf {
     consoleSessionId = WTSGetActiveConsoleSessionId();
     if (0xFFFFFFFF == consoleSessionId) {
       // If there is no active console session, log a warning and return null
-      BOOST_LOG(warning) << "There isn't an active user session, therefore it is not possible to execute commands under the users profile.";
+      // BOOST_LOG(warning) << "There isn't an active user session, therefore it is not possible to execute commands under the users profile.";
       return nullptr;
     }
 
     // Get the user token for the active console session
     if (!WTSQueryUserToken(consoleSessionId, &userToken)) {
-      BOOST_LOG(debug) << "QueryUserToken failed, this would prevent commands from launching under the users profile.";
+      // BOOST_LOG(debug) << "QueryUserToken failed, this would prevent commands from launching under the users profile.";
       return nullptr;
     }
 
@@ -213,7 +211,7 @@ namespace platf {
     // Elevation - Limited: User is an admin, has UAC enabled.
     // Elevation - Full:    User is an admin, has UAC disabled.
     if (!GetTokenInformation(userToken, TokenElevationType, &elevationType, sizeof(TOKEN_ELEVATION_TYPE), &dwSize)) {
-      BOOST_LOG(debug) << "Retrieving token information failed: " << GetLastError();
+      // BOOST_LOG(debug) << "Retrieving token information failed: " << GetLastError();
       CloseHandle(userToken);
       return nullptr;
     }
@@ -222,8 +220,8 @@ namespace platf {
     // The documentation for this scenario is conflicting, so we'll double check to see if user is actually an admin.
     if (elevated && (elevationType == TokenElevationTypeDefault && !IsUserAdmin(userToken))) {
       // We don't have to strip the token or do anything here, but let's give the user a warning so they're aware what is happening.
-      BOOST_LOG(warning) << "This command requires elevation and the current user account logged in does not have administrator rights. "
-                         << "For security reasons Sunshine will retain the same access level as the current user and will not elevate it.";
+      // BOOST_LOG(warning) << "This command requires elevation and the current user account logged in does not have administrator rights. "
+                        //  << "For security reasons Sunshine will retain the same access level as the current user and will not elevate it.";
     }
 
     // User has a limited token, this means they have UAC enabled and is an Administrator
@@ -232,7 +230,7 @@ namespace platf {
       // Retrieve the administrator token that is linked to the limited token
       if (!GetTokenInformation(userToken, TokenLinkedToken, reinterpret_cast<void *>(&linkedToken), sizeof(TOKEN_LINKED_TOKEN), &dwSize)) {
         // If the retrieval failed, log an error message and return null
-        BOOST_LOG(error) << "Retrieving linked token information failed: " << GetLastError();
+        // BOOST_LOG(error) << "Retrieving linked token information failed: " << GetLastError();
         CloseHandle(userToken);
 
         // There is no scenario where this should be hit, except for an actual error.
@@ -298,7 +296,7 @@ namespace platf {
     // Allocate memory for the SID structure
     SystemSid = LocalAlloc(LMEM_FIXED, dwSize);
     if (SystemSid == nullptr) {
-      BOOST_LOG(error) << "Failed to allocate memory for the SID structure: " << GetLastError();
+      // BOOST_LOG(error) << "Failed to allocate memory for the SID structure: " << GetLastError();
       return false;
     }
 
@@ -307,12 +305,12 @@ namespace platf {
     if (ret) {
       // Check if the current process token contains this SID
       if (!CheckTokenMembership(nullptr, SystemSid, &ret)) {
-        BOOST_LOG(error) << "Failed to check token membership: " << GetLastError();
+        // BOOST_LOG(error) << "Failed to check token membership: " << GetLastError();
         ret = false;
       }
     }
     else {
-      BOOST_LOG(error) << "Failed to create a SID for the local system account. This may happen if the system is out of memory or if the SID buffer is too small: " << GetLastError();
+      // BOOST_LOG(error) << "Failed to create a SID for the local system account. This may happen if the system is out of memory or if the SID buffer is too small: " << GetLastError();
     }
 
     // Free the memory allocated for the SID structure
@@ -407,12 +405,12 @@ namespace platf {
     if (process_launched) {
       // If the launch was successful, create a new bp::child object representing the new process
       auto child = bp::child((bp::pid_t) process_info.dwProcessId);
-      BOOST_LOG(info) << cmd << " running with PID "sv << child.id();
+      // BOOST_LOG(info) << cmd << " running with PID "sv << child.id();
       return child;
     }
     else {
       auto winerror = GetLastError();
-      BOOST_LOG(error) << "Failed to launch process: "sv << winerror;
+      // BOOST_LOG(error) << "Failed to launch process: "sv << winerror;
       ec = std::make_error_code(std::errc::invalid_argument);
       // We must NOT attach the failed process here, since this case can potentially be induced by ACL
       // manipulation (denying yourself execute permission) to cause an escalation of privilege.
@@ -437,7 +435,7 @@ namespace platf {
     if (!ImpersonateLoggedOnUser(user_token)) {
       auto winerror = GetLastError();
       // Log the failure of impersonating the user and its error code
-      BOOST_LOG(error) << "Failed to impersonate user: "sv << winerror;
+      // BOOST_LOG(error) << "Failed to impersonate user: "sv << winerror;
       ec = std::make_error_code(std::errc::permission_denied);
       return ec;
     }
@@ -451,7 +449,7 @@ namespace platf {
     if (!RevertToSelf()) {
       auto winerror = GetLastError();
       // Log the failure of reverting to self and its error code
-      BOOST_LOG(fatal) << "Failed to revert to self after impersonation: "sv << winerror;
+      // BOOST_LOG(fatal) << "Failed to revert to self after impersonation: "sv << winerror;
       std::abort();
     }
 
@@ -520,124 +518,6 @@ namespace platf {
     return startup_info;
   }
 
-  /**
-   * @brief Run a command on the users profile.
-   *
-   * Launches a child process as the user, using the current user's environment and a specific working directory.
-   *
-   * @param elevated Specify whether to elevate the process.
-   * @param interactive Specify whether this will run in a window or hidden.
-   * @param cmd The command to run.
-   * @param working_dir The working directory for the new process.
-   * @param env The environment variables to use for the new process.
-   * @param file A file object to redirect the child process's output to (may be `nullptr`).
-   * @param ec An error code, set to indicate any errors that occur during the launch process.
-   * @param group A pointer to a `bp::group` object to which the new process should belong (may be `nullptr`).
-   * @return A `bp::child` object representing the new process, or an empty `bp::child` object if the launch fails.
-   */
-  bp::child
-  run_command(bool elevated, bool interactive, const std::string &cmd, boost::filesystem::path &working_dir, const bp::environment &env, FILE *file, std::error_code &ec, bp::group *group) {
-    BOOL ret;
-    // Convert cmd, env, and working_dir to the appropriate character sets for Win32 APIs
-    std::wstring wcmd = converter.from_bytes(cmd);
-    std::wstring start_dir = converter.from_bytes(working_dir.string());
-
-    HANDLE job = group ? group->native_handle() : nullptr;
-    STARTUPINFOEXW startup_info = create_startup_info(file, job ? &job : nullptr, ec);
-    PROCESS_INFORMATION process_info;
-
-    // Clone the environment to create a local copy. Boost.Process (bp) shares the environment with all spawned processes.
-    // Since we're going to modify the 'env' variable by merging user-specific environment variables into it,
-    // we make a clone to prevent side effects to the shared environment.
-    bp::environment cloned_env = env;
-
-    if (ec) {
-      // In the event that startup_info failed, return a blank child process.
-      return bp::child();
-    }
-
-    // Use RAII to ensure the attribute list is freed when we're done with it
-    auto attr_list_free = util::fail_guard([list = startup_info.lpAttributeList]() {
-      free_proc_thread_attr_list(list);
-    });
-
-    DWORD creation_flags = EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT | CREATE_BREAKAWAY_FROM_JOB;
-
-    // Create a new console for interactive processes and use no console for non-interactive processes
-    creation_flags |= interactive ? CREATE_NEW_CONSOLE : CREATE_NO_WINDOW;
-
-    if (is_running_as_system()) {
-      // Duplicate the current user's token
-      HANDLE user_token = retrieve_users_token(elevated);
-      if (!user_token) {
-        // Fail the launch rather than risking launching with Sunshine's permissions unmodified.
-        ec = std::make_error_code(std::errc::permission_denied);
-        return bp::child();
-      }
-
-      // Use RAII to ensure the shell token is closed when we're done with it
-      auto token_close = util::fail_guard([user_token]() {
-        CloseHandle(user_token);
-      });
-
-      // Populate env with user-specific environment variables
-      if (!merge_user_environment_block(cloned_env, user_token)) {
-        ec = std::make_error_code(std::errc::not_enough_memory);
-        return bp::child();
-      }
-
-      // Open the process as the current user account, elevation is handled in the token itself.
-      ec = impersonate_current_user(user_token, [&]() {
-        std::wstring env_block = create_environment_block(cloned_env);
-        ret = CreateProcessAsUserW(user_token,
-          NULL,
-          (LPWSTR) wcmd.c_str(),
-          NULL,
-          NULL,
-          !!(startup_info.StartupInfo.dwFlags & STARTF_USESTDHANDLES),
-          creation_flags,
-          env_block.data(),
-          start_dir.empty() ? NULL : start_dir.c_str(),
-          (LPSTARTUPINFOW) &startup_info,
-          &process_info);
-      });
-    }
-    // Otherwise, launch the process using CreateProcessW()
-    // This will inherit the elevation of whatever the user launched Sunshine with.
-    else {
-      // Open our current token to resolve environment variables
-      HANDLE process_token;
-      if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE, &process_token)) {
-        ec = std::make_error_code(std::errc::permission_denied);
-        return bp::child();
-      }
-      auto token_close = util::fail_guard([process_token]() {
-        CloseHandle(process_token);
-      });
-
-      // Populate env with user-specific environment variables
-      if (!merge_user_environment_block(cloned_env, process_token)) {
-        ec = std::make_error_code(std::errc::not_enough_memory);
-        return bp::child();
-      }
-
-      std::wstring env_block = create_environment_block(cloned_env);
-      ret = CreateProcessW(NULL,
-        (LPWSTR) wcmd.c_str(),
-        NULL,
-        NULL,
-        !!(startup_info.StartupInfo.dwFlags & STARTF_USESTDHANDLES),
-        creation_flags,
-        env_block.data(),
-        start_dir.empty() ? NULL : start_dir.c_str(),
-        (LPSTARTUPINFOW) &startup_info,
-        &process_info);
-    }
-
-    // Use the results of the launch to create a bp::child object
-    return create_boost_child_from_results(ret, cmd, ec, process_info);
-  }
-
   void
   adjust_thread_priority(thread_priority_e priority) {
     int win32_priority;
@@ -656,206 +536,20 @@ namespace platf {
         win32_priority = THREAD_PRIORITY_HIGHEST;
         break;
       default:
-        BOOST_LOG(error) << "Unknown thread priority: "sv << (int) priority;
+        // BOOST_LOG(error) << "Unknown thread priority: "sv << (int) priority;
         return;
     }
 
     if (!SetThreadPriority(GetCurrentThread(), win32_priority)) {
       auto winerr = GetLastError();
-      BOOST_LOG(warning) << "Unable to set thread priority to "sv << win32_priority << ": "sv << winerr;
+      // BOOST_LOG(warning) << "Unable to set thread priority to "sv << win32_priority << ": "sv << winerr;
     }
   }
 
 
 
 
-  SOCKADDR_IN
-  to_sockaddr(boost::asio::ip::address_v4 address, uint16_t port) {
-    SOCKADDR_IN saddr_v4 = {};
 
-    saddr_v4.sin_family = AF_INET;
-    saddr_v4.sin_port = htons(port);
-
-    auto addr_bytes = address.to_bytes();
-    memcpy(&saddr_v4.sin_addr, addr_bytes.data(), sizeof(saddr_v4.sin_addr));
-
-    return saddr_v4;
-  }
-
-  SOCKADDR_IN6
-  to_sockaddr(boost::asio::ip::address_v6 address, uint16_t port) {
-    SOCKADDR_IN6 saddr_v6 = {};
-
-    saddr_v6.sin6_family = AF_INET6;
-    saddr_v6.sin6_port = htons(port);
-    saddr_v6.sin6_scope_id = address.scope_id();
-
-    auto addr_bytes = address.to_bytes();
-    memcpy(&saddr_v6.sin6_addr, addr_bytes.data(), sizeof(saddr_v6.sin6_addr));
-
-    return saddr_v6;
-  }
-
-  // Use UDP segmentation offload if it is supported by the OS. If the NIC is capable, this will use
-  // hardware acceleration to reduce CPU usage. Support for USO was introduced in Windows 10 20H1.
-  bool
-  send_batch(batched_send_info_t &send_info) {
-    WSAMSG msg;
-
-    // Convert the target address into a SOCKADDR
-    SOCKADDR_IN taddr_v4;
-    SOCKADDR_IN6 taddr_v6;
-    if (send_info.target_address.is_v6()) {
-      taddr_v6 = to_sockaddr(send_info.target_address.to_v6(), send_info.target_port);
-
-      msg.name = (PSOCKADDR) &taddr_v6;
-      msg.namelen = sizeof(taddr_v6);
-    }
-    else {
-      taddr_v4 = to_sockaddr(send_info.target_address.to_v4(), send_info.target_port);
-
-      msg.name = (PSOCKADDR) &taddr_v4;
-      msg.namelen = sizeof(taddr_v4);
-    }
-
-    WSABUF buf;
-    buf.buf = (char *) send_info.buffer;
-    buf.len = send_info.block_size * send_info.block_count;
-
-    msg.lpBuffers = &buf;
-    msg.dwBufferCount = 1;
-    msg.dwFlags = 0;
-
-    // At most, one DWORD option and one PKTINFO option
-    char cmbuf[WSA_CMSG_SPACE(sizeof(DWORD)) +
-               std::max(WSA_CMSG_SPACE(sizeof(IN6_PKTINFO)), WSA_CMSG_SPACE(sizeof(IN_PKTINFO)))] = {};
-    ULONG cmbuflen = 0;
-
-    msg.Control.buf = cmbuf;
-    msg.Control.len = sizeof(cmbuf);
-
-    auto cm = WSA_CMSG_FIRSTHDR(&msg);
-    if (send_info.source_address.is_v6()) {
-      IN6_PKTINFO pktInfo;
-
-      SOCKADDR_IN6 saddr_v6 = to_sockaddr(send_info.source_address.to_v6(), 0);
-      pktInfo.ipi6_addr = saddr_v6.sin6_addr;
-      pktInfo.ipi6_ifindex = 0;
-
-      cmbuflen += WSA_CMSG_SPACE(sizeof(pktInfo));
-
-      cm->cmsg_level = IPPROTO_IPV6;
-      cm->cmsg_type = IPV6_PKTINFO;
-      cm->cmsg_len = WSA_CMSG_LEN(sizeof(pktInfo));
-      memcpy(WSA_CMSG_DATA(cm), &pktInfo, sizeof(pktInfo));
-    }
-    else {
-      IN_PKTINFO pktInfo;
-
-      SOCKADDR_IN saddr_v4 = to_sockaddr(send_info.source_address.to_v4(), 0);
-      pktInfo.ipi_addr = saddr_v4.sin_addr;
-      pktInfo.ipi_ifindex = 0;
-
-      cmbuflen += WSA_CMSG_SPACE(sizeof(pktInfo));
-
-      cm->cmsg_level = IPPROTO_IP;
-      cm->cmsg_type = IP_PKTINFO;
-      cm->cmsg_len = WSA_CMSG_LEN(sizeof(pktInfo));
-      memcpy(WSA_CMSG_DATA(cm), &pktInfo, sizeof(pktInfo));
-    }
-
-    if (send_info.block_count > 1) {
-      cmbuflen += WSA_CMSG_SPACE(sizeof(DWORD));
-
-      cm = WSA_CMSG_NXTHDR(&msg, cm);
-      cm->cmsg_level = IPPROTO_UDP;
-      cm->cmsg_type = UDP_SEND_MSG_SIZE;
-      cm->cmsg_len = WSA_CMSG_LEN(sizeof(DWORD));
-      *((DWORD *) WSA_CMSG_DATA(cm)) = send_info.block_size;
-    }
-
-    msg.Control.len = cmbuflen;
-
-    // If USO is not supported, this will fail and the caller will fall back to unbatched sends.
-    DWORD bytes_sent;
-    return WSASendMsg((SOCKET) send_info.native_socket, &msg, 1, &bytes_sent, nullptr, nullptr) != SOCKET_ERROR;
-  }
-
-  bool
-  send(send_info_t &send_info) {
-    WSAMSG msg;
-
-    // Convert the target address into a SOCKADDR
-    SOCKADDR_IN taddr_v4;
-    SOCKADDR_IN6 taddr_v6;
-    if (send_info.target_address.is_v6()) {
-      taddr_v6 = to_sockaddr(send_info.target_address.to_v6(), send_info.target_port);
-
-      msg.name = (PSOCKADDR) &taddr_v6;
-      msg.namelen = sizeof(taddr_v6);
-    }
-    else {
-      taddr_v4 = to_sockaddr(send_info.target_address.to_v4(), send_info.target_port);
-
-      msg.name = (PSOCKADDR) &taddr_v4;
-      msg.namelen = sizeof(taddr_v4);
-    }
-
-    WSABUF buf;
-    buf.buf = (char *) send_info.buffer;
-    buf.len = send_info.size;
-
-    msg.lpBuffers = &buf;
-    msg.dwBufferCount = 1;
-    msg.dwFlags = 0;
-
-    char cmbuf[std::max(WSA_CMSG_SPACE(sizeof(IN6_PKTINFO)), WSA_CMSG_SPACE(sizeof(IN_PKTINFO)))] = {};
-    ULONG cmbuflen = 0;
-
-    msg.Control.buf = cmbuf;
-    msg.Control.len = sizeof(cmbuf);
-
-    auto cm = WSA_CMSG_FIRSTHDR(&msg);
-    if (send_info.source_address.is_v6()) {
-      IN6_PKTINFO pktInfo;
-
-      SOCKADDR_IN6 saddr_v6 = to_sockaddr(send_info.source_address.to_v6(), 0);
-      pktInfo.ipi6_addr = saddr_v6.sin6_addr;
-      pktInfo.ipi6_ifindex = 0;
-
-      cmbuflen += WSA_CMSG_SPACE(sizeof(pktInfo));
-
-      cm->cmsg_level = IPPROTO_IPV6;
-      cm->cmsg_type = IPV6_PKTINFO;
-      cm->cmsg_len = WSA_CMSG_LEN(sizeof(pktInfo));
-      memcpy(WSA_CMSG_DATA(cm), &pktInfo, sizeof(pktInfo));
-    }
-    else {
-      IN_PKTINFO pktInfo;
-
-      SOCKADDR_IN saddr_v4 = to_sockaddr(send_info.source_address.to_v4(), 0);
-      pktInfo.ipi_addr = saddr_v4.sin_addr;
-      pktInfo.ipi_ifindex = 0;
-
-      cmbuflen += WSA_CMSG_SPACE(sizeof(pktInfo));
-
-      cm->cmsg_level = IPPROTO_IP;
-      cm->cmsg_type = IP_PKTINFO;
-      cm->cmsg_len = WSA_CMSG_LEN(sizeof(pktInfo));
-      memcpy(WSA_CMSG_DATA(cm), &pktInfo, sizeof(pktInfo));
-    }
-
-    msg.Control.len = cmbuflen;
-
-    DWORD bytes_sent;
-    if (WSASendMsg((SOCKET) send_info.native_socket, &msg, 1, &bytes_sent, nullptr, nullptr) == SOCKET_ERROR) {
-      auto winerr = WSAGetLastError();
-      BOOST_LOG(warning) << "WSASendMsg() failed: "sv << winerr;
-      return false;
-    }
-
-    return true;
-  }
   int64_t
   qpc_counter() {
     LARGE_INTEGER performace_counter;

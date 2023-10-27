@@ -9,10 +9,8 @@
 #include <iostream>
 #include <unordered_map>
 
-#include <boost/asio.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
+
+
 
 #include "config.h"
 #include "main.h"
@@ -46,7 +44,7 @@ namespace config {
       if (preset == "disabled") return nvenc::nvenc_two_pass::disabled;
       if (preset == "quarter_res") return nvenc::nvenc_two_pass::quarter_resolution;
       if (preset == "full_res") return nvenc::nvenc_two_pass::full_resolution;
-      BOOST_LOG(warning) << "config: unknown nvenc_twopass value: " << preset;
+      // BOOST_LOG(warning) << "config: unknown nvenc_twopass value: " << preset;
       return nvenc::nvenc_two_pass::quarter_resolution;
     }
 
@@ -730,32 +728,6 @@ namespace config {
     }
   }
 
-  void
-  list_prep_cmd_f(std::unordered_map<std::string, std::string> &vars, const std::string &name, std::vector<prep_cmd_t> &input) {
-    std::string string;
-    string_f(vars, name, string);
-
-    std::stringstream jsonStream;
-
-    // check if string is empty, i.e. when the value doesn't exist in the config file
-    if (string.empty()) {
-      return;
-    }
-
-    // We need to add a wrapping object to make it valid JSON, otherwise ptree cannot parse it.
-    jsonStream << "{\"prep_cmd\":" << string << "}";
-
-    boost::property_tree::ptree jsonTree;
-    boost::property_tree::read_json(jsonStream, jsonTree);
-
-    for (auto &[_, prep_cmd] : jsonTree.get_child("prep_cmd"s)) {
-      auto do_cmd = prep_cmd.get_optional<std::string>("do"s);
-      auto undo_cmd = prep_cmd.get_optional<std::string>("undo"s);
-      auto elevated = prep_cmd.get_optional<bool>("elevated"s);
-
-      input.emplace_back(do_cmd.value_or(""), undo_cmd.value_or(""), elevated.value_or(false));
-    }
-  }
 
   void
   list_int_f(std::unordered_map<std::string, std::string> &vars, const std::string &name, std::vector<int> &input) {
@@ -909,8 +881,6 @@ namespace config {
 
     // Must be run after "file_state"
     path_f(vars, "credentials_file", config::sunshine.credentials_file);
-
-    list_prep_cmd_f(vars, "global_prep_cmd", config::sunshine.prep_cmds);
 
     string_f(vars, "audio_sink", audio.sink);
     string_f(vars, "virtual_sink", audio.virtual_sink);

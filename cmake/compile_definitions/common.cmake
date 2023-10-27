@@ -46,8 +46,6 @@ set(SUNSHINE_TARGET_FILES
         src/move_by_copy.h
         src/thread_safe.h
         src/sync.h
-        src/stat_trackers.h
-        src/stat_trackers.cpp
         ${PLATFORM_TARGET_FILES})
 
 

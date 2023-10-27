@@ -6,10 +6,7 @@ enable_language(RC)
 set(CMAKE_RC_COMPILER windres)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
 
-# curl
-add_definitions(-DCURL_STATICLIB)
-include_directories(SYSTEM ${CURL_STATIC_INCLUDE_DIRS})
-link_directories(${CURL_STATIC_LIBRARY_DIRS})
+
 
 # extra tools/binaries for audio/display devices
 add_subdirectory(tools)  # todo - this is temporary, only tools for Windows are needed, for now

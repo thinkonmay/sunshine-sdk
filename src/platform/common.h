@@ -44,25 +44,7 @@ struct AVFrame;
 struct AVBufferRef;
 struct AVHWFramesContext;
 
-// Forward declarations of boost classes to avoid having to include boost headers
-// here, which results in issues with Windows.h and WinSock2.h include order.
-namespace boost {
-  namespace asio {
-    namespace ip {
-      class address;
-    }  // namespace ip
-  }  // namespace asio
-  namespace filesystem {
-    class path;
-  }
-  namespace process {
-    class child;
-    class group;
-    template <typename Char>
-    class basic_environment;
-    typedef basic_environment<char> environment;
-  }  // namespace process
-}  // namespace boost
+
 namespace video {
   struct config_t;
 }  // namespace video
@@ -396,7 +378,7 @@ namespace platf {
      */
     virtual int
     set_frame(AVFrame *frame, AVBufferRef *hw_frames_ctx) {
-      BOOST_LOG(error) << "Illegal call to hwdevice_t::set_frame(). Did you forget to override it?";
+      // BOOST_LOG(error) << "Illegal call to hwdevice_t::set_frame(). Did you forget to override it?";
       return -1;
     };
 
@@ -575,9 +557,6 @@ namespace platf {
   std::vector<std::string>
   display_names(mem_type_e hwdevice_type);
 
-  boost::process::child
-  run_command(bool elevated, bool interactive, const std::string &cmd, boost::filesystem::path &working_dir, const boost::process::environment &env, FILE *file, std::error_code &ec, boost::process::group *group);
-
   enum class thread_priority_e : int {
     low,
     normal,
@@ -586,33 +565,6 @@ namespace platf {
   };
   void
   adjust_thread_priority(thread_priority_e priority);
-
-
-
-  struct batched_send_info_t {
-    const char *buffer;
-    size_t block_size;
-    size_t block_count;
-
-    std::uintptr_t native_socket;
-    boost::asio::ip::address &target_address;
-    uint16_t target_port;
-    boost::asio::ip::address &source_address;
-  };
-  bool
-  send_batch(batched_send_info_t &send_info);
-
-  struct send_info_t {
-    const char *buffer;
-    size_t size;
-
-    std::uintptr_t native_socket;
-    boost::asio::ip::address &target_address;
-    uint16_t target_port;
-    boost::asio::ip::address &source_address;
-  };
-  bool
-  send(send_info_t &send_info);
 
   enum class qos_data_type_e : int {
     audio,

@@ -51,10 +51,8 @@ set(FFMPEG_LIBRARIES
         ${FFMPEG_PLATFORM_LIBRARIES})
 
 # common dependencies
-find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
-pkg_check_modules(CURL REQUIRED libcurl)
 
 # platform specific dependencies
 if(WIN32)
