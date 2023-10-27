@@ -618,9 +618,6 @@ namespace platf {
     audio,
     video
   };
-  std::unique_ptr<deinit_t>
-  enable_socket_qos(uintptr_t native_socket, boost::asio::ip::address &address, uint16_t port, qos_data_type_e data_type);
-
 
   typedef deinit_t client_input_t;
 

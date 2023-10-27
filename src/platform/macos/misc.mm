@@ -283,13 +283,6 @@ namespace platf {
     return true;
   }
 
-  std::unique_ptr<deinit_t>
-  enable_socket_qos(uintptr_t native_socket, boost::asio::ip::address &address, uint16_t port, qos_data_type_e data_type) {
-    // Unimplemented
-    //
-    // NB: When implementing, remember to consider that some routes can drop DSCP-tagged packets completely!
-    return nullptr;
-  }
 
 }  // namespace platf
 
