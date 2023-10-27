@@ -413,11 +413,8 @@ namespace platf {
     init();
   }
 
-  std::unique_ptr<deinit_t>
+  bool
   init() {
-    if (dxgi::init()) {
-      return nullptr;
-    }
-    return std::make_unique<deinit_t>();
+    return dxgi::init() != 0;
   }
 }  // namespace platf

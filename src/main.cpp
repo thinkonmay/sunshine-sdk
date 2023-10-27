@@ -10,7 +10,6 @@
 #include <iostream>
 #include <thread>
 
-
 // local includes
 #include "config.h"
 #include "main.h"
@@ -18,188 +17,152 @@
 #include "platform/common.h"
 #include "video.h"
 
+struct _VideoPipeline
+{
+	std::chrono::steady_clock::time_point start;
+	video::config_t monitor;
+	safe::mail_t mail;
+};
 
+extern VideoPipeline *__cdecl StartQueue(int video_width,
+										 int video_height,
+										 int video_bitrate,
+										 int video_framerate,
+										 int video_codec)
+{
+	static bool init = false;
+	if (!init)
+	{
+		// If any of the following fail, we log an error and continue event though sunshine will not function correctly.
+		// This allows access to the UI to fix configuration problems or view the logs.
+		if (platf::init())
+		{
+			// BOOST_LOG(error) << "Platform failed to initialize"sv;
+			return NULL;
+		}
+		else if (video::probe_encoders())
+		{
+			// BOOST_LOG(error) << "Video failed to find working encoder"sv;
+			return NULL;
+		}
+		init = true;
+	}
 
-safe::mail_t mail::man;
+	static VideoPipeline pipeline = {};
+	auto mail = std::make_shared<safe::mail_raw_t>();
+	pipeline.mail = mail;
+	pipeline.monitor = {1920, 1080, 60, 6000, 1, 0, 1, 0, 0};
+	pipeline.start = std::chrono::steady_clock::now();
 
-using namespace std::literals;
+	switch (video_codec)
+	{
+	case 2: // h265
+		pipeline.monitor.videoFormat = 1;
+		config::video.hevc_mode = 1;
+		config::video.av1_mode = 0;
+		break;
+	case 3: // av1
+		pipeline.monitor.videoFormat = 2;
+		config::video.hevc_mode = 0;
+		config::video.av1_mode = 1;
+		break;
+	default:
+		pipeline.monitor.videoFormat = 0;
+		config::video.hevc_mode = 0;
+		config::video.av1_mode = 0;
+		break;
+	}
 
-bool display_cursor = true;
+	auto thread = std::thread{[&](){ video::capture(pipeline.mail, pipeline.monitor, NULL); }};
+	thread.detach();
 
-
-static video::config_t monitor   = { 1920, 1080, 60, 6000, 1, 0, 1, 0, 0 };
-static std::shared_ptr<safe::mail_raw_t> privatemail;
-static std::chrono::steady_clock::time_point start; 
-extern int __cdecl
-Init(
-  int width,
-  int height,
-  int bitrate,
-  int framerate,
-  int codec
-) {
-  start = std::chrono::steady_clock::now(); 
-  monitor.width = width;
-  monitor.height = height;
-  monitor.framerate = framerate;
-
-  switch (codec)
-  {
-  case 2: // h265
-    monitor.videoFormat = 1;
-    config::video.hevc_mode = 1;
-    config::video.av1_mode = 0;
-    break;
-  case 3: // av1
-    monitor.videoFormat = 2;
-    config::video.hevc_mode = 0;
-    config::video.av1_mode = 1;
-    break;
-  default:
-    monitor.videoFormat = 0;
-    config::video.hevc_mode = 0;
-    config::video.av1_mode = 0;
-    break;
-  }
-
-
-
-  mail::man = std::make_shared<safe::mail_raw_t>();
-
-
-
-
-
-
-  // If any of the following fail, we log an error and continue event though sunshine will not function correctly.
-  // This allows access to the UI to fix configuration problems or view the logs.
-  auto deinit_guard = platf::init();
-  if (!deinit_guard) {
-    // BOOST_LOG(error) << "Platform failed to initialize"sv;
-    return 1;
-  } else if (video::probe_encoders()) {
-    // BOOST_LOG(error) << "Video failed to find working encoder"sv;
-    return 1;
-  } else {
-    // BOOST_LOG(error) << "Hello from thinkmay."sv;
-    return 0;
-  }
-
-  // auto mic = control->microphone(stream->mapping, stream->channelCount, stream->sampleRate, frame_size);
-
-  // Create signal handler after logging has been initialized
-  mail::man->event<bool>(mail::shutdown)->view();
-}
-
-
-
-extern void __cdecl
-Wait(){
-  mail::man->event<bool>(mail::shutdown)->view();
-}
-
-
-
-
-
-/**
- * @brief Main application entry point.
- * @param argc The number of arguments.
- * @param argv The arguments.
- *
- * EXAMPLES:
- * ```cpp
- * main(1, const char* args[] = {"sunshine", nullptr});
- * ```
- */
-extern int __cdecl 
-StartQueue() {
-  void* null = 0;
-  privatemail = std::make_shared<safe::mail_raw_t>();
-  auto capture = std::thread {[&](){video::capture(privatemail, monitor, (void*)null);}};
-
-  // Create signal handler after logging has been initialized
-  mail::man->event<bool>(mail::shutdown)->view();
-  return 0;
+	return &pipeline;
 }
 
 int __cdecl 
-PopFromQueue(void* data,int* duration) 
+PopFromQueue(VideoPipeline *pipeline,
+			void *data,
+			int *duration)
 {
-  auto packets = mail::man->queue<video::packet_t>(mail::video_packets);
-  auto packet = packets->pop();
+	auto packets = pipeline->mail->queue<video::packet_t>(mail::video_packets);
+	auto packet = packets->pop();
 
-  if(packet->frame_timestamp) {
-    auto duration_to_latency = [](const std::chrono::steady_clock::duration &duration) {
-      const auto duration_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
-      return std::clamp<decltype(duration_ns)>((duration_ns + 50) / 100, 0, std::numeric_limits<int>::max());
-    };
+	if (packet->frame_timestamp)
+	{
+		auto duration_to_latency = [](const std::chrono::steady_clock::duration &duration)
+		{
+			const auto duration_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+			return std::clamp<decltype(duration_ns)>((duration_ns + 50) / 100, 0, std::numeric_limits<int>::max());
+		};
 
+		*duration = duration_to_latency(*packet->frame_timestamp - pipeline->start);
+		pipeline->start = *packet->frame_timestamp;
+	}
 
-    *duration = duration_to_latency(*packet->frame_timestamp - start);
-    start = *packet->frame_timestamp;
-  }
-
-  // packet->
-  memcpy(data,packet->data(),packet->data_size());
-  return packet->data_size();
+	memcpy(data, packet->data(), packet->data_size());
+	return packet->data_size();
 }
 
 void __cdecl 
-RaiseEvent(int event_id, int value) 
+RaiseEvent(VideoPipeline *pipeline,
+			EventType event,
+			int value)
 {
-  switch (event_id)
-  {
-  case 1: // IDR FRAME
-    if (privatemail)
-      privatemail->event<bool>(mail::idr)->raise(true);
-    break;
-  default:
-    break;
-  }
+	switch (event)
+	{
+	case IDR_FRAME: // IDR FRAME
+		pipeline->mail->event<bool>(mail::idr)->raise(true);
+		break;
+	case STOP: // IDR FRAME
+		pipeline->mail->event<bool>(mail::shutdown)->raise(true);
+		break;
+	default:
+		break;
+	}
 }
 
-void 
-DecodeCallbackEx(void* data, int size) {
-  printf("received packet with size %d\n",size);
+void __cdecl 
+WaitEvent(VideoPipeline* pipeline,
+          EventType event,
+          int* value)
+{
+	switch (event)
+	{
+	case STOP: // IDR FRAME
+		pipeline->mail->event<bool>(mail::shutdown)->pop();
+		break;
+	default:
+		break;
+	}
 }
 
-/**
- * @brief Main application entry point.
- * @param argc The number of arguments.
- * @param argv The arguments.
- *
- * EXAMPLES:
- * ```cpp
- * main(1, const char* args[] = {"sunshine", nullptr});
- * ```
- */
-int
-main(int argc, char *argv[]) {
-  Init(1920,1080,6000,60,1);
-  // StartCallback(DecodeCallbackEx);
-
-  auto video = std::thread {[](){
-    auto shutdown_event = mail::man->event<bool>(mail::broadcast_shutdown);
-    // Video traffic is sent on this thread
-    platf::adjust_thread_priority(platf::thread_priority_e::high);
-
-    int duration = 0;
-    void* data = malloc(100 * 1000 * 1000);
-    while (true) {
-      int size = PopFromQueue(data,&duration);
-      if (shutdown_event->peek()) {
-        break;
-      }
 
 
+int main(int argc, char *argv[])
+{
 
-      DecodeCallbackEx(data,size);
-    }
+	VideoPipeline *pipeline = StartQueue(1920, 1080, 6000, 60, 1);
+	auto video = std::thread{[&]() {
+		// Video traffic is sent on this thread
+		platf::adjust_thread_priority(platf::thread_priority_e::high);
+		int duration = 0;
+		void *data = malloc(100 * 1000 * 1000);
 
-    shutdown_event->raise(true);
-  }};
+		int count = 0;
+		while (true) {
+			int size = PopFromQueue(pipeline, data, &duration);
+			if (pipeline->mail->event<bool>(mail::shutdown)->peek() || count == 10) {
+				break;
+			}
 
-  StartQueue();
-  return 0;
+			printf("received packet with size %d\n", size);
+			count++;
+		}
+
+		RaiseEvent(pipeline,STOP,0);
+	}};
+
+	int val;
+	WaitEvent(pipeline,STOP,&val);
+	return 0;
 }

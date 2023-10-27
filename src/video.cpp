@@ -518,6 +518,8 @@ namespace video {
     safe::mail_raw_t::event_t<bool> shutdown_event;
     safe::mail_raw_t::queue_t<packet_t> packets;
     safe::mail_raw_t::event_t<bool> idr_events;
+    safe::mail_raw_t::event_t<int> switch_display;
+    safe::mail_raw_t::event_t<bool> toggle_cursor;
     safe::mail_raw_t::event_t<hdr_info_t> hdr_events;
 
     config_t config;
@@ -534,6 +536,8 @@ namespace video {
   using encode_e = platf::capture_e;
 
   struct capture_ctx_t {
+    safe::mail_raw_t::event_t<int> switch_display;
+    safe::mail_raw_t::event_t<bool> toggle_cursor;
     img_event_t images;
     config_t config;
   };
@@ -1032,7 +1036,6 @@ namespace video {
       }
     });
 
-    auto switch_display_event = mail::man->event<int>(mail::switch_display);
 
     // Get all the monitor names now, rather than at boot, to
     // get the most up-to-date list available monitors
@@ -1163,6 +1166,7 @@ namespace video {
     // Capture takes place on this thread
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
 
+    bool display_cursor = false;
     while (capture_ctx_queue->running()) {
       bool artificial_reinit = false;
 
@@ -1172,6 +1176,13 @@ namespace video {
             capture_ctx = capture_ctxs.erase(capture_ctx);
 
             continue;
+          } else if (capture_ctx->switch_display->peek()) {
+            artificial_reinit = true;
+
+            display_p = std::clamp(*capture_ctx->switch_display->pop(), 0, (int) display_names.size() - 1);
+            return false;
+          } else if (capture_ctx->toggle_cursor->peek()) {
+            display_cursor = capture_ctx->toggle_cursor->pop();
           }
 
           if (frame_captured) {
@@ -1187,13 +1198,6 @@ namespace video {
 
         while (capture_ctx_queue->peek()) {
           capture_ctxs.emplace_back(std::move(*capture_ctx_queue->pop()));
-        }
-
-        if (switch_display_event->peek()) {
-          artificial_reinit = true;
-
-          display_p = std::clamp(*switch_display_event->pop(), 0, (int) display_names.size() - 1);
-          return false;
         }
 
         return true;
@@ -1745,9 +1749,9 @@ namespace video {
       return;
     }
 
-    auto shutdown_event = mail->event<bool>(mail::shutdown);
-    auto packets = mail::man->queue<packet_t>(mail::video_packets);
-    auto idr_events = mail->event<bool>(mail::idr);
+    auto shutdown_event  = mail->event<bool>(mail::shutdown);
+    auto packets         = mail->queue<packet_t>(mail::video_packets);
+    auto idr_events      = mail->event<bool>(mail::idr);
     auto invalidate_ref_frames_events = mail->event<std::pair<int64_t, int64_t>>(mail::invalidate_ref_frames);
 
     {
@@ -1891,7 +1895,6 @@ namespace video {
 
     std::shared_ptr<platf::display_t> disp;
 
-    auto switch_display_event = mail::man->event<int>(mail::switch_display);
 
     if (synced_session_ctxs.empty()) {
       auto ctx = encode_session_ctx_queue.pop();
@@ -1929,6 +1932,7 @@ namespace video {
       synced_sessions.emplace_back(std::move(*synced_session));
     }
 
+    bool display_cursor = false;
     auto ec = platf::capture_e::ok;
     while (encode_session_ctx_queue.running()) {
       auto push_captured_image_callback = [&](std::shared_ptr<platf::img_t> &&img, bool frame_captured) -> bool {
@@ -1965,6 +1969,12 @@ namespace video {
             }
 
             continue;
+          } else if (ctx->switch_display->peek()) {
+              ec = platf::capture_e::reinit;
+              display_p = std::clamp(*ctx->switch_display->pop(), 0, (int) display_names.size() - 1);
+              return false;
+          } else if (ctx->toggle_cursor->peek()) {
+              display_cursor = ctx->toggle_cursor->pop();
           }
 
           if (ctx->idr_events->peek()) {
@@ -1997,12 +2007,6 @@ namespace video {
           ++pos;
         })
 
-        if (switch_display_event->peek()) {
-          ec = platf::capture_e::reinit;
-
-          display_p = std::clamp(*switch_display_event->pop(), 0, (int) display_names.size() - 1);
-          return false;
-        }
 
         return true;
       };
@@ -2072,7 +2076,10 @@ namespace video {
       return;
     }
 
-    ref->capture_ctx_queue->raise(capture_ctx_t { images, config });
+    ref->capture_ctx_queue->raise(capture_ctx_t { 
+      mail->event<int>(mail::switch_display),
+      mail->event<bool>(mail::toggle_cursor),
+      images, config });
 
     if (!ref->capture_ctx_queue->running()) {
       return;
@@ -2149,8 +2156,10 @@ namespace video {
       ref->encode_session_ctx_queue.raise(sync_session_ctx_t {
         &join_event,
         mail->event<bool>(mail::shutdown),
-        mail::man->queue<packet_t>(mail::video_packets),
+        mail->queue<packet_t>(mail::video_packets),
         std::move(idr_events),
+        mail->event<int>(mail::switch_display),
+        mail->event<bool>(mail::toggle_cursor),
         mail->event<hdr_info_t>(mail::hdr),
         config,
         1,
@@ -2193,7 +2202,8 @@ namespace video {
 
     session->request_idr_frame();
 
-    auto packets = mail::man->queue<packet_t>(mail::video_packets);
+    auto localmail = std::make_shared<safe::mail_raw_t>();
+    auto packets = localmail->queue<packet_t>(mail::video_packets);
     while (!packets->peek()) {
       if (encode(1, *session, packets, nullptr, {})) {
         return -1;

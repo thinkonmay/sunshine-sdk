@@ -2,18 +2,36 @@
 */
 
 extern "C" {
-__declspec(dllexport) int __cdecl Init(
-  int video_width,
-  int video_height,
-  int video_bitrate,
-  int video_framerate,
-  int video_codec
-);
 
-__declspec(dllexport) int  __cdecl StartQueue(int media_type);
-__declspec(dllexport) int  __cdecl PopFromQueue(int media_type, void* data,int* duration);
-__declspec(dllexport) void __cdecl RaiseEvent(int event_id,int value);
 
-__declspec(dllexport) void __cdecl Wait();
-__declspec(dllexport) void __cdecl Stop();
+typedef struct _VideoPipeline  VideoPipeline;
+
+
+typedef enum _EventType {
+    POINTER_VISIBLE,
+    CHANGE_BITRATE,
+    IDR_FRAME,
+
+    STOP
+}EventType;
+
+__declspec(dllexport) VideoPipeline* __cdecl StartQueue( int video_width,
+                                                        int video_height,
+                                                        int video_bitrate,
+                                                        int video_framerate,
+                                                        int video_codec);
+
+__declspec(dllexport) int  __cdecl PopFromQueue(VideoPipeline* pipeline, 
+                                                void* data,
+                                                int* duration);
+
+__declspec(dllexport) void __cdecl RaiseEvent(VideoPipeline* pipeline,
+                                              EventType event,
+                                              int value);
+
+__declspec(dllexport) void  __cdecl WaitEvent(VideoPipeline* pipeline,
+                                                  EventType event,
+                                                  int* value);
+
+
 }

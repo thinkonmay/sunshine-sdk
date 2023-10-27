@@ -1,8 +1,8 @@
 # common target definitions
 # this file will also load platform specific macros
 
-# add_library(sunshine SHARED ${SUNSHINE_TARGET_FILES})
-add_executable(sunshine ${SUNSHINE_TARGET_FILES})
+add_library(sunshine SHARED ${SUNSHINE_TARGET_FILES})
+# add_executable(sunshine ${SUNSHINE_TARGET_FILES})
 
 # platform specific target definitions
 if(WIN32)

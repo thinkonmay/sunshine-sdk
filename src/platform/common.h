@@ -573,6 +573,5 @@ namespace platf {
 
   typedef deinit_t client_input_t;
 
-  [[nodiscard]] std::unique_ptr<deinit_t>
-  init();
+  bool init();
 }  // namespace platf

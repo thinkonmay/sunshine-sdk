@@ -19,33 +19,23 @@
 // local includes
 #include "thread_safe.h"
 
-extern bool display_cursor;
-
-
 
 
 // namespaces
 namespace mail {
-#define MAIL(x)                         \
-  constexpr auto x = std::string_view { \
-    #x                                  \
-  }
+#define MAIL(x) constexpr auto x = std::string_view { #x }
 
-  extern safe::mail_t man;
-
-  // Global mail
-  MAIL(shutdown);
-  MAIL(broadcast_shutdown);
+  //queue
   MAIL(video_packets);
-  MAIL(audio_packets);
-  MAIL(switch_display);
 
-  // Local mail
-  MAIL(touch_port);
+  //event
+  MAIL(shutdown);
+  MAIL(switch_display);
+  MAIL(toggle_cursor);
   MAIL(idr);
-  MAIL(invalidate_ref_frames);
-  MAIL(gamepad_feedback);
   MAIL(hdr);
+  MAIL(invalidate_ref_frames);
+
 #undef MAIL
 
 }  // namespace mail

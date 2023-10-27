@@ -659,13 +659,14 @@ namespace platf {
 
     if (sources.none()) {
       BOOST_LOG(error) << "Unable to initialize capture method"sv;
-      return nullptr;
+      return true;
     }
 
     if (!gladLoaderLoadEGL(EGL_NO_DISPLAY) || !eglGetPlatformDisplay) {
       BOOST_LOG(warning) << "Couldn't load EGL library"sv;
+      return true;
     }
 
-    return std::make_unique<deinit_t>();
+    return false;
   }
 }  // namespace platf
