@@ -21,7 +21,13 @@ static PEEKEVENT		callpeek;
 
 int
 initlibrary() {
-	hModule 	= LoadLibraryA(".\\libsunshine.dll");
+	char szFullPath[MAX_PATH] = {};
+	GetCurrentDirectoryA(MAX_PATH, szFullPath);
+	strcat(szFullPath, "\\libsunshine.dll");
+	hModule 	= LoadLibraryA(szFullPath);
+	if(hModule == 0)
+		return 1;
+
 	callstart 	= (STARTQUEUE)		GetProcAddress( hModule,"StartQueue");
 	callpop 	= (POPFROMQUEUE)	GetProcAddress( hModule,"PopFromQueue");
 	callraise 	= (RAISEEVENT)		GetProcAddress( hModule,"RaiseEvent");
@@ -36,7 +42,11 @@ initlibrary() {
 
 int main(int argc, char *argv[])
 {
-	initlibrary();
+	if(initlibrary()) {
+		printf("failed to load libsunshine.dll");
+		return 1;
+	}
+
 	// second encode session
 	for (int i =0; i < 30; i++)
 	{
