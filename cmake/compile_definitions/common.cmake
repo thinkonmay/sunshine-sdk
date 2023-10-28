@@ -29,15 +29,18 @@ list(APPEND PLATFORM_TARGET_FILES ${NVENC_SOURCES})
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
+set(TEST_TARGET_FILES 
+        src/dll.h
+        src/main.cpp)
 set(SUNSHINE_TARGET_FILES
         src/cbs.cpp
         src/utility.h
         src/uuid.h
         src/config.h
         src/config.cpp
-        src/main.cpp
         src/main.h
         src/dll.h
+        src/dll.cpp
         src/video.cpp
         src/video.h
         src/video_colorspace.cpp

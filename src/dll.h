@@ -34,4 +34,29 @@ __declspec(dllexport) void  __cdecl WaitEvent(VideoPipeline* pipeline,
                                                   int* value);
 
 
+__declspec(dllexport) int  __cdecl PeekEvent(VideoPipeline* pipeline,
+                                                  EventType event,
+                                                  int* value);
+
+typedef VideoPipeline* (*STARTQUEUE)				  ( int video_width,
+                                                        int video_height,
+                                                        int video_bitrate,
+                                                        int video_framerate,
+                                                        int video_codec);
+
+typedef int  		   (*POPFROMQUEUE)			(VideoPipeline* pipeline, 
+                                                void* data,
+                                                int* duration);
+
+typedef void 			(*RAISEEVENT)		 (VideoPipeline* pipeline,
+                                              EventType event,
+                                              int value);
+
+typedef void  			(*WAITEVENT)			(VideoPipeline* pipeline,
+                                                  EventType event,
+                                                  int* value);
+
+typedef int             (*PEEKEVENT)            (VideoPipeline* pipeline,
+                                                  EventType event,
+                                                  int* value);
 }
