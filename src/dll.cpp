@@ -28,7 +28,8 @@ extern VideoPipeline *__cdecl StartQueue(int video_width,
 										 int video_height,
 										 int video_bitrate,
 										 int video_framerate,
-										 int video_codec)
+										 int video_codec,
+										 char* display_name)
 {
 	static bool init = false;
 	if (!init)
@@ -49,31 +50,38 @@ extern VideoPipeline *__cdecl StartQueue(int video_width,
 	}
 
 	static VideoPipeline pipeline = {};
-	auto mail = std::make_shared<safe::mail_raw_t>();
-	pipeline.mail = mail;
+	pipeline.mail = std::make_shared<safe::mail_raw_t>();
 	pipeline.monitor = {1920, 1080, 60, 6000, 1, 0, 1, 0, 0};
 	pipeline.start = std::chrono::steady_clock::now();
 
 	switch (video_codec)
 	{
 	case 2: // h265
+		printf("starting pipeline with h265 codec\n");
 		pipeline.monitor.videoFormat = 1;
 		config::video.hevc_mode = 1;
 		config::video.av1_mode = 0;
 		break;
 	case 3: // av1
+		printf("starting pipeline with av1 codec\n");
 		pipeline.monitor.videoFormat = 2;
 		config::video.hevc_mode = 0;
 		config::video.av1_mode = 1;
 		break;
 	default:
+		printf("starting pipeline with h264 codec\n");
 		pipeline.monitor.videoFormat = 0;
 		config::video.hevc_mode = 0;
 		config::video.av1_mode = 0;
 		break;
 	}
 
-	auto thread = std::thread{[&](){ video::capture(pipeline.mail, pipeline.monitor, NULL); }};
+	auto thread = std::thread{[&](){ 
+		video::capture(
+			pipeline.mail, 
+			pipeline.monitor, 
+			std::string(display_name),
+			NULL); }};
 	thread.detach();
 
 	return &pipeline;
@@ -114,6 +122,9 @@ RaiseEvent(VideoPipeline *pipeline,
 		break;
 	case STOP: // IDR FRAME
 		pipeline->mail->event<bool>(mail::shutdown)->raise(true);
+		break;
+	case POINTER_VISIBLE: // IDR FRAME
+		pipeline->mail->event<bool>(mail::toggle_cursor)->raise(value != 0);
 		break;
 	default:
 		break;

@@ -151,6 +151,7 @@ namespace video {
   capture(
     safe::mail_t mail,
     config_t config,
+    std::string display_name,
     void *channel_data);
 
   int

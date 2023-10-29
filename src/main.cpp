@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 	// second encode session
 	for (int i =0; i < 30; i++)
 	{
-		VideoPipeline *pipeline = callstart(1920, 1080, 6000, 60, 1);
+		VideoPipeline *pipeline = callstart(1920, 1080, 6000, 60, 1,"\\\\.\\DISPLAY1");
 		auto video = std::thread{[&]() {
 			// Video traffic is sent on this thread
 			int duration = 0;
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 			int count = 0;
 			while (true) {
 				int size = callpop(pipeline, data, &duration);
-				if (callpeek(pipeline,STOP,NULL) || count == 1000) {
+				if (callpeek(pipeline,STOP,NULL) || count == 10) {
 					break;
 				}
 

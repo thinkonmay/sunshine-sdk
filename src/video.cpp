@@ -518,7 +518,7 @@ namespace video {
     safe::mail_raw_t::event_t<bool> shutdown_event;
     safe::mail_raw_t::queue_t<packet_t> packets;
     safe::mail_raw_t::event_t<bool> idr_events;
-    safe::mail_raw_t::event_t<int> switch_display;
+    safe::mail_raw_t::event_t<std::string> switch_display;
     safe::mail_raw_t::event_t<bool> toggle_cursor;
     safe::mail_raw_t::event_t<hdr_info_t> hdr_events;
 
@@ -536,7 +536,7 @@ namespace video {
   using encode_e = platf::capture_e;
 
   struct capture_ctx_t {
-    safe::mail_raw_t::event_t<int> switch_display;
+    safe::mail_raw_t::event_t<std::string> switch_display;
     safe::mail_raw_t::event_t<bool> toggle_cursor;
     img_event_t images;
     config_t config;
@@ -1016,6 +1016,23 @@ namespace video {
     }
   }
 
+  std::string 
+  validate_display_name (std::vector<std::string> display_names,std::string display_name){
+    bool drop = true;
+    for (int x = 0; x < display_names.size(); ++x) {
+      if (display_names[x] == display_name) {
+        drop = false;
+      }
+    }
+
+    if(drop) {
+      printf("invalid display name %s\n",display_name.c_str());
+      display_name = display_names[0];
+    }
+
+    return display_name;
+  };
+
   void
   captureThread(
     std::shared_ptr<safe::queue_t<capture_ctx_t>> capture_ctx_queue,
@@ -1040,19 +1057,7 @@ namespace video {
     // Get all the monitor names now, rather than at boot, to
     // get the most up-to-date list available monitors
     auto display_names = platf::display_names(encoder.platform_formats->dev_type);
-    int display_p = 0;
-
-    if (display_names.empty()) {
-      display_names.emplace_back(config::video.output_name);
-    }
-
-    for (int x = 0; x < display_names.size(); ++x) {
-      if (display_names[x] == config::video.output_name) {
-        display_p = x;
-
-        break;
-      }
-    }
+    auto display_name  = display_names[0];
 
     // Wait for the initial capture context or a request to stop the queue
     auto initial_capture_ctx = capture_ctx_queue->pop();
@@ -1061,7 +1066,7 @@ namespace video {
     }
     capture_ctxs.emplace_back(std::move(*initial_capture_ctx));
 
-    auto disp = platf::display(encoder.platform_formats->dev_type, display_names[display_p], capture_ctxs.front().config);
+    auto disp = platf::display(encoder.platform_formats->dev_type, display_name, capture_ctxs.front().config);
     if (!disp) {
       return;
     }
@@ -1179,10 +1184,12 @@ namespace video {
           } else if (capture_ctx->switch_display->peek()) {
             artificial_reinit = true;
 
-            display_p = std::clamp(*capture_ctx->switch_display->pop(), 0, (int) display_names.size() - 1);
+            display_name = validate_display_name(display_names,capture_ctx->switch_display->pop().value());
+            printf("capturing screen on display %s\n",display_names[0].c_str());
             return false;
           } else if (capture_ctx->toggle_cursor->peek()) {
             display_cursor = capture_ctx->toggle_cursor->pop();
+            printf("cursor set to %d\n",display_cursor);
           }
 
           if (frame_captured) {
@@ -1246,7 +1253,7 @@ namespace video {
 
           while (capture_ctx_queue->running()) {
             // reset_display() will sleep between retries
-            reset_display(disp, encoder.platform_formats->dev_type, display_names[display_p], capture_ctxs.front().config);
+            reset_display(disp, encoder.platform_formats->dev_type, display_name, capture_ctxs.front().config);
             if (disp) {
               break;
             }
@@ -1879,19 +1886,7 @@ namespace video {
     encode_session_ctx_queue_t &encode_session_ctx_queue) {
     const auto &encoder = *chosen_encoder;
     auto display_names = platf::display_names(encoder.platform_formats->dev_type);
-    int display_p = 0;
-
-    if (display_names.empty()) {
-      display_names.emplace_back(config::video.output_name);
-    }
-
-    for (int x = 0; x < display_names.size(); ++x) {
-      if (display_names[x] == config::video.output_name) {
-        display_p = x;
-
-        break;
-      }
-    }
+    auto display_name  = display_names[0];
 
     std::shared_ptr<platf::display_t> disp;
 
@@ -1907,7 +1902,7 @@ namespace video {
 
     while (encode_session_ctx_queue.running()) {
       // reset_display() will sleep between retries
-      reset_display(disp, encoder.platform_formats->dev_type, display_names[display_p], synced_session_ctxs.front()->config);
+      reset_display(disp, encoder.platform_formats->dev_type, display_name, synced_session_ctxs.front()->config);
       if (disp) {
         break;
       }
@@ -1971,10 +1966,12 @@ namespace video {
             continue;
           } else if (ctx->switch_display->peek()) {
               ec = platf::capture_e::reinit;
-              display_p = std::clamp(*ctx->switch_display->pop(), 0, (int) display_names.size() - 1);
+              display_name = validate_display_name(display_names,ctx->switch_display->pop().value());
+              printf("capturing screen on display %s\n",display_name.c_str());
               return false;
           } else if (ctx->toggle_cursor->peek()) {
               display_cursor = ctx->toggle_cursor->pop();
+              printf("cursor set to %d\n",display_cursor);
           }
 
           if (ctx->idr_events->peek()) {
@@ -2063,12 +2060,13 @@ namespace video {
     safe::mail_t mail,
     config_t &config,
     void *channel_data) {
-    auto shutdown_event = mail->event<bool>(mail::shutdown);
+
+    auto stopped = false;
 
     auto images = std::make_shared<img_event_t::element_type>();
     auto lg = util::fail_guard([&]() {
       images->stop();
-      shutdown_event->raise(true);
+      stopped = true;
     });
 
     auto ref = capture_thread_async.ref();
@@ -2077,7 +2075,7 @@ namespace video {
     }
 
     ref->capture_ctx_queue->raise(capture_ctx_t { 
-      mail->event<int>(mail::switch_display),
+      mail->event<std::string>(mail::switch_display),
       mail->event<bool>(mail::toggle_cursor),
       images, config });
 
@@ -2092,7 +2090,7 @@ namespace video {
     // Encoding takes place on this thread
     platf::adjust_thread_priority(platf::thread_priority_e::high);
 
-    while (!shutdown_event->peek() && images->running()) {
+    while (!stopped && images->running()) {
       // Wait for the main capture event when the display is being reinitialized
       if (ref->reinit_event.peek()) {
         std::this_thread::sleep_for(20ms);
@@ -2143,23 +2141,31 @@ namespace video {
   capture(
     safe::mail_t mail,
     config_t config,
+    std::string display_name,
     void *channel_data) {
+
+    // CAREFULL
+    auto ptr_events = mail->event<bool>(mail::toggle_cursor);
     auto idr_events = mail->event<bool>(mail::idr);
+    auto display_events = mail->event<std::string>(mail::switch_display);
+    auto shutdown_event = mail->event<bool>(mail::shutdown);
+    auto packets    = mail->queue<packet_t>(mail::video_packets);
 
     idr_events->raise(true);
+    display_events->raise(display_name);
+
     if (chosen_encoder->flags & PARALLEL_ENCODING) {
       capture_async(std::move(mail), config, channel_data);
-    }
-    else {
+    } else {
       safe::signal_t join_event;
       auto ref = capture_thread_sync.ref();
       ref->encode_session_ctx_queue.raise(sync_session_ctx_t {
         &join_event,
-        mail->event<bool>(mail::shutdown),
-        mail->queue<packet_t>(mail::video_packets),
+        std::move(shutdown_event),
+        std::move(packets),
         std::move(idr_events),
-        mail->event<int>(mail::switch_display),
-        mail->event<bool>(mail::toggle_cursor),
+        std::move(display_events),
+        std::move(ptr_events),
         mail->event<hdr_info_t>(mail::hdr),
         config,
         1,

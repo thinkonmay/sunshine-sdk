@@ -19,7 +19,8 @@ __declspec(dllexport) VideoPipeline* __cdecl StartQueue( int video_width,
                                                         int video_height,
                                                         int video_bitrate,
                                                         int video_framerate,
-                                                        int video_codec);
+                                                        int video_codec,
+                                                        char* display_name);
 
 __declspec(dllexport) int  __cdecl PopFromQueue(VideoPipeline* pipeline, 
                                                 void* data,
@@ -42,7 +43,8 @@ typedef VideoPipeline* (*STARTQUEUE)				  ( int video_width,
                                                         int video_height,
                                                         int video_bitrate,
                                                         int video_framerate,
-                                                        int video_codec);
+                                                        int video_codec,
+                                                        char* display_name);
 
 typedef int  		   (*POPFROMQUEUE)			(VideoPipeline* pipeline, 
                                                 void* data,
