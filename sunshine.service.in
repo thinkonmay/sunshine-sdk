@@ -1,8 +1,0 @@
-[Unit]
-Description=@PROJECT_DESCRIPTION@
-
-[Service]
-ExecStart=@SUNSHINE_EXECUTABLE_PATH@
-
-[Install]
-WantedBy=graphical-session.target
