@@ -51,18 +51,18 @@ extern VideoPipeline *__cdecl StartQueue(int video_width,
 
 	static VideoPipeline pipeline = {};
 	pipeline.mail = std::make_shared<safe::mail_raw_t>();
-	pipeline.monitor = {1920, 1080, 60, 6000, 1, 0, 1, 0, 0};
+	pipeline.monitor = {video_width, video_height, video_framerate, video_bitrate, 1, 0, 1, 0, 0};
 	pipeline.start = std::chrono::steady_clock::now();
 
 	switch (video_codec)
 	{
-	case 2: // h265
+	case H265: // h265
 		printf("starting pipeline with h265 codec\n");
 		pipeline.monitor.videoFormat = 1;
 		config::video.hevc_mode = 1;
 		config::video.av1_mode = 0;
 		break;
-	case 3: // av1
+	case AV1: // av1
 		printf("starting pipeline with av1 codec\n");
 		pipeline.monitor.videoFormat = 2;
 		config::video.hevc_mode = 0;

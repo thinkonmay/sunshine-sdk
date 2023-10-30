@@ -15,6 +15,12 @@ typedef enum _EventType {
     STOP
 }EventType;
 
+typedef enum _Codec {
+    H264 = 1,
+    H265,
+    AV1,
+}Codec;
+
 __declspec(dllexport) VideoPipeline* __cdecl StartQueue( int video_width,
                                                         int video_height,
                                                         int video_bitrate,
