@@ -58,8 +58,8 @@ namespace platf {
         // Double check that these weakly-linked symbols have been loaded:
         CGPreflightScreenCaptureAccess != nullptr && CGRequestScreenCaptureAccess != nullptr &&
         !CGPreflightScreenCaptureAccess()) {
-      // BOOST_LOG(error) << "No screen capture permission!"sv;
-      // BOOST_LOG(error) << "Please activate it in 'System Preferences' -> 'Privacy' -> 'Screen Recording'"sv;
+      BOOST_LOG(error) << "No screen capture permission!"sv;
+      BOOST_LOG(error) << "Please activate it in 'System Preferences' -> 'Privacy' -> 'Screen Recording'"sv;
       CGRequestScreenCaptureAccess();
       return nullptr;
     }
@@ -153,7 +153,7 @@ namespace dyn {
 
     ss << ']';
 
-    // BOOST_LOG(error) << ss.str();
+    BOOST_LOG(error) << ss.str();
 
     return nullptr;
   }
@@ -167,7 +167,7 @@ namespace dyn {
       *fn = (void (*)()) dlsym(handle, name);
 
       if (!*fn && strict) {
-        // BOOST_LOG(error) << "Couldn't find function: "sv << name;
+        BOOST_LOG(error) << "Couldn't find function: "sv << name;
 
         err = -1;
       }

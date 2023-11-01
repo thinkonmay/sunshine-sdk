@@ -38,12 +38,12 @@ extern VideoPipeline *__cdecl StartQueue(int video_width,
 		// This allows access to the UI to fix configuration problems or view the logs.
 		if (platf::init())
 		{
-			// BOOST_LOG(error) << "Platform failed to initialize"sv;
+			BOOST_LOG(error) << "Platform failed to initialize"sv;
 			return NULL;
 		}
 		else if (video::probe_encoders())
 		{
-			// BOOST_LOG(error) << "Video failed to find working encoder"sv;
+			BOOST_LOG(error) << "Video failed to find working encoder"sv;
 			return NULL;
 		}
 		init = true;

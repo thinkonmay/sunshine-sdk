@@ -120,14 +120,14 @@ namespace platf {
     auto hDesk = OpenInputDesktop(DF_ALLOWOTHERACCOUNTHOOK, FALSE, GENERIC_ALL);
     if (!hDesk) {
       auto err = GetLastError();
-      // BOOST_LOG(error) << "Failed to Open Input Desktop [0x"sv << util::hex(err).to_string_view() << ']';
+      BOOST_LOG(error) << "Failed to Open Input Desktop [0x"sv << util::hex(err).to_string_view() << ']';
 
       return nullptr;
     }
 
     if (!SetThreadDesktop(hDesk)) {
       auto err = GetLastError();
-      // BOOST_LOG(error) << "Failed to sync desktop to thread [0x"sv << util::hex(err).to_string_view() << ']';
+      BOOST_LOG(error) << "Failed to sync desktop to thread [0x"sv << util::hex(err).to_string_view() << ']';
     }
 
     CloseDesktop(hDesk);
@@ -147,7 +147,7 @@ namespace platf {
       sizeof(err_string),
       nullptr);
 
-    // BOOST_LOG(error) << prefix << ": "sv << std::string_view { err_string, bytes };
+    BOOST_LOG(error) << prefix << ": "sv << std::string_view { err_string, bytes };
   }
 
   bool
@@ -165,12 +165,12 @@ namespace platf {
     if (ret) {
       if (!CheckTokenMembership(user_token, AdministratorsGroup, &ret)) {
         ret = false;
-        // BOOST_LOG(error) << "Failed to verify token membership for administrative access: " << GetLastError();
+        BOOST_LOG(error) << "Failed to verify token membership for administrative access: " << GetLastError();
       }
       FreeSid(AdministratorsGroup);
     }
     else {
-      // BOOST_LOG(error) << "Unable to allocate SID to check administrative access: " << GetLastError();
+      BOOST_LOG(error) << "Unable to allocate SID to check administrative access: " << GetLastError();
     }
 
     return ret;
@@ -191,13 +191,13 @@ namespace platf {
     consoleSessionId = WTSGetActiveConsoleSessionId();
     if (0xFFFFFFFF == consoleSessionId) {
       // If there is no active console session, log a warning and return null
-      // BOOST_LOG(warning) << "There isn't an active user session, therefore it is not possible to execute commands under the users profile.";
+      BOOST_LOG(warning) << "There isn't an active user session, therefore it is not possible to execute commands under the users profile.";
       return nullptr;
     }
 
     // Get the user token for the active console session
     if (!WTSQueryUserToken(consoleSessionId, &userToken)) {
-      // BOOST_LOG(debug) << "QueryUserToken failed, this would prevent commands from launching under the users profile.";
+      BOOST_LOG(debug) << "QueryUserToken failed, this would prevent commands from launching under the users profile.";
       return nullptr;
     }
 
@@ -207,7 +207,7 @@ namespace platf {
     // Elevation - Limited: User is an admin, has UAC enabled.
     // Elevation - Full:    User is an admin, has UAC disabled.
     if (!GetTokenInformation(userToken, TokenElevationType, &elevationType, sizeof(TOKEN_ELEVATION_TYPE), &dwSize)) {
-      // BOOST_LOG(debug) << "Retrieving token information failed: " << GetLastError();
+      BOOST_LOG(debug) << "Retrieving token information failed: " << GetLastError();
       CloseHandle(userToken);
       return nullptr;
     }
@@ -216,8 +216,8 @@ namespace platf {
     // The documentation for this scenario is conflicting, so we'll double check to see if user is actually an admin.
     if (elevated && (elevationType == TokenElevationTypeDefault && !IsUserAdmin(userToken))) {
       // We don't have to strip the token or do anything here, but let's give the user a warning so they're aware what is happening.
-      // BOOST_LOG(warning) << "This command requires elevation and the current user account logged in does not have administrator rights. "
-                        //  << "For security reasons Sunshine will retain the same access level as the current user and will not elevate it.";
+      BOOST_LOG(warning) << "This command requires elevation and the current user account logged in does not have administrator rights. "
+                         << "For security reasons Sunshine will retain the same access level as the current user and will not elevate it.";
     }
 
     // User has a limited token, this means they have UAC enabled and is an Administrator
@@ -226,7 +226,7 @@ namespace platf {
       // Retrieve the administrator token that is linked to the limited token
       if (!GetTokenInformation(userToken, TokenLinkedToken, reinterpret_cast<void *>(&linkedToken), sizeof(TOKEN_LINKED_TOKEN), &dwSize)) {
         // If the retrieval failed, log an error message and return null
-        // BOOST_LOG(error) << "Retrieving linked token information failed: " << GetLastError();
+        BOOST_LOG(error) << "Retrieving linked token information failed: " << GetLastError();
         CloseHandle(userToken);
 
         // There is no scenario where this should be hit, except for an actual error.
@@ -256,7 +256,7 @@ namespace platf {
     // Allocate memory for the SID structure
     SystemSid = LocalAlloc(LMEM_FIXED, dwSize);
     if (SystemSid == nullptr) {
-      // BOOST_LOG(error) << "Failed to allocate memory for the SID structure: " << GetLastError();
+      BOOST_LOG(error) << "Failed to allocate memory for the SID structure: " << GetLastError();
       return false;
     }
 
@@ -265,12 +265,12 @@ namespace platf {
     if (ret) {
       // Check if the current process token contains this SID
       if (!CheckTokenMembership(nullptr, SystemSid, &ret)) {
-        // BOOST_LOG(error) << "Failed to check token membership: " << GetLastError();
+        BOOST_LOG(error) << "Failed to check token membership: " << GetLastError();
         ret = false;
       }
     }
     else {
-      // BOOST_LOG(error) << "Failed to create a SID for the local system account. This may happen if the system is out of memory or if the SID buffer is too small: " << GetLastError();
+      BOOST_LOG(error) << "Failed to create a SID for the local system account. This may happen if the system is out of memory or if the SID buffer is too small: " << GetLastError();
     }
 
     // Free the memory allocated for the SID structure
@@ -329,7 +329,7 @@ namespace platf {
     if (!ImpersonateLoggedOnUser(user_token)) {
       auto winerror = GetLastError();
       // Log the failure of impersonating the user and its error code
-      // BOOST_LOG(error) << "Failed to impersonate user: "sv << winerror;
+      BOOST_LOG(error) << "Failed to impersonate user: "sv << winerror;
       ec = std::make_error_code(std::errc::permission_denied);
       return ec;
     }
@@ -343,7 +343,7 @@ namespace platf {
     if (!RevertToSelf()) {
       auto winerror = GetLastError();
       // Log the failure of reverting to self and its error code
-      // BOOST_LOG(fatal) << "Failed to revert to self after impersonation: "sv << winerror;
+      BOOST_LOG(fatal) << "Failed to revert to self after impersonation: "sv << winerror;
       std::abort();
     }
 
@@ -370,13 +370,13 @@ namespace platf {
         win32_priority = THREAD_PRIORITY_HIGHEST;
         break;
       default:
-        // BOOST_LOG(error) << "Unknown thread priority: "sv << (int) priority;
+        BOOST_LOG(error) << "Unknown thread priority: "sv << (int) priority;
         return;
     }
 
     if (!SetThreadPriority(GetCurrentThread(), win32_priority)) {
       auto winerr = GetLastError();
-      // BOOST_LOG(warning) << "Unable to set thread priority to "sv << win32_priority << ": "sv << winerr;
+      BOOST_LOG(warning) << "Unable to set thread priority to "sv << win32_priority << ": "sv << winerr;
     }
   }
 

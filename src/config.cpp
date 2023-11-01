@@ -31,6 +31,13 @@ using namespace std::literals;
 #define PRIVATE_KEY_FILE CA_DIR "/cakey.pem"
 #define CERTIFICATE_FILE CA_DIR "/cacert.pem"
 
+boost::log::sources::severity_logger<int> verbose(0);  // Dominating output
+boost::log::sources::severity_logger<int> debug(1);  // Follow what is happening
+boost::log::sources::severity_logger<int> info(2);  // Should be informed about
+boost::log::sources::severity_logger<int> warning(3);  // Strange events
+boost::log::sources::severity_logger<int> error(4);  // Recoverable errors
+boost::log::sources::severity_logger<int> fatal(5);  // Unrecoverable errors
+
 #define APPS_JSON_PATH platf::appdata().string() + "/apps.json"
 namespace config {
 
@@ -41,7 +48,7 @@ namespace config {
       if (preset == "disabled") return nvenc::nvenc_two_pass::disabled;
       if (preset == "quarter_res") return nvenc::nvenc_two_pass::quarter_resolution;
       if (preset == "full_res") return nvenc::nvenc_two_pass::full_resolution;
-      // BOOST_LOG(warning) << "config: unknown nvenc_twopass value: " << preset;
+      BOOST_LOG(warning) << "config: unknown nvenc_twopass value: " << preset;
       return nvenc::nvenc_two_pass::quarter_resolution;
     }
 

@@ -2,9 +2,13 @@
  * @file src/main.h
  * @brief Main header file for the Sunshine application.
  */
+#ifndef __MAIN_H__
+#define __MAIN_H__
+#endif
 
 // macros
 #pragma once
+#include <boost/log/common.hpp>
 
 // standard includes
 #include <filesystem>
@@ -20,6 +24,12 @@
 #include "thread_safe.h"
 
 
+extern boost::log::sources::severity_logger<int> verbose;  // Dominating output
+extern boost::log::sources::severity_logger<int> debug;  // Follow what is happening
+extern boost::log::sources::severity_logger<int> info;  // Should be informed about
+extern boost::log::sources::severity_logger<int> warning;  // Strange events
+extern boost::log::sources::severity_logger<int> error;  // Recoverable errors
+extern boost::log::sources::severity_logger<int> fatal;  // Unrecoverable errors
 
 // namespaces
 namespace mail {

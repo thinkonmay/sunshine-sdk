@@ -85,7 +85,7 @@ namespace platf {
         return device;
       }
       else {
-        // BOOST_LOG(error) << "Unsupported Pixel Format."sv;
+        BOOST_LOG(error) << "Unsupported Pixel Format."sv;
         return nullptr;
       }
     }
@@ -136,7 +136,7 @@ namespace platf {
   std::shared_ptr<display_t>
   display(platf::mem_type_e hwdevice_type, const std::string &display_name, const video::config_t &config) {
     if (hwdevice_type != platf::mem_type_e::system && hwdevice_type != platf::mem_type_e::videotoolbox) {
-      // BOOST_LOG(error) << "Could not initialize display with the given hw device type."sv;
+      BOOST_LOG(error) << "Could not initialize display with the given hw device type."sv;
       return nullptr;
     }
 
@@ -158,7 +158,7 @@ namespace platf {
     display->av_capture = [[AVVideo alloc] initWithDisplay:display->display_id frameRate:config.framerate];
 
     if (!display->av_capture) {
-      // BOOST_LOG(error) << "Video setup failed."sv;
+      BOOST_LOG(error) << "Video setup failed."sv;
       return nullptr;
     }
 

@@ -39,7 +39,7 @@ namespace nvenc {
         auto new_nvenc = std::make_unique<NV_ENCODE_API_FUNCTION_LIST>();
         new_nvenc->version = NV_ENCODE_API_FUNCTION_LIST_VER;
         if (nvenc_failed(create_instance(new_nvenc.get()))) {
-          // BOOST_LOG(error) << "NvEncodeAPICreateInstance failed: " << last_error_string;
+          BOOST_LOG(error) << "NvEncodeAPICreateInstance failed: " << last_error_string;
         }
         else {
           nvenc = std::move(new_nvenc);
@@ -47,11 +47,11 @@ namespace nvenc {
         }
       }
       else {
-        // BOOST_LOG(error) << "No NvEncodeAPICreateInstance in " << dll_name;
+        BOOST_LOG(error) << "No NvEncodeAPICreateInstance in " << dll_name;
       }
     }
     else {
-      // BOOST_LOG(debug) << "Couldn't load NvEnc library " << dll_name;
+      BOOST_LOG(debug) << "Couldn't load NvEnc library " << dll_name;
     }
 
     if (dll) {
@@ -75,7 +75,7 @@ namespace nvenc {
       desc.Usage = D3D11_USAGE_DEFAULT;
       desc.BindFlags = D3D11_BIND_RENDER_TARGET;
       if (d3d_device->CreateTexture2D(&desc, nullptr, &d3d_input_texture) != S_OK) {
-        // BOOST_LOG(error) << "NvEnc: couldn't create input texture";
+        BOOST_LOG(error) << "NvEnc: couldn't create input texture";
         return false;
       }
     }
@@ -90,7 +90,7 @@ namespace nvenc {
       register_resource.bufferUsage = NV_ENC_INPUT_IMAGE;
 
       if (nvenc_failed(nvenc->nvEncRegisterResource(encoder, &register_resource))) {
-        // BOOST_LOG(error) << "NvEncRegisterResource failed: " << last_error_string;
+        BOOST_LOG(error) << "NvEncRegisterResource failed: " << last_error_string;
         return false;
       }
 

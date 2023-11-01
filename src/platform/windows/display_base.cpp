@@ -40,7 +40,7 @@ namespace platf::dxgi {
         // is on screen the whole time, so we can't just print when it changes. Instead we'll keep track
         // of the last time we printed the warning and print another if we haven't printed one recently.
         if (frame_info.ProtectedContentMaskedOut && std::chrono::steady_clock::now() > last_protected_content_warning_time + 10s) {
-          // BOOST_LOG(warning) << "Windows is currently blocking DRM-protected content from capture. You may see black regions where this content would be."sv;
+          BOOST_LOG(warning) << "Windows is currently blocking DRM-protected content from capture. You may see black regions where this content would be."sv;
           last_protected_content_warning_time = std::chrono::steady_clock::now();
         }
 
@@ -53,7 +53,7 @@ namespace platf::dxgi {
       case DXGI_ERROR_ACCESS_DENIED:
         return capture_e::reinit;
       default:
-        // BOOST_LOG(error) << "Couldn't acquire next frame [0x"sv << util::hex(status).to_string_view();
+        BOOST_LOG(error) << "Couldn't acquire next frame [0x"sv << util::hex(status).to_string_view();
         return capture_e::error;
     }
   }
@@ -80,14 +80,14 @@ namespace platf::dxgi {
         return capture_e::ok;
 
       case DXGI_ERROR_INVALID_CALL:
-        // BOOST_LOG(warning) << "Duplication frame already released";
+        BOOST_LOG(warning) << "Duplication frame already released";
         return capture_e::ok;
 
       case DXGI_ERROR_ACCESS_LOST:
         return capture_e::reinit;
 
       default:
-        // BOOST_LOG(error) << "Error while releasing duplication frame [0x"sv << util::hex(status).to_string_view();
+        BOOST_LOG(error) << "Error while releasing duplication frame [0x"sv << util::hex(status).to_string_view();
         return capture_e::error;
     }
   }
@@ -99,15 +99,15 @@ namespace platf::dxgi {
   void
   display_base_t::high_precision_sleep(std::chrono::nanoseconds duration) {
     if (!timer) {
-      // BOOST_LOG(error) << "Attempting high_precision_sleep() with uninitialized timer";
+      BOOST_LOG(error) << "Attempting high_precision_sleep() with uninitialized timer";
       return;
     }
     if (duration < 0s) {
-      // BOOST_LOG(error) << "Attempting high_precision_sleep() with negative duration";
+      BOOST_LOG(error) << "Attempting high_precision_sleep() with negative duration";
       return;
     }
     if (duration > 5s) {
-      // BOOST_LOG(error) << "Attempting high_precision_sleep() with unexpectedly large duration (>5s)";
+      BOOST_LOG(error) << "Attempting high_precision_sleep() with unexpectedly large duration (>5s)";
       return;
     }
 
@@ -132,7 +132,7 @@ namespace platf::dxgi {
         double candidate_rate = (double) candidate.Numerator / candidate.Denominator;
         // Can only decrease requested fps, otherwise client may start accumulating frames and suffer increased latency.
         if (client_frame_rate > candidate_rate && candidate_rate / client_frame_rate > 0.99) {
-          // BOOST_LOG(info) << "Adjusted capture rate to " << candidate_rate << "fps to better match display";
+          BOOST_LOG(info) << "Adjusted capture rate to " << candidate_rate << "fps to better match display";
           return candidate;
         }
       }
@@ -188,7 +188,7 @@ namespace platf::dxgi {
           //   // Print sleep overshoot stats to debug log every 20 seconds
           //   auto print_info = [&](double min_overshoot, double max_overshoot, double avg_overshoot) {
           //     auto f = stat_trackers::one_digit_after_decimal();
-          //     // BOOST_LOG(debug) << "Sleep overshoot (min/max/avg): " << f % min_overshoot << "ms/" << f % max_overshoot << "ms/" << f % avg_overshoot << "ms";
+          //     BOOST_LOG(debug) << "Sleep overshoot (min/max/avg): " << f % min_overshoot << "ms/" << f % max_overshoot << "ms/" << f % avg_overshoot << "ms";
           //   };
           //   std::chrono::nanoseconds overshoot_ns = std::chrono::steady_clock::now() - sleep_target;
           //   sleep_overshoot_tracker.collect_and_callback_on_interval(overshoot_ns.count() / 1000000., print_info, 20s);
@@ -214,7 +214,7 @@ namespace platf::dxgi {
           frame_pacing_group_start = img_out->frame_timestamp;
 
           if (!frame_pacing_group_start) {
-            // BOOST_LOG(warning) << "snapshot() provided image without timestamp";
+            BOOST_LOG(warning) << "snapshot() provided image without timestamp";
             frame_pacing_group_start = std::chrono::steady_clock::now();
           }
 
@@ -238,7 +238,7 @@ namespace platf::dxgi {
           }
           break;
         default:
-          // BOOST_LOG(error) << "Unrecognized capture status ["sv << (int) status << ']';
+          BOOST_LOG(error) << "Unrecognized capture status ["sv << (int) status << ']';
           return status;
       }
 
@@ -267,11 +267,11 @@ namespace platf::dxgi {
       value_data,
       (wcslen(value_data) + 1) * sizeof(WCHAR));
     if (status != ERROR_SUCCESS) {
-      // BOOST_LOG(error) << "Failed to set GPU preference: "sv << status;
+      BOOST_LOG(error) << "Failed to set GPU preference: "sv << status;
       return false;
     }
 
-    // BOOST_LOG(info) << "Set GPU preference: "sv << preference;
+    BOOST_LOG(info) << "Set GPU preference: "sv << preference;
     return true;
   }
 
@@ -308,11 +308,11 @@ namespace platf::dxgi {
         result = bp::system(cmd, std::to_string(i), display_name, bp::std_out > bp::null, bp::std_err > bp::null);
       }
       catch (bp::process_error &e) {
-        // BOOST_LOG(error) << "Failed to start ddprobe.exe: "sv << e.what();
+        BOOST_LOG(error) << "Failed to start ddprobe.exe: "sv << e.what();
         return false;
       }
 
-      // BOOST_LOG(info) << "ddprobe.exe ["sv << i << "] ["sv << display_name << "] returned: 0x"sv << util::hex(result).to_string_view();
+      BOOST_LOG(info) << "ddprobe.exe ["sv << i << "] ["sv << display_name << "] returned: 0x"sv << util::hex(result).to_string_view();
 
       // E_ACCESSDENIED can happen at the login screen. If we get this error,
       // we know capture would have been supported, because DXGI_ERROR_UNSUPPORTED
@@ -361,14 +361,14 @@ namespace platf::dxgi {
       nullptr,
       nullptr);
     if (FAILED(status)) {
-      // BOOST_LOG(error) << "Failed to create D3D11 device for DD test [0x"sv << util::hex(status).to_string_view() << ']';
+      BOOST_LOG(error) << "Failed to create D3D11 device for DD test [0x"sv << util::hex(status).to_string_view() << ']';
       return false;
     }
 
     output1_t output1;
     status = output->QueryInterface(IID_IDXGIOutput1, (void **) &output1);
     if (FAILED(status)) {
-      // BOOST_LOG(error) << "Failed to query IDXGIOutput1 from the output"sv;
+      BOOST_LOG(error) << "Failed to query IDXGIOutput1 from the output"sv;
       return false;
     }
 
@@ -382,7 +382,7 @@ namespace platf::dxgi {
       Sleep(200);
     }
 
-    // BOOST_LOG(error) << "DuplicateOutput() test failed [0x"sv << util::hex(status).to_string_view() << ']';
+    BOOST_LOG(error) << "DuplicateOutput() test failed [0x"sv << util::hex(status).to_string_view() << ']';
     return false;
   }
 
@@ -415,12 +415,12 @@ namespace platf::dxgi {
 
     // We must set the GPU preference before calling any DXGI APIs!
     if (!probe_for_gpu_preference(display_name)) {
-      // BOOST_LOG(warning) << "Failed to set GPU preference. Capture may not work!"sv;
+      BOOST_LOG(warning) << "Failed to set GPU preference. Capture may not work!"sv;
     }
 
     status = CreateDXGIFactory1(IID_IDXGIFactory1, (void **) &factory);
     if (FAILED(status)) {
-      // BOOST_LOG(error) << "Failed to create DXGIFactory1 [0x"sv << util::hex(status).to_string_view() << ']';
+      BOOST_LOG(error) << "Failed to create DXGIFactory1 [0x"sv << util::hex(status).to_string_view() << ']';
       return -1;
     }
 
@@ -496,7 +496,7 @@ namespace platf::dxgi {
     }
 
     if (!output) {
-      // BOOST_LOG(error) << "Failed to locate an output device"sv;
+      BOOST_LOG(error) << "Failed to locate an output device"sv;
       return -1;
     }
 
@@ -512,7 +512,7 @@ namespace platf::dxgi {
 
     status = adapter->QueryInterface(IID_IDXGIAdapter, (void **) &adapter_p);
     if (FAILED(status)) {
-      // BOOST_LOG(error) << "Failed to query IDXGIAdapter interface"sv;
+      BOOST_LOG(error) << "Failed to query IDXGIAdapter interface"sv;
       return -1;
     }
 
@@ -530,7 +530,7 @@ namespace platf::dxgi {
     adapter_p->Release();
 
     if (FAILED(status)) {
-      // BOOST_LOG(error) << "Failed to create D3D11 device [0x"sv << util::hex(status).to_string_view() << ']';
+      BOOST_LOG(error) << "Failed to create D3D11 device [0x"sv << util::hex(status).to_string_view() << ']';
 
       return -1;
     }
@@ -539,18 +539,18 @@ namespace platf::dxgi {
     adapter->GetDesc(&adapter_desc);
 
     auto description = converter.to_bytes(adapter_desc.Description);
-    // BOOST_LOG(info)
-      // << std::endl
-      // << "Device Description : " << description << std::endl
-      // << "Device Vendor ID   : 0x"sv << util::hex(adapter_desc.VendorId).to_string_view() << std::endl
-      // << "Device Device ID   : 0x"sv << util::hex(adapter_desc.DeviceId).to_string_view() << std::endl
-      // << "Device Video Mem   : "sv << adapter_desc.DedicatedVideoMemory / 1048576 << " MiB"sv << std::endl
-      // << "Device Sys Mem     : "sv << adapter_desc.DedicatedSystemMemory / 1048576 << " MiB"sv << std::endl
-      // << "Share Sys Mem      : "sv << adapter_desc.SharedSystemMemory / 1048576 << " MiB"sv << std::endl
-      // << "Feature Level      : 0x"sv << util::hex(feature_level).to_string_view() << std::endl
-      // << "Capture size       : "sv << width << 'x' << height << std::endl
-      // << "Offset             : "sv << offset_x << 'x' << offset_y << std::endl
-      // << "Virtual Desktop    : "sv << env_width << 'x' << env_height;
+    BOOST_LOG(info)
+      << std::endl
+      << "Device Description : " << description << std::endl
+      << "Device Vendor ID   : 0x"sv << util::hex(adapter_desc.VendorId).to_string_view() << std::endl
+      << "Device Device ID   : 0x"sv << util::hex(adapter_desc.DeviceId).to_string_view() << std::endl
+      << "Device Video Mem   : "sv << adapter_desc.DedicatedVideoMemory / 1048576 << " MiB"sv << std::endl
+      << "Device Sys Mem     : "sv << adapter_desc.DedicatedSystemMemory / 1048576 << " MiB"sv << std::endl
+      << "Share Sys Mem      : "sv << adapter_desc.SharedSystemMemory / 1048576 << " MiB"sv << std::endl
+      << "Feature Level      : 0x"sv << util::hex(feature_level).to_string_view() << std::endl
+      << "Capture size       : "sv << width << 'x' << height << std::endl
+      << "Offset             : "sv << offset_x << 'x' << offset_y << std::endl
+      << "Virtual Desktop    : "sv << env_width << 'x' << env_height;
 
     // Bump up thread priority
     {
@@ -566,7 +566,7 @@ namespace platf::dxgi {
         tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 
         if (!AdjustTokenPrivileges(token, false, &tp, sizeof(tp), NULL, NULL)) {
-          // BOOST_LOG(warning) << "Could not set privilege to increase GPU priority";
+          BOOST_LOG(warning) << "Could not set privilege to increase GPU priority";
         }
       }
 
@@ -579,13 +579,13 @@ namespace platf::dxgi {
           auto d3dkmt_query_adapter_info = (PD3DKMTQueryAdapterInfo) GetProcAddress(gdi32, "D3DKMTQueryAdapterInfo");
           auto d3dkmt_close_adapter = (PD3DKMTCloseAdapter) GetProcAddress(gdi32, "D3DKMTCloseAdapter");
           if (!d3dkmt_open_adapter || !d3dkmt_query_adapter_info || !d3dkmt_close_adapter) {
-            // BOOST_LOG(error) << "Couldn't load d3dkmt functions from gdi32.dll to determine GPU HAGS status";
+            BOOST_LOG(error) << "Couldn't load d3dkmt functions from gdi32.dll to determine GPU HAGS status";
             return false;
           }
 
           D3DKMT_OPENADAPTERFROMLUID d3dkmt_adapter = { adapter };
           if (FAILED(d3dkmt_open_adapter(&d3dkmt_adapter))) {
-            // BOOST_LOG(error) << "D3DKMTOpenAdapterFromLuid() failed while trying to determine GPU HAGS status";
+            BOOST_LOG(error) << "D3DKMTOpenAdapterFromLuid() failed while trying to determine GPU HAGS status";
             return false;
           }
 
@@ -602,13 +602,13 @@ namespace platf::dxgi {
             result = d3dkmt_adapter_caps.HwSchEnabled;
           }
           else {
-            // BOOST_LOG(warning) << "D3DKMTQueryAdapterInfo() failed while trying to determine GPU HAGS status";
+            BOOST_LOG(warning) << "D3DKMTQueryAdapterInfo() failed while trying to determine GPU HAGS status";
             result = false;
           }
 
           D3DKMT_CLOSEADAPTER d3dkmt_close_adapter_wrap = { d3dkmt_adapter.hAdapter };
           if (FAILED(d3dkmt_close_adapter(&d3dkmt_close_adapter_wrap))) {
-            // BOOST_LOG(error) << "D3DKMTCloseAdapter() failed while trying to determine GPU HAGS status";
+            BOOST_LOG(error) << "D3DKMTCloseAdapter() failed while trying to determine GPU HAGS status";
           }
 
           return result;
@@ -624,27 +624,27 @@ namespace platf::dxgi {
             // Track OBS to see if they find better workaround or NVIDIA fixes it on their end, they seem to be in communication
             if (hags_enabled && !config::video.nv_realtime_hags) priority = D3DKMT_SCHEDULINGPRIORITYCLASS_HIGH;
           }
-          // BOOST_LOG(info) << "Active GPU has HAGS " << (hags_enabled ? "enabled" : "disabled");
-          // BOOST_LOG(info) << "Using " << (priority == D3DKMT_SCHEDULINGPRIORITYCLASS_HIGH ? "high" : "realtime") << " GPU priority";
+          BOOST_LOG(info) << "Active GPU has HAGS " << (hags_enabled ? "enabled" : "disabled");
+          BOOST_LOG(info) << "Using " << (priority == D3DKMT_SCHEDULINGPRIORITYCLASS_HIGH ? "high" : "realtime") << " GPU priority";
           if (FAILED(d3dkmt_set_process_priority(GetCurrentProcess(), priority))) {
-            // BOOST_LOG(warning) << "Failed to adjust GPU priority. Please run application as administrator for optimal performance.";
+            BOOST_LOG(warning) << "Failed to adjust GPU priority. Please run application as administrator for optimal performance.";
           }
         }
         else {
-          // BOOST_LOG(error) << "Couldn't load D3DKMTSetProcessSchedulingPriorityClass function from gdi32.dll to adjust GPU priority";
+          BOOST_LOG(error) << "Couldn't load D3DKMTSetProcessSchedulingPriorityClass function from gdi32.dll to adjust GPU priority";
         }
       }
 
       dxgi::dxgi_t dxgi;
       status = device->QueryInterface(IID_IDXGIDevice, (void **) &dxgi);
       if (FAILED(status)) {
-        // BOOST_LOG(warning) << "Failed to query DXGI interface from device [0x"sv << util::hex(status).to_string_view() << ']';
+        BOOST_LOG(warning) << "Failed to query DXGI interface from device [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
       status = dxgi->SetGPUThreadPriority(7);
       if (FAILED(status)) {
-        // BOOST_LOG(warning) << "Failed to increase capture GPU thread priority. Please run application as administrator for optimal performance.";
+        BOOST_LOG(warning) << "Failed to increase capture GPU thread priority. Please run application as administrator for optimal performance.";
       }
     }
 
@@ -653,13 +653,13 @@ namespace platf::dxgi {
       dxgi::dxgi1_t dxgi {};
       status = device->QueryInterface(IID_IDXGIDevice, (void **) &dxgi);
       if (FAILED(status)) {
-        // BOOST_LOG(error) << "Failed to query DXGI interface from device [0x"sv << util::hex(status).to_string_view() << ']';
+        BOOST_LOG(error) << "Failed to query DXGI interface from device [0x"sv << util::hex(status).to_string_view() << ']';
         return -1;
       }
 
       status = dxgi->SetMaximumFrameLatency(1);
       if (FAILED(status)) {
-        // BOOST_LOG(warning) << "Failed to set maximum frame latency [0x"sv << util::hex(status).to_string_view() << ']';
+        BOOST_LOG(warning) << "Failed to set maximum frame latency [0x"sv << util::hex(status).to_string_view() << ']';
       }
     }
 
@@ -672,7 +672,7 @@ namespace platf::dxgi {
         // Ask the display implementation which formats it supports
         auto supported_formats = get_supported_capture_formats();
         if (supported_formats.empty()) {
-          // BOOST_LOG(warning) << "No compatible capture formats for this encoder"sv;
+          BOOST_LOG(warning) << "No compatible capture formats for this encoder"sv;
           return -1;
         }
 
@@ -689,17 +689,17 @@ namespace platf::dxgi {
         // with mode changes and we don't want to accidentally fall back to suboptimal capture if
         // we get unlucky and succeed below.
         if (FAILED(status)) {
-          // BOOST_LOG(warning) << "DuplicateOutput1 Failed [0x"sv << util::hex(status).to_string_view() << ']';
+          BOOST_LOG(warning) << "DuplicateOutput1 Failed [0x"sv << util::hex(status).to_string_view() << ']';
           return -1;
         }
       }
       else {
-        // BOOST_LOG(warning) << "IDXGIOutput5 is not supported by your OS. Capture performance may be reduced."sv;
+        BOOST_LOG(warning) << "IDXGIOutput5 is not supported by your OS. Capture performance may be reduced."sv;
 
         dxgi::output1_t output1 {};
         status = output->QueryInterface(IID_IDXGIOutput1, (void **) &output1);
         if (FAILED(status)) {
-          // BOOST_LOG(error) << "Failed to query IDXGIOutput1 from the output"sv;
+          BOOST_LOG(error) << "Failed to query IDXGIOutput1 from the output"sv;
           return -1;
         }
 
@@ -712,7 +712,7 @@ namespace platf::dxgi {
         }
 
         if (FAILED(status)) {
-          // BOOST_LOG(error) << "DuplicateOutput Failed [0x"sv << util::hex(status).to_string_view() << ']';
+          BOOST_LOG(error) << "DuplicateOutput Failed [0x"sv << util::hex(status).to_string_view() << ']';
           return -1;
         }
       }
@@ -721,16 +721,16 @@ namespace platf::dxgi {
     DXGI_OUTDUPL_DESC dup_desc;
     dup.dup->GetDesc(&dup_desc);
 
-    // BOOST_LOG(info) << "Desktop resolution ["sv << dup_desc.ModeDesc.Width << 'x' << dup_desc.ModeDesc.Height << ']';
-    // BOOST_LOG(info) << "Desktop format ["sv << dxgi_format_to_string(dup_desc.ModeDesc.Format) << ']';
+    BOOST_LOG(info) << "Desktop resolution ["sv << dup_desc.ModeDesc.Width << 'x' << dup_desc.ModeDesc.Height << ']';
+    BOOST_LOG(info) << "Desktop format ["sv << dxgi_format_to_string(dup_desc.ModeDesc.Format) << ']';
 
     display_refresh_rate = dup_desc.ModeDesc.RefreshRate;
     double display_refresh_rate_decimal = (double) display_refresh_rate.Numerator / display_refresh_rate.Denominator;
-    // BOOST_LOG(info) << "Display refresh rate [" << display_refresh_rate_decimal << "Hz]";
+    BOOST_LOG(info) << "Display refresh rate [" << display_refresh_rate_decimal << "Hz]";
     display_refresh_rate_rounded = lround(display_refresh_rate_decimal);
 
     client_frame_rate = config.framerate;
-    // BOOST_LOG(info) << "Requested frame rate [" << client_frame_rate << "fps]";
+    BOOST_LOG(info) << "Requested frame rate [" << client_frame_rate << "fps]";
 
     dxgi::output6_t output6 {};
     status = output->QueryInterface(IID_IDXGIOutput6, (void **) &output6);
@@ -738,17 +738,17 @@ namespace platf::dxgi {
       DXGI_OUTPUT_DESC1 desc1;
       output6->GetDesc1(&desc1);
 
-      // BOOST_LOG(info)
-        // << std::endl
-        // << "Colorspace         : "sv << colorspace_to_string(desc1.ColorSpace) << std::endl
-        // << "Bits Per Color     : "sv << desc1.BitsPerColor << std::endl
-        // << "Red Primary        : ["sv << desc1.RedPrimary[0] << ',' << desc1.RedPrimary[1] << ']' << std::endl
-        // << "Green Primary      : ["sv << desc1.GreenPrimary[0] << ',' << desc1.GreenPrimary[1] << ']' << std::endl
-        // << "Blue Primary       : ["sv << desc1.BluePrimary[0] << ',' << desc1.BluePrimary[1] << ']' << std::endl
-        // << "White Point        : ["sv << desc1.WhitePoint[0] << ',' << desc1.WhitePoint[1] << ']' << std::endl
-        // << "Min Luminance      : "sv << desc1.MinLuminance << " nits"sv << std::endl
-        // << "Max Luminance      : "sv << desc1.MaxLuminance << " nits"sv << std::endl
-        // << "Max Full Luminance : "sv << desc1.MaxFullFrameLuminance << " nits"sv;
+      BOOST_LOG(info)
+        << std::endl
+        << "Colorspace         : "sv << colorspace_to_string(desc1.ColorSpace) << std::endl
+        << "Bits Per Color     : "sv << desc1.BitsPerColor << std::endl
+        << "Red Primary        : ["sv << desc1.RedPrimary[0] << ',' << desc1.RedPrimary[1] << ']' << std::endl
+        << "Green Primary      : ["sv << desc1.GreenPrimary[0] << ',' << desc1.GreenPrimary[1] << ']' << std::endl
+        << "Blue Primary       : ["sv << desc1.BluePrimary[0] << ',' << desc1.BluePrimary[1] << ']' << std::endl
+        << "White Point        : ["sv << desc1.WhitePoint[0] << ',' << desc1.WhitePoint[1] << ']' << std::endl
+        << "Min Luminance      : "sv << desc1.MinLuminance << " nits"sv << std::endl
+        << "Max Luminance      : "sv << desc1.MaxLuminance << " nits"sv << std::endl
+        << "Max Full Luminance : "sv << desc1.MaxFullFrameLuminance << " nits"sv;
     }
 
     // Capture format will be determined from the first call to AcquireNextFrame()
@@ -760,7 +760,7 @@ namespace platf::dxgi {
       timer.reset(CreateWaitableTimerEx(nullptr, nullptr, 0, TIMER_ALL_ACCESS));
       if (!timer) {
         auto winerr = GetLastError();
-        // BOOST_LOG(error) << "Failed to create timer: "sv << winerr;
+        BOOST_LOG(error) << "Failed to create timer: "sv << winerr;
         return -1;
       }
     }
@@ -774,7 +774,7 @@ namespace platf::dxgi {
 
     auto status = output->QueryInterface(IID_IDXGIOutput6, (void **) &output6);
     if (FAILED(status)) {
-      // BOOST_LOG(warning) << "Failed to query IDXGIOutput6 from the output"sv;
+      BOOST_LOG(warning) << "Failed to query IDXGIOutput6 from the output"sv;
       return false;
     }
 
@@ -792,7 +792,7 @@ namespace platf::dxgi {
 
     auto status = output->QueryInterface(IID_IDXGIOutput6, (void **) &output6);
     if (FAILED(status)) {
-      // BOOST_LOG(warning) << "Failed to query IDXGIOutput6 from the output"sv;
+      BOOST_LOG(warning) << "Failed to query IDXGIOutput6 from the output"sv;
       return false;
     }
 
@@ -1035,19 +1035,19 @@ namespace platf {
 
     HRESULT status;
 
-    // BOOST_LOG(debug) << "Detecting monitors..."sv;
+    BOOST_LOG(debug) << "Detecting monitors..."sv;
 
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t> converter;
 
     // We must set the GPU preference before calling any DXGI APIs!
     if (!dxgi::probe_for_gpu_preference(config::video.output_name)) {
-      // BOOST_LOG(warning) << "Failed to set GPU preference. Capture may not work!"sv;
+      BOOST_LOG(warning) << "Failed to set GPU preference. Capture may not work!"sv;
     }
 
     dxgi::factory1_t factory;
     status = CreateDXGIFactory1(IID_IDXGIFactory1, (void **) &factory);
     if (FAILED(status)) {
-      // BOOST_LOG(error) << "Failed to create DXGIFactory1 [0x"sv << util::hex(status).to_string_view() << ']';
+      BOOST_LOG(error) << "Failed to create DXGIFactory1 [0x"sv << util::hex(status).to_string_view() << ']';
       return {};
     }
 
@@ -1056,17 +1056,17 @@ namespace platf {
       DXGI_ADAPTER_DESC1 adapter_desc;
       adapter->GetDesc1(&adapter_desc);
 
-      // BOOST_LOG(debug)
-        // << std::endl
-        // << "====== ADAPTER ====="sv << std::endl
-        // << "Device Name      : "sv << converter.to_bytes(adapter_desc.Description) << std::endl
-        // << "Device Vendor ID : 0x"sv << util::hex(adapter_desc.VendorId).to_string_view() << std::endl
-        // << "Device Device ID : 0x"sv << util::hex(adapter_desc.DeviceId).to_string_view() << std::endl
-        // << "Device Video Mem : "sv << adapter_desc.DedicatedVideoMemory / 1048576 << " MiB"sv << std::endl
-        // << "Device Sys Mem   : "sv << adapter_desc.DedicatedSystemMemory / 1048576 << " MiB"sv << std::endl
-        // << "Share Sys Mem    : "sv << adapter_desc.SharedSystemMemory / 1048576 << " MiB"sv << std::endl
-        // << std::endl
-        // << "    ====== OUTPUT ======"sv << std::endl;
+      BOOST_LOG(debug)
+        << std::endl
+        << "====== ADAPTER ====="sv << std::endl
+        << "Device Name      : "sv << converter.to_bytes(adapter_desc.Description) << std::endl
+        << "Device Vendor ID : 0x"sv << util::hex(adapter_desc.VendorId).to_string_view() << std::endl
+        << "Device Device ID : 0x"sv << util::hex(adapter_desc.DeviceId).to_string_view() << std::endl
+        << "Device Video Mem : "sv << adapter_desc.DedicatedVideoMemory / 1048576 << " MiB"sv << std::endl
+        << "Device Sys Mem   : "sv << adapter_desc.DedicatedSystemMemory / 1048576 << " MiB"sv << std::endl
+        << "Share Sys Mem    : "sv << adapter_desc.SharedSystemMemory / 1048576 << " MiB"sv << std::endl
+        << std::endl
+        << "    ====== OUTPUT ======"sv << std::endl;
 
       dxgi::output_t::pointer output_p {};
       for (int y = 0; adapter->EnumOutputs(y, &output_p) != DXGI_ERROR_NOT_FOUND; ++y) {
@@ -1080,11 +1080,11 @@ namespace platf {
         auto width = desc.DesktopCoordinates.right - desc.DesktopCoordinates.left;
         auto height = desc.DesktopCoordinates.bottom - desc.DesktopCoordinates.top;
 
-        // BOOST_LOG(debug)
-          // << "    Output Name       : "sv << device_name << std::endl
-          // << "    AttachedToDesktop : "sv << (desc.AttachedToDesktop ? "yes"sv : "no"sv) << std::endl
-          // << "    Resolution        : "sv << width << 'x' << height << std::endl
-          // << std::endl;
+        BOOST_LOG(debug)
+          << "    Output Name       : "sv << device_name << std::endl
+          << "    AttachedToDesktop : "sv << (desc.AttachedToDesktop ? "yes"sv : "no"sv) << std::endl
+          << "    Resolution        : "sv << width << 'x' << height << std::endl
+          << std::endl;
 
         // Don't include the display in the list if we can't actually capture it
         if (desc.AttachedToDesktop && dxgi::test_dxgi_duplication(adapter, output)) {

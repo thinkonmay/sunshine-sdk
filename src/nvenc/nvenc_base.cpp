@@ -95,19 +95,19 @@ namespace nvenc {
     session_params.deviceType = device_type;
     session_params.apiVersion = NVENCAPI_VERSION;
     if (nvenc_failed(nvenc->nvEncOpenEncodeSessionEx(&session_params, &encoder))) {
-      // BOOST_LOG(error) << "NvEncOpenEncodeSessionEx failed";
+      BOOST_LOG(error) << "NvEncOpenEncodeSessionEx failed";
       return false;
     }
 
     uint32_t encode_guid_count = 0;
     if (nvenc_failed(nvenc->nvEncGetEncodeGUIDCount(encoder, &encode_guid_count))) {
-      // BOOST_LOG(error) << "NvEncGetEncodeGUIDCount failed: " << last_error_string;
+      BOOST_LOG(error) << "NvEncGetEncodeGUIDCount failed: " << last_error_string;
       return false;
     };
 
     std::vector<GUID> encode_guids(encode_guid_count);
     if (nvenc_failed(nvenc->nvEncGetEncodeGUIDs(encoder, encode_guids.data(), encode_guids.size(), &encode_guid_count))) {
-      // BOOST_LOG(error) << "NvEncGetEncodeGUIDs failed: " << last_error_string;
+      BOOST_LOG(error) << "NvEncGetEncodeGUIDs failed: " << last_error_string;
       return false;
     }
 
@@ -130,7 +130,7 @@ namespace nvenc {
         break;
 
       default:
-        // BOOST_LOG(error) << "NvEnc: unknown video format " << client_config.videoFormat;
+        BOOST_LOG(error) << "NvEnc: unknown video format " << client_config.videoFormat;
         return false;
     }
 
@@ -139,7 +139,7 @@ namespace nvenc {
         return equal_guids(init_params.encodeGUID, guid);
       };
       if (std::find_if(encode_guids.begin(), encode_guids.end(), search_predicate) == encode_guids.end()) {
-        // BOOST_LOG(error) << "NvEnc: encoding format is not supported by the gpu";
+        BOOST_LOG(error) << "NvEnc: encoding format is not supported by the gpu";
         return false;
       }
     }
@@ -163,23 +163,23 @@ namespace nvenc {
       auto supported_width = get_encoder_cap(NV_ENC_CAPS_WIDTH_MAX);
       auto supported_height = get_encoder_cap(NV_ENC_CAPS_HEIGHT_MAX);
       if (encoder_params.width > supported_width || encoder_params.height > supported_height) {
-        // BOOST_LOG(error) << "NvEnc: gpu max encode resolution " << supported_width << "x" << supported_height << ", requested " << encoder_params.width << "x" << encoder_params.height;
+        BOOST_LOG(error) << "NvEnc: gpu max encode resolution " << supported_width << "x" << supported_height << ", requested " << encoder_params.width << "x" << encoder_params.height;
         return false;
       }
     }
 
     if (buffer_is_10bit() && !get_encoder_cap(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE)) {
-      // BOOST_LOG(error) << "NvEnc: gpu doesn't support 10-bit encode";
+      BOOST_LOG(error) << "NvEnc: gpu doesn't support 10-bit encode";
       return false;
     }
 
     if (buffer_is_yuv444() && !get_encoder_cap(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE)) {
-      // BOOST_LOG(error) << "NvEnc: gpu doesn't support YUV444 encode";
+      BOOST_LOG(error) << "NvEnc: gpu doesn't support YUV444 encode";
       return false;
     }
 
     if (async_event_handle && !get_encoder_cap(NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT)) {
-      // BOOST_LOG(warning) << "NvEnc: gpu doesn't support async encode";
+      BOOST_LOG(warning) << "NvEnc: gpu doesn't support async encode";
       async_event_handle = nullptr;
     }
 
@@ -200,7 +200,7 @@ namespace nvenc {
 
     NV_ENC_PRESET_CONFIG preset_config = { NV_ENC_PRESET_CONFIG_VER, { NV_ENC_CONFIG_VER } };
     if (nvenc_failed(nvenc->nvEncGetEncodePresetConfigEx(encoder, init_params.encodeGUID, init_params.presetGUID, init_params.tuningInfo, &preset_config))) {
-      // BOOST_LOG(error) << "NvEncGetEncodePresetConfigEx failed: " << last_error_string;
+      BOOST_LOG(error) << "NvEncGetEncodePresetConfigEx failed: " << last_error_string;
       return false;
     }
 
@@ -335,7 +335,7 @@ namespace nvenc {
     init_params.encodeConfig = &enc_config;
 
     if (nvenc_failed(nvenc->nvEncInitializeEncoder(encoder, &init_params))) {
-      // BOOST_LOG(error) << "NvEncInitializeEncoder failed: " << last_error_string;
+      BOOST_LOG(error) << "NvEncInitializeEncoder failed: " << last_error_string;
       return false;
     }
 
@@ -343,14 +343,14 @@ namespace nvenc {
       NV_ENC_EVENT_PARAMS event_params = { NV_ENC_EVENT_PARAMS_VER };
       event_params.completionEvent = async_event_handle;
       if (nvenc_failed(nvenc->nvEncRegisterAsyncEvent(encoder, &event_params))) {
-        // BOOST_LOG(error) << "NvEncRegisterAsyncEvent failed: " << last_error_string;
+        BOOST_LOG(error) << "NvEncRegisterAsyncEvent failed: " << last_error_string;
         return false;
       }
     }
 
     NV_ENC_CREATE_BITSTREAM_BUFFER create_bitstream_buffer = { NV_ENC_CREATE_BITSTREAM_BUFFER_VER };
     if (nvenc_failed(nvenc->nvEncCreateBitstreamBuffer(encoder, &create_bitstream_buffer))) {
-      // BOOST_LOG(error) << "NvEncCreateBitstreamBuffer failed: " << last_error_string;
+      BOOST_LOG(error) << "NvEncCreateBitstreamBuffer failed: " << last_error_string;
       return false;
     }
     output_bitstream = create_bitstream_buffer.bitstreamBuffer;
@@ -374,7 +374,7 @@ namespace nvenc {
       if (enc_config.rcParams.enableAQ) extra += " adaptive-quantization";
       if (enc_config.rcParams.enableMinQP) extra += " qpmin=" + std::to_string(enc_config.rcParams.minQP.qpInterP);
       if (config.insert_filler_data) extra += " filler-data";
-      // BOOST_LOG(info) << "NvEnc: created encoder " << quality_preset_string_from_guid(init_params.presetGUID) << extra;
+      BOOST_LOG(info) << "NvEnc: created encoder " << quality_preset_string_from_guid(init_params.presetGUID) << extra;
     }
 
     encoder_state = {};
@@ -419,7 +419,7 @@ namespace nvenc {
     mapped_input_buffer.registeredResource = registered_input_buffer;
 
     if (nvenc_failed(nvenc->nvEncMapInputResource(encoder, &mapped_input_buffer))) {
-      // BOOST_LOG(error) << "NvEncMapInputResource failed: " << last_error_string;
+      BOOST_LOG(error) << "NvEncMapInputResource failed: " << last_error_string;
       return {};
     }
     auto unmap_guard = util::fail_guard([&] { nvenc->nvEncUnmapInputResource(encoder, &mapped_input_buffer); });
@@ -436,7 +436,7 @@ namespace nvenc {
     pic_params.completionEvent = async_event_handle;
 
     if (nvenc_failed(nvenc->nvEncEncodePicture(encoder, &pic_params))) {
-      // BOOST_LOG(error) << "NvEncEncodePicture failed: " << last_error_string;
+      BOOST_LOG(error) << "NvEncEncodePicture failed: " << last_error_string;
       return {};
     }
 
@@ -445,12 +445,12 @@ namespace nvenc {
     lock_bitstream.doNotWait = 0;
 
     if (async_event_handle && !wait_for_async_event(100)) {
-      // BOOST_LOG(error) << "NvEnc: frame " << frame_index << " encode wait timeout";
+      BOOST_LOG(error) << "NvEnc: frame " << frame_index << " encode wait timeout";
       return {};
     }
 
     if (nvenc_failed(nvenc->nvEncLockBitstream(encoder, &lock_bitstream))) {
-      // BOOST_LOG(error) << "NvEncLockBitstream failed: " << last_error_string;
+      BOOST_LOG(error) << "NvEncLockBitstream failed: " << last_error_string;
       return {};
     }
 
@@ -470,18 +470,18 @@ namespace nvenc {
     encoder_state.last_encoded_frame_index = frame_index;
 
     if (encoded_frame.idr) {
-      // BOOST_LOG(debug) << "NvEnc: idr frame " << encoded_frame.frame_index;
+      BOOST_LOG(debug) << "NvEnc: idr frame " << encoded_frame.frame_index;
     }
 
     if (nvenc_failed(nvenc->nvEncUnlockBitstream(encoder, lock_bitstream.outputBitstream))) {
-      // BOOST_LOG(error) << "NvEncUnlockBitstream failed: " << last_error_string;
+      BOOST_LOG(error) << "NvEncUnlockBitstream failed: " << last_error_string;
     }
 
     // if (config::sunshine.min_log_level <= 1) {
     //   // Print encoded frame size stats to debug log every 20 seconds
     //   auto callback = [&](float stat_min, float stat_max, double stat_avg) {
     //     auto f = stat_trackers::one_digit_after_decimal();
-    //     // BOOST_LOG(debug) << "NvEnc: encoded frame sizes (min max avg) " << f % stat_min << " " << f % stat_max << " " << f % stat_avg << " kB";
+    //     BOOST_LOG(debug) << "NvEnc: encoded frame sizes (min max avg) " << f % stat_min << " " << f % stat_max << " " << f % stat_avg << " kB";
     //   };
     //   using namespace std::literals;
     //   encoder_state.frame_size_tracker.collect_and_callback_on_interval(encoded_frame.data.size() / 1000., callback, 20s);
@@ -496,30 +496,30 @@ namespace nvenc {
 
     if (first_frame >= encoder_state.last_rfi_range.first &&
         last_frame <= encoder_state.last_rfi_range.second) {
-      // BOOST_LOG(debug) << "NvEnc: rfi request " << first_frame << "-" << last_frame << " already done";
+      BOOST_LOG(debug) << "NvEnc: rfi request " << first_frame << "-" << last_frame << " already done";
       return true;
     }
 
     encoder_state.rfi_needs_confirmation = true;
 
     if (last_frame < first_frame) {
-      // BOOST_LOG(error) << "NvEnc: invaid rfi request " << first_frame << "-" << last_frame << ", generating IDR";
+      BOOST_LOG(error) << "NvEnc: invaid rfi request " << first_frame << "-" << last_frame << ", generating IDR";
       return false;
     }
 
-    // BOOST_LOG(debug) << "NvEnc: rfi request " << first_frame << "-" << last_frame << " expanding to last encoded frame " << encoder_state.last_encoded_frame_index;
+    BOOST_LOG(debug) << "NvEnc: rfi request " << first_frame << "-" << last_frame << " expanding to last encoded frame " << encoder_state.last_encoded_frame_index;
     last_frame = encoder_state.last_encoded_frame_index;
 
     encoder_state.last_rfi_range = { first_frame, last_frame };
 
     if (last_frame - first_frame + 1 >= encoder_params.ref_frames_in_dpb) {
-      // BOOST_LOG(debug) << "NvEnc: rfi request too large, generating IDR";
+      BOOST_LOG(debug) << "NvEnc: rfi request too large, generating IDR";
       return false;
     }
 
     for (auto i = first_frame; i <= last_frame; i++) {
       if (nvenc_failed(nvenc->nvEncInvalidateRefFrames(encoder, i))) {
-        // BOOST_LOG(error) << "NvEncInvalidateRefFrames " << i << " failed: " << last_error_string;
+        BOOST_LOG(error) << "NvEncInvalidateRefFrames " << i << " failed: " << last_error_string;
         return false;
       }
     }

@@ -378,7 +378,7 @@ namespace platf {
      */
     virtual int
     set_frame(AVFrame *frame, AVBufferRef *hw_frames_ctx) {
-      // BOOST_LOG(error) << "Illegal call to hwdevice_t::set_frame(). Did you forget to override it?";
+      BOOST_LOG(error) << "Illegal call to hwdevice_t::set_frame(). Did you forget to override it?";
       return -1;
     };
 
