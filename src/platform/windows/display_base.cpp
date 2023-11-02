@@ -1033,6 +1033,9 @@ namespace platf {
   display_names(mem_type_e) {
     std::vector<std::string> display_names;
 
+    // Ensure we can duplicate the current display
+    syncThreadDesktop();
+
     HRESULT status;
 
     BOOST_LOG(debug) << "Detecting monitors..."sv;
