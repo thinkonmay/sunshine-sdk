@@ -37,13 +37,11 @@ __declspec(dllexport) void __cdecl RaiseEvent(VideoPipeline* pipeline,
                                               int value);
 
 __declspec(dllexport) void  __cdecl WaitEvent(VideoPipeline* pipeline,
-                                                  EventType event,
-                                                  int* value);
+                                                  EventType event);
 
 
 __declspec(dllexport) int  __cdecl PeekEvent(VideoPipeline* pipeline,
-                                                  EventType event,
-                                                  int* value);
+                                                  EventType event);
 
 typedef VideoPipeline* (*STARTQUEUE)				  ( int video_width,
                                                         int video_height,
@@ -61,10 +59,8 @@ typedef void 			(*RAISEEVENT)		 (VideoPipeline* pipeline,
                                               int value);
 
 typedef void  			(*WAITEVENT)			(VideoPipeline* pipeline,
-                                                  EventType event,
-                                                  int* value);
+                                                  EventType event);
 
 typedef int             (*PEEKEVENT)            (VideoPipeline* pipeline,
-                                                  EventType event,
-                                                  int* value);
+                                                  EventType event);
 }

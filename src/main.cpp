@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 			int count = 0;
 			while (true) {
 				int size = callpop(pipeline, data, &duration);
-				if (callpeek(pipeline,STOP,NULL) || count == 10) {
+				if (callpeek(pipeline,STOP) || count == 10) {
 					break;
 				}
 
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 			free(data);
 		}};
 
-		callwait(pipeline,STOP,NULL);
+		callwait(pipeline,STOP);
 		video.join();
 	}
 	return 0;

@@ -17,6 +17,8 @@
 #include "platform/common.h"
 #include "video.h"
 
+using namespace std::literals;
+
 struct _VideoPipeline
 {
 	std::chrono::steady_clock::time_point start;
@@ -57,19 +59,19 @@ extern VideoPipeline *__cdecl StartQueue(int video_width,
 	switch (video_codec)
 	{
 	case H265: // h265
-		printf("starting pipeline with h265 codec\n");
+		BOOST_LOG(info) << ("starting pipeline with h265 codec\n");
 		pipeline.monitor.videoFormat = 1;
 		config::video.hevc_mode = 1;
 		config::video.av1_mode = 0;
 		break;
 	case AV1: // av1
-		printf("starting pipeline with av1 codec\n");
+		BOOST_LOG(info) << ("starting pipeline with av1 codec\n");
 		pipeline.monitor.videoFormat = 2;
 		config::video.hevc_mode = 0;
 		config::video.av1_mode = 1;
 		break;
 	default:
-		printf("starting pipeline with h264 codec\n");
+		BOOST_LOG(info) << ("starting pipeline with h264 codec\n");
 		pipeline.monitor.videoFormat = 0;
 		config::video.hevc_mode = 0;
 		config::video.av1_mode = 0;
@@ -133,24 +135,16 @@ RaiseEvent(VideoPipeline *pipeline,
 
 void __cdecl 
 WaitEvent(VideoPipeline* pipeline,
-          EventType event,
-          int* value)
+          EventType event)
 {
-	switch (event)
-	{
-	case STOP: // IDR FRAME
-		pipeline->mail->event<bool>(mail::shutdown)->pop();
-		break;
-	default:
-		break;
-	}
+	while(!PeekEvent(pipeline,event))
+		std::this_thread::sleep_for(10ms);
 }
 
 
 int __cdecl 
 PeekEvent(VideoPipeline* pipeline,
-          EventType event,
-          int* value)
+          EventType event)
 {
 	switch (event)
 	{
