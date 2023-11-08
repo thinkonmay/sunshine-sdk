@@ -108,7 +108,6 @@ PopFromQueue(VideoPipeline *pipeline,
 
 	memcpy(data, packet->data(), packet->data_size());
 	int size = packet->data_size();
-	packet.release();
 	return size;
 }
 
