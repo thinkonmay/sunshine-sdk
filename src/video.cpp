@@ -1805,7 +1805,7 @@ namespace video {
 
       // Encode at a minimum of 10 FPS to avoid image quality issues with static content
       if (!requested_idr_frame || images->peek()) {
-        if (auto img = images->pop(100ms)) {
+        if (auto img = images->pop(1ms)) {
           frame_timestamp = img->frame_timestamp;
           if (session->convert(*img)) {
             BOOST_LOG(error) << "Could not convert image"sv;
