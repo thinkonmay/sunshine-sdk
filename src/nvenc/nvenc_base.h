@@ -25,6 +25,9 @@ namespace nvenc {
     void
     destroy_encoder();
 
+    void
+    update_bitrate(int bitrate);
+
     nvenc_encoded_frame
     encode_frame(uint64_t frame_index, bool force_idr);
 
@@ -50,6 +53,7 @@ namespace nvenc {
     std::unique_ptr<NV_ENCODE_API_FUNCTION_LIST> nvenc;
 
     void *encoder = nullptr;
+    NV_ENC_INITIALIZE_PARAMS init_params;
 
     struct {
       uint32_t width = 0;

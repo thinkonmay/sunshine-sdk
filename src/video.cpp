@@ -393,6 +393,9 @@ namespace video {
     request_idr_frame() = 0;
 
     virtual void
+    update_bitrate (int bitrate) = 0;
+
+    virtual void
     request_normal_frame() = 0;
 
     virtual void
@@ -439,6 +442,13 @@ namespace video {
         frame->pict_type = AV_PICTURE_TYPE_I;
         frame->flags |= AV_FRAME_FLAG_KEY;
       }
+    }
+
+    void
+    update_bitrate(int bitrate) override {
+      // bitrate = bitrate * 1000;
+      // avcodec_ctx->rc_max_rate = bitrate;
+      // avcodec_ctx->bit_rate = bitrate;
     }
 
     void
@@ -491,6 +501,14 @@ namespace video {
     }
 
     void
+    update_bitrate(int bitrate) override {
+      if (!device || !device->nvenc) return;
+
+      device->nvenc->update_bitrate(bitrate);
+    }
+
+
+    void
     invalidate_ref_frames(int64_t first_frame, int64_t last_frame) override {
       if (!device || !device->nvenc) return;
 
@@ -518,6 +536,7 @@ namespace video {
     safe::mail_raw_t::event_t<bool> shutdown_event;
     safe::mail_raw_t::queue_t<packet_t> packets;
     safe::mail_raw_t::event_t<bool> idr_events;
+    safe::mail_raw_t::event_t<int> bitrate_events;
     safe::mail_raw_t::event_t<std::string> switch_display;
     safe::mail_raw_t::event_t<bool> toggle_cursor;
     safe::mail_raw_t::event_t<hdr_info_t> hdr_events;
@@ -1763,6 +1782,7 @@ namespace video {
 
     auto packets         = mail->queue<packet_t>(mail::video_packets);
     auto idr_events      = mail->event<bool>(mail::idr);
+    auto bitrate_events  = mail->event<int>(mail::bitrate);
     auto invalidate_ref_frames_events = mail->event<std::pair<int64_t, int64_t>>(mail::invalidate_ref_frames);
 
     {
@@ -1797,7 +1817,14 @@ namespace video {
         idr_events->pop();
       }
 
+      if (bitrate_events->peek()) {
+        auto bitrate = bitrate_events->pop().value();
+        BOOST_LOG(info) << "bitrate changed"sv;
+        session->update_bitrate(bitrate);
+      }
+
       if (requested_idr_frame) {
+        BOOST_LOG(info) << "IDR frame generated"sv;
         session->request_idr_frame();
       }
 
@@ -1982,6 +2009,11 @@ namespace video {
               BOOST_LOG(info) << "cursor set to " << display_cursor;
           }
 
+          if (ctx->bitrate_events->peek()) {
+            auto bitrate = ctx->bitrate_events->pop().value();
+            BOOST_LOG(info) << "bitrate changed"sv;
+            pos->session->update_bitrate(bitrate);
+          }
           if (ctx->idr_events->peek()) {
             BOOST_LOG(info) << "IDR frame generated"sv;
             pos->session->request_idr_frame();
@@ -2160,6 +2192,7 @@ namespace video {
     // CAREFULL
     auto ptr_events = mail->event<bool>(mail::toggle_cursor);
     auto idr_events = mail->event<bool>(mail::idr);
+    auto bitrate_events = mail->event<int>(mail::bitrate);
     auto display_events = mail->event<std::string>(mail::switch_display);
     auto shutdown_event = mail->event<bool>(mail::shutdown);
     auto packets    = mail->queue<packet_t>(mail::video_packets);
@@ -2180,6 +2213,7 @@ namespace video {
         std::move(shutdown_event),
         std::move(packets),
         std::move(idr_events),
+        std::move(bitrate_events),
         std::move(display_events),
         std::move(ptr_events),
         mail->event<hdr_info_t>(mail::hdr),

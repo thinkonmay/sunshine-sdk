@@ -43,6 +43,7 @@ namespace mail {
   MAIL(switch_display);
   MAIL(toggle_cursor);
   MAIL(idr);
+  MAIL(bitrate);
   MAIL(hdr);
   MAIL(invalidate_ref_frames);
 

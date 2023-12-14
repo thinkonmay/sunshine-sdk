@@ -127,6 +127,9 @@ RaiseEvent(VideoPipeline *pipeline,
 	case POINTER_VISIBLE: // IDR FRAME
 		pipeline->mail->event<bool>(mail::toggle_cursor)->raise(value != 0);
 		break;
+	case CHANGE_BITRATE: // IDR FRAME
+		pipeline->mail->event<int>(mail::bitrate)->raise(value);
+		break;
 	default:
 		break;
 	}

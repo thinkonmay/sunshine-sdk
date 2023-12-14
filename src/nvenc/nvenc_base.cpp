@@ -111,7 +111,7 @@ namespace nvenc {
       return false;
     }
 
-    NV_ENC_INITIALIZE_PARAMS init_params = { NV_ENC_INITIALIZE_PARAMS_VER };
+    init_params = { NV_ENC_INITIALIZE_PARAMS_VER };
 
     switch (client_config.videoFormat) {
       case 0:
@@ -404,6 +404,18 @@ namespace nvenc {
 
     encoder_state = {};
     encoder_params = {};
+  }
+
+
+  void
+  nvenc_base::update_bitrate(int bitrate) {
+    NV_ENC_RECONFIGURE_PARAMS reconfigure_params = { NV_ENC_RECONFIGURE_PARAMS_VER };
+    /* reset rate control state and start from IDR */
+    init_params.encodeConfig->rcParams.averageBitRate = bitrate;
+    reconfigure_params.reInitEncodeParams = init_params;
+    reconfigure_params.resetEncoder = TRUE;
+    reconfigure_params.forceIDR = TRUE;
+    nvenc->nvEncReconfigureEncoder(encoder, &reconfigure_params);
   }
 
   nvenc_encoded_frame
