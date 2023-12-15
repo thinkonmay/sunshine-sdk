@@ -10,6 +10,7 @@ typedef struct _VideoPipeline  VideoPipeline;
 typedef enum _EventType {
     POINTER_VISIBLE,
     CHANGE_BITRATE,
+    CHANGE_DISPLAY,
     IDR_FRAME,
 
     STOP
@@ -21,11 +22,7 @@ typedef enum _Codec {
     AV1,
 }Codec;
 
-__declspec(dllexport) VideoPipeline* __cdecl StartQueue( int video_width,
-                                                        int video_height,
-                                                        int video_bitrate,
-                                                        int video_framerate,
-                                                        int video_codec,
+__declspec(dllexport) VideoPipeline* __cdecl StartQueue(int video_codec,
                                                         char* display_name);
 
 __declspec(dllexport) int  __cdecl PopFromQueue(VideoPipeline* pipeline, 
@@ -35,6 +32,10 @@ __declspec(dllexport) int  __cdecl PopFromQueue(VideoPipeline* pipeline,
 __declspec(dllexport) void __cdecl RaiseEvent(VideoPipeline* pipeline,
                                               EventType event,
                                               int value);
+
+__declspec(dllexport) void __cdecl RaiseEventS(VideoPipeline* pipeline,
+                                              EventType event,
+                                              char* value);
 
 __declspec(dllexport) void  __cdecl WaitEvent(VideoPipeline* pipeline,
                                                   EventType event);
@@ -57,6 +58,10 @@ typedef int  		   (*POPFROMQUEUE)			(VideoPipeline* pipeline,
 typedef void 			(*RAISEEVENT)		 (VideoPipeline* pipeline,
                                               EventType event,
                                               int value);
+
+typedef void 			(*RAISEEVENTS)		 (VideoPipeline* pipeline,
+                                              EventType event,
+                                              char* value);
 
 typedef void  			(*WAITEVENT)			(VideoPipeline* pipeline,
                                                   EventType event);

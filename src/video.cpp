@@ -1021,7 +1021,7 @@ namespace video {
   bool last_encoder_probe_supported_ref_frames_invalidation = false;
 
   void
-  reset_display(std::shared_ptr<platf::display_t> &disp, const platf::mem_type_e &type, const std::string &display_name, const config_t &config) {
+  reset_display(std::shared_ptr<platf::display_t> &disp, const platf::mem_type_e &type, const std::string &display_name, config_t config) {
     // We try this twice, in case we still get an error on reinitialization
     for (int x = 0; x < 2; ++x) {
       disp.reset();
@@ -1030,6 +1030,8 @@ namespace video {
         break;
       }
 
+      config.width  = disp->width;
+      config.height = disp->height;
       // The capture code depends on us to sleep between failures
       std::this_thread::sleep_for(200ms);
     }

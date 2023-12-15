@@ -26,11 +26,7 @@ struct _VideoPipeline
 	safe::mail_t mail;
 };
 
-extern VideoPipeline *__cdecl StartQueue(int video_width,
-										 int video_height,
-										 int video_bitrate,
-										 int video_framerate,
-										 int video_codec,
+extern VideoPipeline *__cdecl StartQueue(int video_codec,
 										 char* display_name)
 {
 	static bool init = false;
@@ -53,7 +49,7 @@ extern VideoPipeline *__cdecl StartQueue(int video_width,
 
 	static VideoPipeline pipeline = {};
 	pipeline.mail = std::make_shared<safe::mail_raw_t>();
-	pipeline.monitor = {video_width, video_height, video_framerate, video_bitrate, 1, 0, 1, 0, 0};
+	pipeline.monitor = {1920, 1080, 120, 6000, 1, 0, 1, 0, 0};
 	pipeline.start = std::chrono::steady_clock::now();
 
 	switch (video_codec)
@@ -111,6 +107,20 @@ PopFromQueue(VideoPipeline *pipeline,
 	return size;
 }
 
+void __cdecl 
+RaiseEventS(VideoPipeline *pipeline,
+			EventType event,
+			char* value)
+{
+	switch (event)
+	{
+	case CHANGE_DISPLAY: // IDR FRAME
+		pipeline->mail->event<std::string>(mail::switch_display)->raise(std::string(value));
+		break;
+	default:
+		break;
+	}
+}
 void __cdecl 
 RaiseEvent(VideoPipeline *pipeline,
 			EventType event,

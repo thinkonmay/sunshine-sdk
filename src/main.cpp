@@ -17,6 +17,7 @@ static STARTQUEUE 		callstart;
 static POPFROMQUEUE 	callpop;
 static WAITEVENT		callwait;
 static RAISEEVENT       callraise;
+static RAISEEVENTS      callraiseS;
 static PEEKEVENT		callpeek;
 
 int
@@ -31,6 +32,7 @@ initlibrary() {
 	callstart 	= (STARTQUEUE)		GetProcAddress( hModule,"StartQueue");
 	callpop 	= (POPFROMQUEUE)	GetProcAddress( hModule,"PopFromQueue");
 	callraise 	= (RAISEEVENT)		GetProcAddress( hModule,"RaiseEvent");
+	callraiseS	= (RAISEEVENTS)		GetProcAddress( hModule,"RaiseEventS");
 	callwait	= (WAITEVENT)		GetProcAddress( hModule,"WaitEvent");
 	callpeek    = (PEEKEVENT)		GetProcAddress( hModule,"PeekEvent");
 
@@ -59,8 +61,12 @@ int main(int argc, char *argv[])
 			int count = 0;
 			while (true) {
 				int size = callpop(pipeline, data, &duration);
-				if (callpeek(pipeline,STOP) || count == 10000) {
+				if (callpeek(pipeline,STOP) || count == 1000) {
 					break;
+				} else if (count % 100 == 0) {
+					callraise(pipeline,CHANGE_BITRATE,2000);
+				} else if (count % 100 == 50) {
+					callraiseS(pipeline,CHANGE_DISPLAY,"\\\\.\\DISPLAY1");
 				}
 
 				printf("received packet with size %d\n", size);
