@@ -446,9 +446,10 @@ namespace video {
 
     void
     update_bitrate(int bitrate) override {
-      // bitrate = bitrate * 1000;
-      // avcodec_ctx->rc_max_rate = bitrate;
-      // avcodec_ctx->bit_rate = bitrate;
+      bitrate = bitrate * 1000;
+      avcodec_ctx->rc_max_rate = bitrate;
+      avcodec_ctx->bit_rate = bitrate;
+      avcodec_ctx->rc_min_rate = bitrate;
     }
 
     void

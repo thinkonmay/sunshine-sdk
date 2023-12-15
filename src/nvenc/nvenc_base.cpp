@@ -409,9 +409,20 @@ namespace nvenc {
 
   void
   nvenc_base::update_bitrate(int bitrate) {
+    auto get_encoder_cap = [&](NV_ENC_CAPS cap) {
+      NV_ENC_CAPS_PARAM param = { NV_ENC_CAPS_PARAM_VER, cap };
+      int value = 0;
+      nvenc->nvEncGetEncodeCaps(encoder, init_params.encodeGUID, &param, &value);
+      return value;
+    };
+
+
     NV_ENC_RECONFIGURE_PARAMS reconfigure_params = { NV_ENC_RECONFIGURE_PARAMS_VER };
     /* reset rate control state and start from IDR */
-    init_params.encodeConfig->rcParams.averageBitRate = bitrate;
+    init_params.encodeConfig->rcParams.averageBitRate = bitrate * 1000;
+    if (get_encoder_cap(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)) {
+      init_params.encodeConfig->rcParams.vbvBufferSize = bitrate * 1000 / init_params.frameRateNum;
+    }
     reconfigure_params.reInitEncodeParams = init_params;
     reconfigure_params.resetEncoder = TRUE;
     reconfigure_params.forceIDR = TRUE;
