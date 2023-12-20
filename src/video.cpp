@@ -1735,7 +1735,7 @@ namespace video {
     auto hdr_event = mail->event<hdr_info_t>(mail::hdr);
 
     // Encoding takes place on this thread
-    platf::adjust_thread_priority(platf::thread_priority_e::high);
+    platf::adjust_thread_priority(platf::thread_priority_e::critical);
 
     while (!stopped && images->running()) {
       if(mail->event<bool>(mail::shutdown)->peek())
