@@ -16,101 +16,102 @@ extern "C" {
 
 using namespace std::literals;
 namespace cbs {
-  void
-  close(CodedBitstreamContext *c) {
-    ff_cbs_close(&c);
-  }
+void close(CodedBitstreamContext *c) { ff_cbs_close(&c); }
 
-  using ctx_t = util::safe_ptr<CodedBitstreamContext, close>;
+using ctx_t = util::safe_ptr<CodedBitstreamContext, close>;
 
-  class frag_t: public CodedBitstreamFragment {
-  public:
+class frag_t : public CodedBitstreamFragment {
+   public:
     frag_t(frag_t &&o) {
-      std::copy((std::uint8_t *) &o, (std::uint8_t *) (&o + 1), (std::uint8_t *) this);
+        std::copy((std::uint8_t *)&o, (std::uint8_t *)(&o + 1),
+                  (std::uint8_t *)this);
 
-      o.data = nullptr;
-      o.units = nullptr;
+        o.data = nullptr;
+        o.units = nullptr;
     };
 
-    frag_t() {
-      std::fill_n((std::uint8_t *) this, sizeof(*this), 0);
-    }
+    frag_t() { std::fill_n((std::uint8_t *)this, sizeof(*this), 0); }
 
-    frag_t &
-    operator=(frag_t &&o) {
-      std::copy((std::uint8_t *) &o, (std::uint8_t *) (&o + 1), (std::uint8_t *) this);
+    frag_t &operator=(frag_t &&o) {
+        std::copy((std::uint8_t *)&o, (std::uint8_t *)(&o + 1),
+                  (std::uint8_t *)this);
 
-      o.data = nullptr;
-      o.units = nullptr;
+        o.data = nullptr;
+        o.units = nullptr;
 
-      return *this;
+        return *this;
     };
 
     ~frag_t() {
-      if (data || units) {
-        ff_cbs_fragment_free(this);
-      }
+        if (data || units) {
+            ff_cbs_fragment_free(this);
+        }
     }
-  };
+};
 
-  util::buffer_t<std::uint8_t>
-  write(cbs::ctx_t &cbs_ctx, std::uint8_t nal, void *uh, AVCodecID codec_id) {
+util::buffer_t<std::uint8_t> write(cbs::ctx_t &cbs_ctx, std::uint8_t nal,
+                                   void *uh, AVCodecID codec_id) {
     cbs::frag_t frag;
     auto err = ff_cbs_insert_unit_content(&frag, -1, nal, uh, nullptr);
     if (err < 0) {
-      char err_str[AV_ERROR_MAX_STRING_SIZE] { 0 };
-      BOOST_LOG(error) << "Could not insert NAL unit SPS: "sv << av_make_error_string(err_str, AV_ERROR_MAX_STRING_SIZE, err);
+        char err_str[AV_ERROR_MAX_STRING_SIZE]{0};
+        BOOST_LOG(error) << "Could not insert NAL unit SPS: "sv
+                         << av_make_error_string(err_str,
+                                                 AV_ERROR_MAX_STRING_SIZE, err);
 
-      return {};
+        return {};
     }
 
     err = ff_cbs_write_fragment_data(cbs_ctx.get(), &frag);
     if (err < 0) {
-      char err_str[AV_ERROR_MAX_STRING_SIZE] { 0 };
-      BOOST_LOG(error) << "Could not write fragment data: "sv << av_make_error_string(err_str, AV_ERROR_MAX_STRING_SIZE, err);
+        char err_str[AV_ERROR_MAX_STRING_SIZE]{0};
+        BOOST_LOG(error) << "Could not write fragment data: "sv
+                         << av_make_error_string(err_str,
+                                                 AV_ERROR_MAX_STRING_SIZE, err);
 
-      return {};
+        return {};
     }
 
     // frag.data_size * 8 - frag.data_bit_padding == bits in fragment
-    util::buffer_t<std::uint8_t> data { frag.data_size };
+    util::buffer_t<std::uint8_t> data{frag.data_size};
     std::copy_n(frag.data, frag.data_size, std::begin(data));
 
     return data;
-  }
+}
 
-  util::buffer_t<std::uint8_t>
-  write(std::uint8_t nal, void *uh, AVCodecID codec_id) {
+util::buffer_t<std::uint8_t> write(std::uint8_t nal, void *uh,
+                                   AVCodecID codec_id) {
     cbs::ctx_t cbs_ctx;
     ff_cbs_init(&cbs_ctx, codec_id, nullptr);
 
     return write(cbs_ctx, nal, uh, codec_id);
-  }
+}
 
-  h264_t
-  make_sps_h264(const AVCodecContext *avctx, const AVPacket *packet) {
+h264_t make_sps_h264(const AVCodecContext *avctx, const AVPacket *packet) {
     cbs::ctx_t ctx;
     if (ff_cbs_init(&ctx, AV_CODEC_ID_H264, nullptr)) {
-      return {};
+        return {};
     }
 
     cbs::frag_t frag;
 
     int err = ff_cbs_read_packet(ctx.get(), &frag, packet);
     if (err < 0) {
-      char err_str[AV_ERROR_MAX_STRING_SIZE] { 0 };
-      BOOST_LOG(error) << "Couldn't read packet: "sv << av_make_error_string(err_str, AV_ERROR_MAX_STRING_SIZE, err);
+        char err_str[AV_ERROR_MAX_STRING_SIZE]{0};
+        BOOST_LOG(error) << "Couldn't read packet: "sv
+                         << av_make_error_string(err_str,
+                                                 AV_ERROR_MAX_STRING_SIZE, err);
 
-      return {};
+        return {};
     }
 
-    auto sps_p = ((CodedBitstreamH264Context *) ctx->priv_data)->active_sps;
+    auto sps_p = ((CodedBitstreamH264Context *)ctx->priv_data)->active_sps;
 
     // This is a very large struct that cannot safely be stored on the stack
     auto sps = std::make_unique<H264RawSPS>(*sps_p);
 
     if (avctx->refs > 0) {
-      sps->max_num_ref_frames = avctx->refs;
+        sps->max_num_ref_frames = avctx->refs;
     }
 
     sps->vui_parameters_present_flag = 1;
@@ -138,31 +139,32 @@ namespace cbs {
     cbs::ctx_t write_ctx;
     ff_cbs_init(&write_ctx, AV_CODEC_ID_H264, nullptr);
 
-    return h264_t {
-      write(write_ctx, sps->nal_unit_header.nal_unit_type, (void *) &sps->nal_unit_header, AV_CODEC_ID_H264),
-      write(ctx, sps_p->nal_unit_header.nal_unit_type, (void *) &sps_p->nal_unit_header, AV_CODEC_ID_H264)
-    };
-  }
+    return h264_t{write(write_ctx, sps->nal_unit_header.nal_unit_type,
+                        (void *)&sps->nal_unit_header, AV_CODEC_ID_H264),
+                  write(ctx, sps_p->nal_unit_header.nal_unit_type,
+                        (void *)&sps_p->nal_unit_header, AV_CODEC_ID_H264)};
+}
 
-  hevc_t
-  make_sps_hevc(const AVCodecContext *avctx, const AVPacket *packet) {
+hevc_t make_sps_hevc(const AVCodecContext *avctx, const AVPacket *packet) {
     cbs::ctx_t ctx;
     if (ff_cbs_init(&ctx, AV_CODEC_ID_H265, nullptr)) {
-      return {};
+        return {};
     }
 
     cbs::frag_t frag;
 
     int err = ff_cbs_read_packet(ctx.get(), &frag, packet);
     if (err < 0) {
-      char err_str[AV_ERROR_MAX_STRING_SIZE] { 0 };
-      BOOST_LOG(error) << "Couldn't read packet: "sv << av_make_error_string(err_str, AV_ERROR_MAX_STRING_SIZE, err);
+        char err_str[AV_ERROR_MAX_STRING_SIZE]{0};
+        BOOST_LOG(error) << "Couldn't read packet: "sv
+                         << av_make_error_string(err_str,
+                                                 AV_ERROR_MAX_STRING_SIZE, err);
 
-      return {};
+        return {};
     }
 
-    auto vps_p = ((CodedBitstreamH265Context *) ctx->priv_data)->active_vps;
-    auto sps_p = ((CodedBitstreamH265Context *) ctx->priv_data)->active_sps;
+    auto vps_p = ((CodedBitstreamH265Context *)ctx->priv_data)->active_vps;
+    auto sps_p = ((CodedBitstreamH265Context *)ctx->priv_data)->active_sps;
 
     // These are very large structs that cannot safely be stored on the stack
     auto sps = std::make_unique<H265RawSPS>(*sps_p);
@@ -189,8 +191,10 @@ namespace cbs {
     vui.vui_timing_info_present_flag = vps->vps_timing_info_present_flag;
     vui.vui_num_units_in_tick = vps->vps_num_units_in_tick;
     vui.vui_time_scale = vps->vps_time_scale;
-    vui.vui_poc_proportional_to_timing_flag = vps->vps_poc_proportional_to_timing_flag;
-    vui.vui_num_ticks_poc_diff_one_minus1 = vps->vps_num_ticks_poc_diff_one_minus1;
+    vui.vui_poc_proportional_to_timing_flag =
+        vps->vps_poc_proportional_to_timing_flag;
+    vui.vui_num_ticks_poc_diff_one_minus1 =
+        vps->vps_num_ticks_poc_diff_one_minus1;
     vui.vui_hrd_parameters_present_flag = 0;
 
     vui.bitstream_restriction_flag = 1;
@@ -204,46 +208,52 @@ namespace cbs {
     cbs::ctx_t write_ctx;
     ff_cbs_init(&write_ctx, AV_CODEC_ID_H265, nullptr);
 
-    return hevc_t {
-      nal_t {
-        write(write_ctx, vps->nal_unit_header.nal_unit_type, (void *) &vps->nal_unit_header, AV_CODEC_ID_H265),
-        write(ctx, vps_p->nal_unit_header.nal_unit_type, (void *) &vps_p->nal_unit_header, AV_CODEC_ID_H265),
-      },
+    return hevc_t{
+        nal_t{
+            write(write_ctx, vps->nal_unit_header.nal_unit_type,
+                  (void *)&vps->nal_unit_header, AV_CODEC_ID_H265),
+            write(ctx, vps_p->nal_unit_header.nal_unit_type,
+                  (void *)&vps_p->nal_unit_header, AV_CODEC_ID_H265),
+        },
 
-      nal_t {
-        write(write_ctx, sps->nal_unit_header.nal_unit_type, (void *) &sps->nal_unit_header, AV_CODEC_ID_H265),
-        write(ctx, sps_p->nal_unit_header.nal_unit_type, (void *) &sps_p->nal_unit_header, AV_CODEC_ID_H265),
-      },
+        nal_t{
+            write(write_ctx, sps->nal_unit_header.nal_unit_type,
+                  (void *)&sps->nal_unit_header, AV_CODEC_ID_H265),
+            write(ctx, sps_p->nal_unit_header.nal_unit_type,
+                  (void *)&sps_p->nal_unit_header, AV_CODEC_ID_H265),
+        },
     };
-  }
+}
 
-  bool
-  validate_sps(const AVPacket *packet, int codec_id) {
+bool validate_sps(const AVPacket *packet, int codec_id) {
     cbs::ctx_t ctx;
-    if (ff_cbs_init(&ctx, (AVCodecID) codec_id, nullptr)) {
-      return false;
+    if (ff_cbs_init(&ctx, (AVCodecID)codec_id, nullptr)) {
+        return false;
     }
 
     cbs::frag_t frag;
 
     int err = ff_cbs_read_packet(ctx.get(), &frag, packet);
     if (err < 0) {
-      char err_str[AV_ERROR_MAX_STRING_SIZE] { 0 };
-      BOOST_LOG(error) << "Couldn't read packet: "sv << av_make_error_string(err_str, AV_ERROR_MAX_STRING_SIZE, err);
+        char err_str[AV_ERROR_MAX_STRING_SIZE]{0};
+        BOOST_LOG(error) << "Couldn't read packet: "sv
+                         << av_make_error_string(err_str,
+                                                 AV_ERROR_MAX_STRING_SIZE, err);
 
-      return false;
+        return false;
     }
 
     if (codec_id == AV_CODEC_ID_H264) {
-      auto h264 = (CodedBitstreamH264Context *) ctx->priv_data;
+        auto h264 = (CodedBitstreamH264Context *)ctx->priv_data;
 
-      if (!h264->active_sps->vui_parameters_present_flag) {
-        return false;
-      }
+        if (!h264->active_sps->vui_parameters_present_flag) {
+            return false;
+        }
 
-      return true;
+        return true;
     }
 
-    return ((CodedBitstreamH265Context *) ctx->priv_data)->active_sps->vui_parameters_present_flag;
-  }
+    return ((CodedBitstreamH265Context *)ctx->priv_data)
+        ->active_sps->vui_parameters_present_flag;
+}
 }  // namespace cbs

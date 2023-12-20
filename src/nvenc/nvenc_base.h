@@ -1,46 +1,39 @@
 #pragma once
 
+#include <ffnvcodec/nvEncodeAPI.h>
+
 #include "nvenc_colorspace.h"
 #include "nvenc_config.h"
 #include "nvenc_encoded_frame.h"
-
 #include "src/video.h"
-
-#include <ffnvcodec/nvEncodeAPI.h>
 
 namespace nvenc {
 
-  class nvenc_base {
-  public:
+class nvenc_base {
+   public:
     nvenc_base(NV_ENC_DEVICE_TYPE device_type, void *device);
     virtual ~nvenc_base();
 
     nvenc_base(const nvenc_base &) = delete;
-    nvenc_base &
-    operator=(const nvenc_base &) = delete;
+    nvenc_base &operator=(const nvenc_base &) = delete;
 
-    bool
-    create_encoder(const nvenc_config &config, const video::config_t &client_config, const nvenc_colorspace_t &colorspace, NV_ENC_BUFFER_FORMAT buffer_format);
+    bool create_encoder(const nvenc_config &config,
+                        const video::config_t &client_config,
+                        const nvenc_colorspace_t &colorspace,
+                        NV_ENC_BUFFER_FORMAT buffer_format);
 
-    void
-    destroy_encoder();
+    void destroy_encoder();
 
+    nvenc_encoded_frame encode_frame(uint64_t frame_index, bool force_idr);
 
-    nvenc_encoded_frame
-    encode_frame(uint64_t frame_index, bool force_idr);
+   protected:
+    virtual bool init_library() = 0;
 
-  protected:
-    virtual bool
-    init_library() = 0;
+    virtual bool create_and_register_input_buffer() = 0;
 
-    virtual bool
-    create_and_register_input_buffer() = 0;
+    virtual bool wait_for_async_event(uint32_t timeout_ms) { return false; }
 
-    virtual bool
-    wait_for_async_event(uint32_t timeout_ms) { return false; }
-
-    bool
-    nvenc_failed(NVENCSTATUS status);
+    bool nvenc_failed(NVENCSTATUS status);
 
     const NV_ENC_DEVICE_TYPE device_type;
     void *const device;
@@ -51,11 +44,11 @@ namespace nvenc {
     NV_ENC_INITIALIZE_PARAMS init_params;
 
     struct {
-      uint32_t width = 0;
-      uint32_t height = 0;
-      NV_ENC_BUFFER_FORMAT buffer_format = NV_ENC_BUFFER_FORMAT_UNDEFINED;
-      uint32_t ref_frames_in_dpb = 0;
-      bool rfi = false;
+        uint32_t width = 0;
+        uint32_t height = 0;
+        NV_ENC_BUFFER_FORMAT buffer_format = NV_ENC_BUFFER_FORMAT_UNDEFINED;
+        uint32_t ref_frames_in_dpb = 0;
+        bool rfi = false;
     } encoder_params;
 
     // Derived classes set these variables
@@ -64,15 +57,15 @@ namespace nvenc {
 
     std::string last_error_string;
 
-  private:
+   private:
     NV_ENC_OUTPUT_PTR output_bitstream = nullptr;
 
     struct {
-      uint64_t last_encoded_frame_index = 0;
-      bool rfi_needs_confirmation = false;
-      std::pair<uint64_t, uint64_t> last_rfi_range;
-      // stat_trackers::min_max_avg_tracker<float> frame_size_tracker;
+        uint64_t last_encoded_frame_index = 0;
+        bool rfi_needs_confirmation = false;
+        std::pair<uint64_t, uint64_t> last_rfi_range;
+        // stat_trackers::min_max_avg_tracker<float> frame_size_tracker;
     } encoder_state;
-  };
+};
 
 }  // namespace nvenc
