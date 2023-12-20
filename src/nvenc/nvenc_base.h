@@ -29,9 +29,6 @@ namespace nvenc {
     nvenc_encoded_frame
     encode_frame(uint64_t frame_index, bool force_idr);
 
-    bool
-    invalidate_ref_frames(uint64_t first_frame, uint64_t last_frame);
-
   protected:
     virtual bool
     init_library() = 0;

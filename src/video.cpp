@@ -396,8 +396,6 @@ namespace video {
     virtual void
     request_normal_frame() = 0;
 
-    virtual void
-    invalidate_ref_frames(int64_t first_frame, int64_t last_frame) = 0;
   };
 
   class avcodec_encode_session_t: public encode_session_t {
@@ -452,11 +450,6 @@ namespace video {
       }
     }
 
-    void
-    invalidate_ref_frames(int64_t first_frame, int64_t last_frame) override {
-      BOOST_LOG(error) << "Encoder doesn't support reference frame invalidation";
-      request_idr_frame();
-    }
 
     avcodec_ctx_t avcodec_ctx;
     std::unique_ptr<platf::avcodec_encode_device_t> device;
@@ -492,16 +485,6 @@ namespace video {
       force_idr = false;
     }
 
-
-
-    void
-    invalidate_ref_frames(int64_t first_frame, int64_t last_frame) override {
-      if (!device || !device->nvenc) return;
-
-      if (!device->nvenc->invalidate_ref_frames(first_frame, last_frame)) {
-        force_idr = true;
-      }
-    }
 
     nvenc::nvenc_encoded_frame
     encode_frame(uint64_t frame_index) {
@@ -1608,7 +1591,6 @@ namespace video {
     auto packets         = mail->queue<packet_t>(mail::video_packets);
     auto idr_events      = mail->event<bool>(mail::idr);
     auto bitrate_events  = mail->event<int>(mail::bitrate);
-    auto invalidate_ref_frames_events = mail->event<std::pair<int64_t, int64_t>>(mail::invalidate_ref_frames);
 
     {
       // Load a dummy image into the AVFrame to ensure we have something to encode
@@ -1621,43 +1603,28 @@ namespace video {
       }
     }
 
+    std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
     while (true) {
       if (mail->event<bool>(mail::shutdown)->peek()) {
         BOOST_LOG(info) << "Async shutdown event raised";
         break;
       } else if (reinit_event.peek() || !images->running()) {
         break;
-      }
-
-      bool requested_idr_frame = false;
-
-      while (invalidate_ref_frames_events->peek()) {
-        if (auto frames = invalidate_ref_frames_events->pop(0ms)) {
-          session->invalidate_ref_frames(frames->first, frames->second);
-        }
-      }
-
-      if (idr_events->peek()) {
-        requested_idr_frame = true;
-        idr_events->pop();
-      }
-
-      if (bitrate_events->peek()) {
+      } else if (bitrate_events->peek()) {
         auto bitrate = bitrate_events->pop().value();
         BOOST_LOG(info) << "bitrate changed to "sv << bitrate;
         config->bitrate = bitrate;
         break;
       }
 
-      if (requested_idr_frame) {
+
+      if (idr_events->peek()) {
+        idr_events->pop();
         BOOST_LOG(info) << "IDR frame generated"sv;
         session->request_idr_frame();
-      }
-
-      std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
-
-      // Encode at a minimum of 10 FPS to avoid image quality issues with static content
-      if (!requested_idr_frame || images->peek()) {
+      } else if (images->peek()) {
+        // Encode at a minimum of 10 FPS to avoid image quality issues 
+        // with static content
         if (auto img = images->pop(1ms)) {
           frame_timestamp = img->frame_timestamp;
           if (session->convert(*img)) {

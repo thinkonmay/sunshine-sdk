@@ -45,7 +45,6 @@ namespace mail {
   MAIL(idr);
   MAIL(bitrate);
   MAIL(hdr);
-  MAIL(invalidate_ref_frames);
 
 #undef MAIL
 
