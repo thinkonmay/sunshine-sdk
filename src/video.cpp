@@ -1840,17 +1840,8 @@ void update_resolution(config_t *config, const std::string &display_name) {
 }
 
 void capture(safe::mail_t mail, config_t config, void *channel_data) {
-    // CAREFULL
-    auto ptr_events = mail->event<bool>(mail::toggle_cursor);
     auto idr_events = mail->event<bool>(mail::idr);
-    auto bitrate_events = mail->event<int>(mail::bitrate);
-    auto display_events = mail->event<std::string>(mail::switch_display);
-    auto shutdown_event = mail->event<bool>(mail::shutdown);
-    auto packets = mail->queue<packet_t>(mail::video_packets);
-
     idr_events->raise(true);
-
-    BOOST_LOG(info) << "Start capturing";
     capture_async(mail, config, channel_data);
 }
 

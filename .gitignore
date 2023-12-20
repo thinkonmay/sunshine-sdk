@@ -16,3 +16,5 @@ package-lock.json
 # Translations
 *.mo
 *.pot
+package.json
+.clang-format
