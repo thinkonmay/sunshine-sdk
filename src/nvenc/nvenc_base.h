@@ -25,8 +25,6 @@ namespace nvenc {
     void
     destroy_encoder();
 
-    void
-    update_bitrate(int bitrate);
 
     nvenc_encoded_frame
     encode_frame(uint64_t frame_index, bool force_idr);

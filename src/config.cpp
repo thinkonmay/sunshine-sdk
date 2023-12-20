@@ -19,10 +19,8 @@
 #include "platform/common.h"
 
 
-#ifndef __APPLE__
-  // For NVENC legacy constants
-  #include <ffnvcodec/nvEncodeAPI.h>
-#endif
+// For NVENC legacy constants
+#include <ffnvcodec/nvEncodeAPI.h>
 
 namespace fs = std::filesystem;
 using namespace std::literals;
@@ -55,49 +53,9 @@ namespace config {
   }  // namespace nv
 
   namespace amd {
-#ifdef __APPLE__
-  // values accurate as of 27/12/2022, but aren't strictly necessary for MacOS build
-  #define AMF_VIDEO_ENCODER_AV1_QUALITY_PRESET_SPEED 100
-  #define AMF_VIDEO_ENCODER_AV1_QUALITY_PRESET_QUALITY 30
-  #define AMF_VIDEO_ENCODER_AV1_QUALITY_PRESET_BALANCED 70
-  #define AMF_VIDEO_ENCODER_HEVC_QUALITY_PRESET_SPEED 10
-  #define AMF_VIDEO_ENCODER_HEVC_QUALITY_PRESET_QUALITY 0
-  #define AMF_VIDEO_ENCODER_HEVC_QUALITY_PRESET_BALANCED 5
-  #define AMF_VIDEO_ENCODER_QUALITY_PRESET_SPEED 1
-  #define AMF_VIDEO_ENCODER_QUALITY_PRESET_QUALITY 2
-  #define AMF_VIDEO_ENCODER_QUALITY_PRESET_BALANCED 0
-  #define AMF_VIDEO_ENCODER_AV1_RATE_CONTROL_METHOD_CONSTANT_QP 0
-  #define AMF_VIDEO_ENCODER_AV1_RATE_CONTROL_METHOD_CBR 3
-  #define AMF_VIDEO_ENCODER_AV1_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR 2
-  #define AMF_VIDEO_ENCODER_AV1_RATE_CONTROL_METHOD_LATENCY_CONSTRAINED_VBR 1
-  #define AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_CONSTANT_QP 0
-  #define AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_CBR 3
-  #define AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR 2
-  #define AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_LATENCY_CONSTRAINED_VBR 1
-  #define AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_CONSTANT_QP 0
-  #define AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_CBR 1
-  #define AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR 2
-  #define AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_LATENCY_CONSTRAINED_VBR 3
-  #define AMF_VIDEO_ENCODER_AV1_USAGE_TRANSCODING 0
-  #define AMF_VIDEO_ENCODER_AV1_USAGE_LOW_LATENCY 1
-  #define AMF_VIDEO_ENCODER_AV1_USAGE_ULTRA_LOW_LATENCY 2
-  #define AMF_VIDEO_ENCODER_AV1_USAGE_WEBCAM 3
-  #define AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCONDING 0
-  #define AMF_VIDEO_ENCODER_HEVC_USAGE_ULTRA_LOW_LATENCY 1
-  #define AMF_VIDEO_ENCODER_HEVC_USAGE_LOW_LATENCY 2
-  #define AMF_VIDEO_ENCODER_HEVC_USAGE_WEBCAM 3
-  #define AMF_VIDEO_ENCODER_USAGE_TRANSCONDING 0
-  #define AMF_VIDEO_ENCODER_USAGE_ULTRA_LOW_LATENCY 1
-  #define AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY 2
-  #define AMF_VIDEO_ENCODER_USAGE_WEBCAM 3
-  #define AMF_VIDEO_ENCODER_UNDEFINED 0
-  #define AMF_VIDEO_ENCODER_CABAC 1
-  #define AMF_VIDEO_ENCODER_CALV 2
-#else
   #include <AMF/components/VideoEncoderAV1.h>
   #include <AMF/components/VideoEncoderHEVC.h>
   #include <AMF/components/VideoEncoderVCE.h>
-#endif
 
     enum class quality_av1_e : int {
       speed = AMF_VIDEO_ENCODER_AV1_QUALITY_PRESET_SPEED,
@@ -832,13 +790,11 @@ namespace config {
     bool_f(vars, "nvenc_h264_cavlc", video.nv.h264_cavlc);
     bool_f(vars, "nvenc_realtime_hags", video.nv_realtime_hags);
 
-#ifndef __APPLE__
     video.nv_legacy.preset = video.nv.quality_preset + 11;
     video.nv_legacy.multipass = video.nv.two_pass == nvenc::nvenc_two_pass::quarter_resolution ? NV_ENC_TWO_PASS_QUARTER_RESOLUTION :
                                 video.nv.two_pass == nvenc::nvenc_two_pass::full_resolution    ? NV_ENC_TWO_PASS_FULL_RESOLUTION :
                                                                                                  NV_ENC_MULTI_PASS_DISABLED;
     video.nv_legacy.h264_coder = video.nv.h264_cavlc ? NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC : NV_ENC_H264_ENTROPY_CODING_MODE_CABAC;
-#endif
 
     int_f(vars, "qsv_preset", video.qsv.qsv_preset, qsv::preset_from_view);
     int_f(vars, "qsv_coder", video.qsv.qsv_cavlc, qsv::coder_from_view);

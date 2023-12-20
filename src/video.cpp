@@ -392,8 +392,6 @@ namespace video {
     virtual void
     request_idr_frame() = 0;
 
-    virtual void
-    update_bitrate (int bitrate) = 0;
 
     virtual void
     request_normal_frame() = 0;
@@ -444,13 +442,6 @@ namespace video {
       }
     }
 
-    void
-    update_bitrate(int bitrate) override {
-      bitrate = bitrate * 1000;
-      avcodec_ctx->rc_max_rate = bitrate;
-      avcodec_ctx->bit_rate = bitrate;
-      avcodec_ctx->rc_min_rate = bitrate;
-    }
 
     void
     request_normal_frame() override {
@@ -501,12 +492,6 @@ namespace video {
       force_idr = false;
     }
 
-    void
-    update_bitrate(int bitrate) override {
-      if (!device || !device->nvenc) return;
-
-      device->nvenc->update_bitrate(bitrate);
-    }
 
 
     void
@@ -532,34 +517,15 @@ namespace video {
     bool force_idr = false;
   };
 
-  struct sync_session_ctx_t {
-    safe::signal_t *join_event;
-    safe::mail_raw_t::event_t<bool> shutdown_event;
-    safe::mail_raw_t::queue_t<packet_t> packets;
-    safe::mail_raw_t::event_t<bool> idr_events;
-    safe::mail_raw_t::event_t<int> bitrate_events;
-    safe::mail_raw_t::event_t<std::string> switch_display;
-    safe::mail_raw_t::event_t<bool> toggle_cursor;
-    safe::mail_raw_t::event_t<hdr_info_t> hdr_events;
 
-    config_t config;
-    int frame_nr;
-    void *channel_data;
-  };
 
-  struct sync_session_t {
-    sync_session_ctx_t *ctx;
-    std::unique_ptr<encode_session_t> session;
-  };
-
-  using encode_session_ctx_queue_t = safe::queue_t<sync_session_ctx_t>;
   using encode_e = platf::capture_e;
 
   struct capture_ctx_t {
     safe::mail_raw_t::event_t<std::string> switch_display;
     safe::mail_raw_t::event_t<bool> toggle_cursor;
     img_event_t images;
-    config_t config;
+    config_t* config;
   };
 
   struct capture_thread_async_ctx_t {
@@ -571,14 +537,6 @@ namespace video {
     sync_util::sync_t<std::weak_ptr<platf::display_t>> display_wp;
   };
 
-  struct capture_thread_sync_ctx_t {
-    encode_session_ctx_queue_t encode_session_ctx_queue { 30 };
-  };
-
-  int
-  start_capture_sync(capture_thread_sync_ctx_t &ctx);
-  void
-  end_capture_sync(capture_thread_sync_ctx_t &ctx);
   int
   start_capture_async(capture_thread_async_ctx_t &ctx);
   void
@@ -586,7 +544,6 @@ namespace video {
 
   // Keep a reference counter to ensure the capture thread only runs when other threads have a reference to the capture thread
   auto capture_thread_async = safe::make_shared<capture_thread_async_ctx_t>(start_capture_async, end_capture_async);
-  auto capture_thread_sync = safe::make_shared<capture_thread_sync_ctx_t>(start_capture_sync, end_capture_sync);
 
 #ifdef _WIN32
   static encoder_t nvenc {
@@ -625,85 +582,6 @@ namespace video {
       "h264_nvenc"s,
     },
     PARALLEL_ENCODING | REF_FRAMES_INVALIDATION  // flags
-  };
-#elif !defined(__APPLE__)
-  static encoder_t nvenc {
-    "nvenc"sv,
-    std::make_unique<encoder_platform_formats_avcodec>(
-  #ifdef _WIN32
-      AV_HWDEVICE_TYPE_D3D11VA, AV_HWDEVICE_TYPE_NONE,
-      AV_PIX_FMT_D3D11,
-  #else
-      AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_NONE,
-      AV_PIX_FMT_CUDA,
-  #endif
-      AV_PIX_FMT_NV12, AV_PIX_FMT_P010,
-  #ifdef _WIN32
-      dxgi_init_avcodec_hardware_input_buffer
-  #else
-      cuda_init_avcodec_hardware_input_buffer
-  #endif
-      ),
-    {
-      // Common options
-      {
-        { "delay"s, 0 },
-        { "forced-idr"s, 1 },
-        { "zerolatency"s, 1 },
-        { "preset"s, &config::video.nv_legacy.preset },
-        { "tune"s, NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY },
-        { "rc"s, NV_ENC_PARAMS_RC_CBR },
-        { "multipass"s, &config::video.nv_legacy.multipass },
-      },
-      // SDR-specific options
-      {},
-      // HDR-specific options
-      {},
-      std::nullopt,
-      "av1_nvenc"s,
-    },
-    {
-      // Common options
-      {
-        { "delay"s, 0 },
-        { "forced-idr"s, 1 },
-        { "zerolatency"s, 1 },
-        { "preset"s, &config::video.nv_legacy.preset },
-        { "tune"s, NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY },
-        { "rc"s, NV_ENC_PARAMS_RC_CBR },
-        { "multipass"s, &config::video.nv_legacy.multipass },
-      },
-      // SDR-specific options
-      {
-        { "profile"s, (int) nv::profile_hevc_e::main },
-      },
-      // HDR-specific options
-      {
-        { "profile"s, (int) nv::profile_hevc_e::main_10 },
-      },
-      std::nullopt,
-      "hevc_nvenc"s,
-    },
-    {
-      {
-        { "delay"s, 0 },
-        { "forced-idr"s, 1 },
-        { "zerolatency"s, 1 },
-        { "preset"s, &config::video.nv_legacy.preset },
-        { "tune"s, NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY },
-        { "rc"s, NV_ENC_PARAMS_RC_CBR },
-        { "coder"s, &config::video.nv_legacy.h264_coder },
-        { "multipass"s, &config::video.nv_legacy.multipass },
-      },
-      // SDR-specific options
-      {
-        { "profile"s, (int) nv::profile_h264_e::high },
-      },
-      {},  // HDR-specific options
-      std::make_optional<encoder_t::option_t>({ "qp"s, &config::video.qp }),
-      "h264_nvenc"s,
-    },
-    PARALLEL_ENCODING
   };
 #endif
 
@@ -948,70 +826,15 @@ namespace video {
   };
 #endif
 
-#ifdef __APPLE__
-  static encoder_t videotoolbox {
-    "videotoolbox"sv,
-    std::make_unique<encoder_platform_formats_avcodec>(
-      AV_HWDEVICE_TYPE_VIDEOTOOLBOX, AV_HWDEVICE_TYPE_NONE,
-      AV_PIX_FMT_VIDEOTOOLBOX,
-      AV_PIX_FMT_NV12, AV_PIX_FMT_P010,
-      vt_init_avcodec_hardware_input_buffer),
-    {
-      // Common options
-      {
-        { "allow_sw"s, &config::video.vt.vt_allow_sw },
-        { "require_sw"s, &config::video.vt.vt_require_sw },
-        { "realtime"s, &config::video.vt.vt_realtime },
-        { "prio_speed"s, 1 },
-      },
-      {},  // SDR-specific options
-      {},  // HDR-specific options
-      std::nullopt,
-      "av1_videotoolbox"s,
-    },
-    {
-      // Common options
-      {
-        { "allow_sw"s, &config::video.vt.vt_allow_sw },
-        { "require_sw"s, &config::video.vt.vt_require_sw },
-        { "realtime"s, &config::video.vt.vt_realtime },
-        { "prio_speed"s, 1 },
-      },
-      {},  // SDR-specific options
-      {},  // HDR-specific options
-      std::nullopt,
-      "hevc_videotoolbox"s,
-    },
-    {
-      // Common options
-      {
-        { "allow_sw"s, &config::video.vt.vt_allow_sw },
-        { "require_sw"s, &config::video.vt.vt_require_sw },
-        { "realtime"s, &config::video.vt.vt_realtime },
-        { "prio_speed"s, 1 },
-      },
-      {},  // SDR-specific options
-      {},  // HDR-specific options
-      std::nullopt,
-      "h264_videotoolbox"s,
-    },
-    DEFAULT
-  };
-#endif
 
   static const std::vector<encoder_t *> encoders {
-#ifndef __APPLE__
     &nvenc,
-#endif
 #ifdef _WIN32
     &quicksync,
     &amdvce,
 #endif
 #ifdef __linux__
     &vaapi,
-#endif
-#ifdef __APPLE__
-    &videotoolbox,
 #endif
     &software
   };
@@ -1022,12 +845,12 @@ namespace video {
   bool last_encoder_probe_supported_ref_frames_invalidation = false;
 
   void
-  reset_display(std::shared_ptr<platf::display_t> &disp, const platf::mem_type_e &type, const std::string &display_name, config_t config) {
+  reset_display(std::shared_ptr<platf::display_t> &disp, const platf::mem_type_e &type, const std::string &display_name, config_t* config) {
     // We try this twice, in case we still get an error on reinitialization
     update_resolution(config,display_name);
     for (int x = 0; x < 2; ++x) {
       disp.reset();
-      disp = platf::display(type, display_name, config);
+      disp = platf::display(type, display_name, *config);
       if (disp) {
         break;
       }
@@ -1092,7 +915,7 @@ namespace video {
     }
     capture_ctxs.emplace_back(std::move(*initial_capture_ctx));
 
-    auto disp = platf::display(encoder.platform_formats->dev_type, display_name, capture_ctxs.front().config);
+    auto disp = platf::display(encoder.platform_formats->dev_type, display_name, *capture_ctxs.front().config);
     if (!disp) {
       return;
     }
@@ -1771,13 +1594,13 @@ namespace video {
     int &frame_nr,  // Store progress of the frame number
     safe::mail_t mail,
     img_event_t images,
-    config_t config,
+    config_t* config,
     std::shared_ptr<platf::display_t> disp,
     std::unique_ptr<platf::encode_device_t> encode_device,
     safe::signal_t &reinit_event,
     const encoder_t &encoder,
     void *channel_data) {
-    auto session = make_encode_session(disp.get(), encoder, config, disp->width, disp->height, std::move(encode_device));
+    auto session = make_encode_session(disp.get(), encoder, *config, disp->width, disp->height, std::move(encode_device));
     if (!session) {
       return;
     }
@@ -1821,8 +1644,9 @@ namespace video {
 
       if (bitrate_events->peek()) {
         auto bitrate = bitrate_events->pop().value();
-        BOOST_LOG(info) << "bitrate changed"sv;
-        session->update_bitrate(bitrate);
+        BOOST_LOG(info) << "bitrate changed to "sv << bitrate;
+        config->bitrate = bitrate;
+        break;
       }
 
       if (requested_idr_frame) {
@@ -1877,225 +1701,6 @@ namespace video {
     return result;
   }
 
-  std::optional<sync_session_t>
-  make_synced_session(platf::display_t *disp, const encoder_t &encoder, platf::img_t &img, sync_session_ctx_t &ctx) {
-    sync_session_t encode_session;
-
-    encode_session.ctx = &ctx;
-
-    auto encode_device = make_encode_device(*disp, encoder, ctx.config);
-    if (!encode_device) {
-      return std::nullopt;
-    }
-
-    // Update client with our current HDR display state
-    hdr_info_t hdr_info = std::make_unique<hdr_info_raw_t>(false);
-    if (colorspace_is_hdr(encode_device->colorspace)) {
-      if (disp->get_hdr_metadata(hdr_info->metadata)) {
-        hdr_info->enabled = true;
-      }
-      else {
-        BOOST_LOG(error) << "Couldn't get display hdr metadata when colorspace selection indicates it should have one";
-      }
-    }
-    ctx.hdr_events->raise(std::move(hdr_info));
-
-    auto session = make_encode_session(disp, encoder, ctx.config, img.width, img.height, std::move(encode_device));
-    if (!session) {
-      return std::nullopt;
-    }
-
-    // Load the initial image to prepare for encoding
-    if (session->convert(img)) {
-      BOOST_LOG(error) << "Could not convert initial image"sv;
-      return std::nullopt;
-    }
-
-    encode_session.session = std::move(session);
-
-    return encode_session;
-  }
-
-  encode_e
-  encode_run_sync(
-    std::vector<std::unique_ptr<sync_session_ctx_t>> &synced_session_ctxs,
-    encode_session_ctx_queue_t &encode_session_ctx_queue) {
-    const auto &encoder = *chosen_encoder;
-    auto display_names = platf::display_names(encoder.platform_formats->dev_type);
-    if (display_names.size() == 0 ) {
-      BOOST_LOG(error) << "No available display";
-      return encode_e::error;
-    }
-
-    auto display_name  = display_names[0];
-    std::shared_ptr<platf::display_t> disp;
-
-
-    if (synced_session_ctxs.empty()) {
-      auto ctx = encode_session_ctx_queue.pop();
-      if (!ctx) {
-        return encode_e::ok;
-      }
-
-      synced_session_ctxs.emplace_back(std::make_unique<sync_session_ctx_t>(std::move(*ctx)));
-    }
-
-    while (encode_session_ctx_queue.running()) {
-      // reset_display() will sleep between retries
-      reset_display(disp, encoder.platform_formats->dev_type, display_name, synced_session_ctxs.front()->config);
-      if (disp) {
-        break;
-      }
-    }
-
-    if (!disp) {
-      return encode_e::error;
-    }
-
-    auto img = disp->alloc_img();
-    if (!img || disp->dummy_img(img.get())) {
-      return encode_e::error;
-    }
-
-    std::vector<sync_session_t> synced_sessions;
-    for (auto &ctx : synced_session_ctxs) {
-      auto synced_session = make_synced_session(disp.get(), encoder, *img, *ctx);
-      if (!synced_session) {
-        return encode_e::error;
-      }
-
-      synced_sessions.emplace_back(std::move(*synced_session));
-    }
-
-    bool display_cursor = false;
-    auto ec = platf::capture_e::ok;
-    while (encode_session_ctx_queue.running()) {
-      auto push_captured_image_callback = [&](std::shared_ptr<platf::img_t> &&img, bool frame_captured) -> bool {
-        while (encode_session_ctx_queue.peek()) {
-          auto encode_session_ctx = encode_session_ctx_queue.pop();
-          if (!encode_session_ctx) {
-            return false;
-          }
-
-          synced_session_ctxs.emplace_back(std::make_unique<sync_session_ctx_t>(std::move(*encode_session_ctx)));
-
-          auto encode_session = make_synced_session(disp.get(), encoder, *img, *synced_session_ctxs.back());
-          if (!encode_session) {
-            ec = platf::capture_e::error;
-            return false;
-          }
-
-          synced_sessions.emplace_back(std::move(*encode_session));
-        }
-
-        KITTY_WHILE_LOOP(auto pos = std::begin(synced_sessions), pos != std::end(synced_sessions), {
-          auto ctx = pos->ctx;
-          if (ctx->shutdown_event->peek()) {
-            BOOST_LOG(info) << "Sync shutdown event raised";
-            // Let waiting thread know it can delete shutdown_event
-            ctx->join_event->raise(true);
-
-            pos = synced_sessions.erase(pos);
-            synced_session_ctxs.erase(std::find_if(std::begin(synced_session_ctxs), std::end(synced_session_ctxs), [&ctx_p = ctx](auto &ctx) {
-              return ctx.get() == ctx_p;
-            }));
-
-            continue;
-          } else if (ctx->switch_display->peek()) {
-              ec = platf::capture_e::reinit;
-              display_name = validate_display_name(display_names,ctx->switch_display->pop().value());
-              BOOST_LOG(info) << "capturing screen on display " << display_name;
-              return false;
-          } else if (ctx->toggle_cursor->peek()) {
-              display_cursor = ctx->toggle_cursor->pop();
-              BOOST_LOG(info) << "cursor set to " << display_cursor;
-          }
-
-          if (ctx->bitrate_events->peek()) {
-            auto bitrate = ctx->bitrate_events->pop().value();
-            BOOST_LOG(info) << "bitrate changed"sv;
-            pos->session->update_bitrate(bitrate);
-          }
-          if (ctx->idr_events->peek()) {
-            BOOST_LOG(info) << "IDR frame generated"sv;
-            pos->session->request_idr_frame();
-            ctx->idr_events->pop();
-          }
-
-          if (frame_captured && pos->session->convert(*img)) {
-            BOOST_LOG(error) << "Could not convert image"sv;
-            ctx->shutdown_event->raise(true);
-
-            continue;
-          }
-
-          std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
-          if (img) {
-            frame_timestamp = img->frame_timestamp;
-          }
-
-          if (encode(ctx->frame_nr++, *pos->session, ctx->packets, ctx->channel_data, frame_timestamp)) {
-            BOOST_LOG(error) << "Could not encode video packet"sv;
-            ctx->shutdown_event->raise(true);
-
-            continue;
-          }
-
-          pos->session->request_normal_frame();
-
-          ++pos;
-        })
-
-
-        return true;
-      };
-
-      auto pull_free_image_callback = [&img](std::shared_ptr<platf::img_t> &img_out) -> bool {
-        img_out = img;
-        img_out->frame_timestamp.reset();
-        return true;
-      };
-
-      auto status = disp->capture(push_captured_image_callback, pull_free_image_callback, &display_cursor);
-      switch (status) {
-        case platf::capture_e::reinit:
-        case platf::capture_e::error:
-        case platf::capture_e::ok:
-        case platf::capture_e::timeout:
-        case platf::capture_e::interrupted:
-          return ec != platf::capture_e::ok ? ec : status;
-      }
-    }
-
-    return encode_e::ok;
-  }
-
-  void
-  captureThreadSync() {
-    auto ref = capture_thread_sync.ref();
-
-    std::vector<std::unique_ptr<sync_session_ctx_t>> synced_session_ctxs;
-
-    auto &ctx = ref->encode_session_ctx_queue;
-    auto lg = util::fail_guard([&]() {
-      ctx.stop();
-
-      for (auto &ctx : synced_session_ctxs) {
-        ctx->shutdown_event->raise(true);
-        ctx->join_event->raise(true);
-      }
-
-      for (auto &ctx : ctx.unsafe()) {
-        ctx.shutdown_event->raise(true);
-        ctx.join_event->raise(true);
-      }
-    });
-
-    // Encoding and capture takes place on this thread
-    platf::adjust_thread_priority(platf::thread_priority_e::high);
-
-    while (encode_run_sync(synced_session_ctxs, ctx) == encode_e::reinit) {}
-  }
 
   void
   capture_async(
@@ -2119,7 +1724,7 @@ namespace video {
     ref->capture_ctx_queue->raise(capture_ctx_t { 
       mail->event<std::string>(mail::switch_display),
       mail->event<bool>(mail::toggle_cursor),
-      images, config });
+      images, &config });
 
     if (!ref->capture_ctx_queue->running()) {
       return;
@@ -2175,7 +1780,7 @@ namespace video {
         frame_nr,
         mail, 
         images,
-        config, 
+        &config, 
         display,
         std::move(encode_device),
         ref->reinit_event, 
@@ -2186,7 +1791,7 @@ namespace video {
 
   void
   update_resolution(
-    config_t config,
+    config_t* config,
     const std::string &display_name) {
 
     HRESULT result = 1;
@@ -2206,8 +1811,8 @@ namespace video {
         
         PDEVMODE dm = (PDEVMODE)malloc(sizeof(DEVMODE));
         if ( EnumDisplaySettings(displayDevice->DeviceName, ENUM_CURRENT_SETTINGS, dm) ) {
-          config.width  = dm->dmPelsWidth;
-          config.height = dm->dmPelsHeight;
+          config->width  = dm->dmPelsWidth;
+          config->height = dm->dmPelsHeight;
         }
       }
     } while (result);
@@ -2231,30 +1836,7 @@ namespace video {
     idr_events->raise(true);
 
     BOOST_LOG(info) << "Start capturing";
-    if (chosen_encoder->flags & PARALLEL_ENCODING) {
-      BOOST_LOG(info) << "Capturing async";
-      capture_async(mail, config, channel_data);
-    } else {
-      BOOST_LOG(info) << "Capturing sync";
-      safe::signal_t join_event;
-      auto ref = capture_thread_sync.ref();
-      ref->encode_session_ctx_queue.raise(sync_session_ctx_t {
-        &join_event,
-        std::move(shutdown_event),
-        std::move(packets),
-        std::move(idr_events),
-        std::move(bitrate_events),
-        std::move(display_events),
-        std::move(ptr_events),
-        mail->event<hdr_info_t>(mail::hdr),
-        config,
-        1,
-        channel_data,
-      });
-
-      // Wait for join signal
-      join_event.view();
-    }
+    capture_async(mail, config, channel_data);
   }
 
   enum validate_flag_e {
@@ -2262,8 +1844,8 @@ namespace video {
   };
 
   int
-  validate_config(std::shared_ptr<platf::display_t> &disp, const encoder_t &encoder, const config_t &config) {
-    reset_display(disp, encoder.platform_formats->dev_type, config::video.output_name, config);
+  validate_config(std::shared_ptr<platf::display_t> &disp, const encoder_t &encoder, config_t config) {
+    reset_display(disp, encoder.platform_formats->dev_type, config::video.output_name, &config);
     if (!disp) {
       return -1;
     }
@@ -2342,7 +1924,7 @@ namespace video {
     config_t config_autoselect { 1920, 1080, 60, 1000, 1, 0, 1, 0, 0 };
 
     // If the encoder isn't supported at all (not even H.264), bail early
-    reset_display(disp, encoder.platform_formats->dev_type, config::video.output_name, config_autoselect);
+    reset_display(disp, encoder.platform_formats->dev_type, config::video.output_name, &config_autoselect);
     if (!disp) {
       return false;
     }
@@ -2777,14 +2359,6 @@ namespace video {
 
     capture_thread_ctx.capture_thread.join();
   }
-
-  int
-  start_capture_sync(capture_thread_sync_ctx_t &ctx) {
-    std::thread { &captureThreadSync }.detach();
-    return 0;
-  }
-  void
-  end_capture_sync(capture_thread_sync_ctx_t &ctx) {}
 
   platf::mem_type_e
   map_base_dev_type(AVHWDeviceType type) {

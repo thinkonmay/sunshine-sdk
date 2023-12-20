@@ -82,6 +82,8 @@ extern VideoPipeline *__cdecl StartQueue(int video_codec,
 	}};
 	thread.detach();
 
+
+	RaiseEventS(&pipeline,CHANGE_DISPLAY,display_name);
 	return &pipeline;
 }
 

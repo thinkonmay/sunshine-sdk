@@ -155,7 +155,7 @@ namespace video {
 
   void
   update_resolution(
-    config_t config,
+    config_t* config,
     const std::string &display_name
   );
 
