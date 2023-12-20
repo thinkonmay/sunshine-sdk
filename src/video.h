@@ -151,8 +151,13 @@ namespace video {
   capture(
     safe::mail_t mail,
     config_t config,
-    std::string display_name,
     void *channel_data);
+
+  void
+  update_resolution(
+    config_t config,
+    const std::string &display_name
+  );
 
   int
   probe_encoders();

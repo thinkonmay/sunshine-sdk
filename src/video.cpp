@@ -1024,6 +1024,7 @@ namespace video {
   void
   reset_display(std::shared_ptr<platf::display_t> &disp, const platf::mem_type_e &type, const std::string &display_name, config_t config) {
     // We try this twice, in case we still get an error on reinitialization
+    update_resolution(config,display_name);
     for (int x = 0; x < 2; ++x) {
       disp.reset();
       disp = platf::display(type, display_name, config);
@@ -1031,8 +1032,6 @@ namespace video {
         break;
       }
 
-      config.width  = disp->width;
-      config.height = disp->height;
       // The capture code depends on us to sleep between failures
       std::this_thread::sleep_for(200ms);
     }
@@ -2186,10 +2185,39 @@ namespace video {
   }
 
   void
+  update_resolution(
+    config_t config,
+    const std::string &display_name) {
+
+    HRESULT result = 1;
+    int deviceIndex = 0;
+    do
+    {
+      DISPLAY_DEVICE dpd = {0};
+      PDISPLAY_DEVICE displayDevice = &dpd;
+      displayDevice->cb = sizeof(DISPLAY_DEVICE);
+
+      result = EnumDisplayDevices(NULL, 
+        deviceIndex++, displayDevice, 0);
+      if (displayDevice->StateFlags & DISPLAY_DEVICE_ACTIVE)
+      {
+        if(strcmp(displayDevice->DeviceName,display_name.c_str()))
+            continue;
+        
+        PDEVMODE dm = (PDEVMODE)malloc(sizeof(DEVMODE));
+        if ( EnumDisplaySettings(displayDevice->DeviceName, ENUM_CURRENT_SETTINGS, dm) ) {
+          config.width  = dm->dmPelsWidth;
+          config.height = dm->dmPelsHeight;
+        }
+      }
+    } while (result);
+  }
+
+
+  void
   capture(
     safe::mail_t mail,
     config_t config,
-    std::string display_name,
     void *channel_data) {
 
     // CAREFULL
@@ -2201,7 +2229,6 @@ namespace video {
     auto packets    = mail->queue<packet_t>(mail::video_packets);
 
     idr_events->raise(true);
-    display_events->raise(display_name);
 
     BOOST_LOG(info) << "Start capturing";
     if (chosen_encoder->flags & PARALLEL_ENCODING) {

@@ -75,12 +75,11 @@ extern VideoPipeline *__cdecl StartQueue(int video_codec,
 	}
 
 	auto thread = std::thread{[&](){ 
-		auto dispname = std::string(display_name);
 		video::capture(
 			pipeline.mail, 
 			pipeline.monitor, 
-			dispname,
-			NULL); }};
+			NULL); 
+	}};
 	thread.detach();
 
 	return &pipeline;
