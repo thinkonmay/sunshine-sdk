@@ -408,12 +408,6 @@ bool nvenc_base::create_encoder(const nvenc_config &config,
     }
 
     {
-        // auto f = stat_trackers::one_digit_after_decimal();
-        // BOOST_LOG(debug) << "NvEnc: requested encoded frame size " << f %
-        // (client_config.bitrate / 8. / client_config.framerate) << " kB";
-    }
-
-    {
         std::string extra;
         if (init_params.enableEncodeAsync) extra += " async";
         if (buffer_is_10bit()) extra += " 10-bit";

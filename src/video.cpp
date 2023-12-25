@@ -1663,6 +1663,7 @@ void encode_run(int &frame_nr,  // Store progress of the frame number
     auto packets = mail->queue<packet_t>(mail::video_packets);
     auto idr_events = mail->event<bool>(mail::idr);
     auto bitrate_events = mail->event<int>(mail::bitrate);
+    auto framerate_events = mail->event<int>(mail::framerate);
 
     {
         // Load a dummy image into the AVFrame to ensure we have something to
@@ -1676,7 +1677,14 @@ void encode_run(int &frame_nr,  // Store progress of the frame number
         }
     }
 
+    auto timer = CreateWaitableTimerEx(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+    if (!timer) 
+        timer = CreateWaitableTimerEx(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
+    
+
     std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
+    auto timestamp = std::chrono::steady_clock::now();
+    auto cycle = std::chrono::nanoseconds(1s) / config->framerate;
     while (true) {
         if (mail->event<bool>(mail::shutdown)->peek()) {
             BOOST_LOG(info) << "Async shutdown event raised";
@@ -1688,6 +1696,11 @@ void encode_run(int &frame_nr,  // Store progress of the frame number
             BOOST_LOG(info) << "bitrate changed to "sv << bitrate;
             config->bitrate = bitrate;
             break;
+        } else if (framerate_events->peek()) {
+            auto framerate = framerate_events->pop().value();
+            BOOST_LOG(info) << "framerate changed to "sv << framerate;
+            config->framerate = framerate;
+            break;
         }
 
         if (idr_events->peek()) {
@@ -1697,7 +1710,7 @@ void encode_run(int &frame_nr,  // Store progress of the frame number
         } else if (images->peek()) {
             // Encode at a minimum of 10 FPS to avoid image quality issues
             // with static content
-            if (auto img = images->pop(1ms)) {
+            if (auto img = images->pop()) {
                 frame_timestamp = img->frame_timestamp;
                 if (session->convert(*img)) {
                     BOOST_LOG(error) << "Could not convert image"sv;
@@ -1708,12 +1721,23 @@ void encode_run(int &frame_nr,  // Store progress of the frame number
             }
         }
 
+        auto sleep_period = (std::chrono::nanoseconds(1s) / config->framerate - cycle).count();
+        if(sleep_period > 0) {
+            LARGE_INTEGER due_time;
+            due_time.QuadPart = sleep_period / -100;
+            SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, false);
+            WaitForSingleObject(timer, INFINITE);
+        }
+
         if (encode(frame_nr++, *session, packets, channel_data,
                    frame_timestamp)) {
             BOOST_LOG(error) << "Could not encode video packet"sv;
             return;
         }
 
+        auto now = std::chrono::steady_clock::now();
+        cycle = now - timestamp;
+        timestamp = now;
         session->request_normal_frame();
     }
 }
@@ -1841,6 +1865,7 @@ void update_resolution(config_t *config, const std::string &display_name) {
 
 void capture(safe::mail_t mail, config_t config, void *channel_data) {
     auto idr_events = mail->event<bool>(mail::idr);
+    auto shutdown = mail->event<bool>(mail::shutdown);
     idr_events->raise(true);
     capture_async(mail, config, channel_data);
 }

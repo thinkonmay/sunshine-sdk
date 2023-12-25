@@ -25,7 +25,7 @@ struct _VideoPipeline {
     safe::mail_t mail;
 };
 
-extern VideoPipeline *__cdecl StartQueue(int video_codec, char *display_name) {
+extern VideoPipeline *__cdecl StartQueue(int video_codec) {
     static bool init = false;
     if (!init) {
         // If any of the following fail, we log an error and continue event
@@ -43,7 +43,7 @@ extern VideoPipeline *__cdecl StartQueue(int video_codec, char *display_name) {
 
     static VideoPipeline pipeline = {};
     pipeline.mail = std::make_shared<safe::mail_raw_t>();
-    pipeline.monitor = {1920, 1080, 120, 6000, 1, 0, 1, 0, 0};
+    pipeline.monitor = {1920, 1080, 60, 6000, 1, 0, 1, 0, 0};
     pipeline.start = std::chrono::steady_clock::now();
 
     switch (video_codec) {
@@ -71,7 +71,6 @@ extern VideoPipeline *__cdecl StartQueue(int video_codec, char *display_name) {
         [&]() { video::capture(pipeline.mail, pipeline.monitor, NULL); }};
     thread.detach();
 
-    RaiseEventS(&pipeline, CHANGE_DISPLAY, display_name);
     return &pipeline;
 }
 
@@ -119,6 +118,9 @@ void __cdecl RaiseEvent(VideoPipeline *pipeline, EventType event, int value) {
             break;
         case CHANGE_BITRATE:  // IDR FRAME
             pipeline->mail->event<int>(mail::bitrate)->raise(value);
+            break;
+        case CHANGE_FRAMERATE:  // IDR FRAME
+            pipeline->mail->event<int>(mail::framerate)->raise(value);
             break;
         default:
             break;

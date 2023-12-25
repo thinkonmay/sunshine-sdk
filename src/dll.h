@@ -8,6 +8,7 @@ typedef struct _VideoPipeline VideoPipeline;
 typedef enum _EventType {
     POINTER_VISIBLE,
     CHANGE_BITRATE,
+    CHANGE_FRAMERATE,
     CHANGE_DISPLAY,
     IDR_FRAME,
 
@@ -20,8 +21,7 @@ typedef enum _Codec {
     AV1,
 } Codec;
 
-__declspec(dllexport) VideoPipeline* __cdecl StartQueue(int video_codec,
-                                                        char* display_name);
+__declspec(dllexport) VideoPipeline* __cdecl StartQueue(int video_codec);
 
 __declspec(dllexport) int __cdecl PopFromQueue(VideoPipeline* pipeline,
                                                void* data, int* duration);
@@ -38,7 +38,7 @@ __declspec(dllexport) void __cdecl WaitEvent(VideoPipeline* pipeline,
 __declspec(dllexport) int __cdecl PeekEvent(VideoPipeline* pipeline,
                                             EventType event);
 
-typedef VideoPipeline* (*STARTQUEUE)(int video_codec, char* display_name);
+typedef VideoPipeline* (*STARTQUEUE)(int video_codec);
 
 typedef int (*POPFROMQUEUE)(VideoPipeline* pipeline, void* data, int* duration);
 

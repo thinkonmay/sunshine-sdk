@@ -127,37 +127,6 @@ void display_base_t::high_precision_sleep(std::chrono::nanoseconds duration) {
 capture_e display_base_t::capture(
     const push_captured_image_cb_t &push_captured_image_cb,
     const pull_free_image_cb_t &pull_free_image_cb, bool *cursor) {
-    auto adjust_client_frame_rate = [&]() -> DXGI_RATIONAL {
-        // Adjust capture frame interval when display refresh rate is not
-        // integral but very close to requested fps.
-        if (display_refresh_rate.Denominator > 1) {
-            DXGI_RATIONAL candidate = display_refresh_rate;
-            if (client_frame_rate % display_refresh_rate_rounded == 0) {
-                candidate.Numerator *=
-                    client_frame_rate / display_refresh_rate_rounded;
-            } else if (display_refresh_rate_rounded % client_frame_rate == 0) {
-                candidate.Denominator *=
-                    display_refresh_rate_rounded / client_frame_rate;
-            }
-            double candidate_rate =
-                (double)candidate.Numerator / candidate.Denominator;
-            // Can only decrease requested fps, otherwise client may start
-            // accumulating frames and suffer increased latency.
-            if (client_frame_rate > candidate_rate &&
-                candidate_rate / client_frame_rate > 0.99) {
-                BOOST_LOG(info) << "Adjusted capture rate to " << candidate_rate
-                                << "fps to better match display";
-                return candidate;
-            }
-        }
-
-        return {(uint32_t)client_frame_rate, 1};
-    };
-
-    DXGI_RATIONAL client_frame_rate_adjusted = adjust_client_frame_rate();
-    std::optional<std::chrono::steady_clock::time_point>
-        frame_pacing_group_start;
-    uint32_t frame_pacing_group_frames = 0;
 
     // Keep the display awake during capture. If the display goes to sleep
     // during capture, best case is that capture stops until it powers back on.
@@ -168,8 +137,6 @@ capture_e display_base_t::capture(
     auto clear_display_required =
         util::fail_guard([]() { SetThreadExecutionState(ES_CONTINUOUS); });
 
-    // stat_trackers::min_max_avg_tracker<double> sleep_overshoot_tracker;
-
     while (true) {
         // This will return false if the HDR state changes or for any number of
         // other display or GPU changes. We should reinit to examine the updated
@@ -179,79 +146,9 @@ capture_e display_base_t::capture(
             return platf::capture_e::reinit;
         }
 
-        platf::capture_e status = capture_e::ok;
         std::shared_ptr<img_t> img_out;
-
-        // Try to continue frame pacing group, snapshot() is called with zero
-        // timeout after waiting for client frame interval
-        if (frame_pacing_group_start) {
-            const uint32_t seconds = (uint64_t)frame_pacing_group_frames *
-                                     client_frame_rate_adjusted.Denominator /
-                                     client_frame_rate_adjusted.Numerator;
-            const uint32_t remainder = (uint64_t)frame_pacing_group_frames *
-                                       client_frame_rate_adjusted.Denominator %
-                                       client_frame_rate_adjusted.Numerator;
-            const auto sleep_target = *frame_pacing_group_start +
-                                      std::chrono::nanoseconds(1s) * seconds +
-                                      std::chrono::nanoseconds(1s) * remainder /
-                                          client_frame_rate_adjusted.Numerator;
-            const auto sleep_period =
-                sleep_target - std::chrono::steady_clock::now();
-
-            if (sleep_period <= 0ns) {
-                // We missed next frame time, invalidating current frame pacing
-                // group
-                frame_pacing_group_start = std::nullopt;
-                frame_pacing_group_frames = 0;
-                status = capture_e::timeout;
-            } else {
-                high_precision_sleep(sleep_period);
-
-                // if (config::sunshine.min_log_level <= 1) {
-                //   // Print sleep overshoot stats to debug log every 20
-                //   seconds auto print_info = [&](double min_overshoot, double
-                //   max_overshoot, double avg_overshoot) {
-                //     auto f = stat_trackers::one_digit_after_decimal();
-                //     BOOST_LOG(debug) << "Sleep overshoot (min/max/avg): " <<
-                //     f % min_overshoot << "ms/" << f % max_overshoot << "ms/"
-                //     << f % avg_overshoot << "ms";
-                //   };
-                //   std::chrono::nanoseconds overshoot_ns =
-                //   std::chrono::steady_clock::now() - sleep_target;
-                //   sleep_overshoot_tracker.collect_and_callback_on_interval(overshoot_ns.count()
-                //   / 1000000., print_info, 20s);
-                // }
-
-                status = snapshot(pull_free_image_cb, img_out, 0ms, *cursor);
-
-                if (status == capture_e::ok && img_out) {
-                    frame_pacing_group_frames += 1;
-                } else {
-                    frame_pacing_group_start = std::nullopt;
-                    frame_pacing_group_frames = 0;
-                }
-            }
-        }
-
-        // Start new frame pacing group if necessary, snapshot() is called with
-        // non-zero timeout
-        if (status == capture_e::timeout ||
-            (status == capture_e::ok && !frame_pacing_group_start)) {
-            status = snapshot(pull_free_image_cb, img_out, 1000ms, *cursor);
-
-            if (status == capture_e::ok && img_out) {
-                frame_pacing_group_start = img_out->frame_timestamp;
-
-                if (!frame_pacing_group_start) {
-                    BOOST_LOG(warning)
-                        << "snapshot() provided image without timestamp";
-                    frame_pacing_group_start = std::chrono::steady_clock::now();
-                }
-
-                frame_pacing_group_frames = 1;
-            }
-        }
-
+        platf::capture_e status = capture_e::ok;
+        status = snapshot(pull_free_image_cb, img_out, 1000ms, *cursor);
         switch (status) {
             case platf::capture_e::reinit:
             case platf::capture_e::error:

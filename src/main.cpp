@@ -47,12 +47,13 @@ int main(int argc, char *argv[]) {
 
     // second encode session
     for (int i = 0; i < 30; i++) {
-        VideoPipeline *pipeline = callstart(1, "\\\\.\\DISPLAY1");
+        VideoPipeline *pipeline = callstart(1);
         auto video = std::thread{[&]() {
             // Video traffic is sent on this thread
             int duration = 0;
             void *data = malloc(100 * 1000 * 1000);
 
+            auto start = std::chrono::system_clock::now();
             int count = 0;
             while (true) {
                 int size = callpop(pipeline, data, &duration);
@@ -61,10 +62,14 @@ int main(int argc, char *argv[]) {
                 } else if (count % 100 == 0) {
                     callraise(pipeline, CHANGE_BITRATE, 2000);
                 } else if (count % 100 == 50) {
-                    callraiseS(pipeline, CHANGE_DISPLAY, "\\\\.\\DISPLAY1");
+                    // callraiseS(pipeline, CHANGE_DISPLAY, "\\\\.\\DISPLAY1");
+                    callraise(pipeline, CHANGE_FRAMERATE, 50);
                 }
 
-                printf("received packet with size %d\n", size);
+                auto end = std::chrono::system_clock::now();
+                auto time = std::chrono::duration<double, std::milli>(end - start);
+                start = end;
+                printf("received packet with size %d, timestamp %f\n", size,time.count());
                 count++;
             }
 
