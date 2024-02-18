@@ -373,7 +373,6 @@ namespace config {
   stream_t stream {
     10s,  // ping_timeout
 
-    APPS_JSON_PATH,
 
     20,  // fecPercentage
     1  // channels
@@ -905,9 +904,6 @@ namespace config {
 
   void
   apply_config(std::unordered_map<std::string, std::string> &&vars) {
-    if (!fs::exists(stream.file_apps.c_str())) {
-      fs::copy_file(SUNSHINE_ASSETS_DIR "/apps.json", stream.file_apps);
-    }
 
     for (auto &[name, val] : vars) {
       std::cout << "["sv << name << "] -- ["sv << val << ']' << std::endl;
@@ -1006,7 +1002,6 @@ namespace config {
 
     int_between_f(vars, "channels", stream.channels, { 1, std::numeric_limits<int>::max() });
 
-    path_f(vars, "file_apps", stream.file_apps);
     int_between_f(vars, "fec_percentage", stream.fec_percentage, { 1, 255 });
 
     map_int_int_f(vars, "keybindings"s, input.keybindings);

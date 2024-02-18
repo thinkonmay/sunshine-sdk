@@ -331,10 +331,8 @@ namespace confighttp {
 
     print_req(request);
 
-    std::string content = read_file(config::stream.file_apps.c_str());
     SimpleWeb::CaseInsensitiveMultimap headers;
     headers.emplace("Content-Type", "application/json");
-    response->write(content, headers);
   }
 
   void
@@ -368,11 +366,9 @@ namespace confighttp {
 
     pt::ptree inputTree, fileTree;
 
-    BOOST_LOG(info) << config::stream.file_apps;
     try {
       // TODO: Input Validation
       pt::read_json(ss, inputTree);
-      pt::read_json(config::stream.file_apps, fileTree);
 
       if (inputTree.get_child("prep-cmd").empty()) {
         inputTree.erase("prep-cmd");
@@ -406,7 +402,6 @@ namespace confighttp {
         fileTree.erase("apps");
         fileTree.push_back(std::make_pair("apps", newApps));
       }
-      pt::write_json(config::stream.file_apps, fileTree);
     }
     catch (std::exception &e) {
       BOOST_LOG(warning) << "SaveApp: "sv << e.what();
@@ -417,7 +412,6 @@ namespace confighttp {
     }
 
     outputTree.put("status", "true");
-    proc::refresh(config::stream.file_apps);
   }
 
   void
@@ -435,7 +429,6 @@ namespace confighttp {
     });
     pt::ptree fileTree;
     try {
-      pt::read_json(config::stream.file_apps, fileTree);
       auto &apps_node = fileTree.get_child("apps"s);
       int index = stoi(request->path_match[1]);
 
@@ -456,7 +449,6 @@ namespace confighttp {
         fileTree.erase("apps");
         fileTree.push_back(std::make_pair("apps", newApps));
       }
-      pt::write_json(config::stream.file_apps, fileTree);
     }
     catch (std::exception &e) {
       BOOST_LOG(warning) << "DeleteApp: "sv << e.what();
@@ -466,7 +458,6 @@ namespace confighttp {
     }
 
     outputTree.put("status", "true");
-    proc::refresh(config::stream.file_apps);
   }
 
   void

@@ -26,7 +26,6 @@
 #include "platform/common.h"
 #include "process.h"
 #include "rtsp.h"
-#include "system_tray.h"
 #include "thread_pool.h"
 #include "upnp.h"
 #include "version.h"
@@ -502,9 +501,6 @@ main(int argc, char *argv[]) {
 
   mail::man = std::make_shared<safe::mail_raw_t>();
 
-  if (config::parse(argc, argv)) {
-    return 0;
-  }
 
   if (config::sunshine.min_log_level >= 1) {
     av_log_set_level(AV_LOG_QUIET);
@@ -693,10 +689,6 @@ main(int argc, char *argv[]) {
   BOOST_LOG(info) << PROJECT_NAME << " version: " << PROJECT_VER << std::endl;
   task_pool.start(1);
 
-#if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
-  // create tray thread and detach it
-  system_tray::run_tray();
-#endif
 
   // Create signal handler after logging has been initialized
   auto shutdown_event = mail::man->event<bool>(mail::shutdown);
@@ -726,7 +718,6 @@ main(int argc, char *argv[]) {
     shutdown_event->raise(true);
   });
 
-  proc::refresh(config::stream.file_apps);
 
   // If any of the following fail, we log an error and continue event though sunshine will not function correctly.
   // This allows access to the UI to fix configuration problems or view the logs.
@@ -736,10 +727,6 @@ main(int argc, char *argv[]) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
   }
 
-  auto proc_deinit_guard = proc::init();
-  if (!proc_deinit_guard) {
-    BOOST_LOG(error) << "Proc failed to initialize"sv;
-  }
 
   reed_solomon_init();
   auto input_deinit_guard = input::init();
@@ -747,56 +734,35 @@ main(int argc, char *argv[]) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
   }
 
-  if (http::init()) {
-    BOOST_LOG(fatal) << "HTTP interface failed to initialize"sv;
-
-#ifdef _WIN32
-    BOOST_LOG(fatal) << "To relaunch Sunshine successfully, use the shortcut in the Start Menu. Do not run Sunshine.exe manually."sv;
-    std::this_thread::sleep_for(10s);
-#endif
-
-    return -1;
-  }
-
-  std::unique_ptr<platf::deinit_t> mDNS;
-  auto sync_mDNS = std::async(std::launch::async, [&mDNS]() {
-    mDNS = platf::publish::start();
-  });
-
-  std::unique_ptr<platf::deinit_t> upnp_unmap;
-  auto sync_upnp = std::async(std::launch::async, [&upnp_unmap]() {
-    upnp_unmap = upnp::start();
-  });
 
   // FIXME: Temporary workaround: Simple-Web_server needs to be updated or replaced
   if (shutdown_event->peek()) {
     return lifetime::desired_exit_code;
   }
 
-  std::thread httpThread { nvhttp::start };
-  std::thread configThread { confighttp::start };
 
-#ifdef _WIN32
-  // If we're using the default port and GameStream is enabled, warn the user
-  if (config::sunshine.port == 47989 && is_gamestream_enabled()) {
-    BOOST_LOG(fatal) << "GameStream is still enabled in GeForce Experience! This *will* cause streaming problems with Sunshine!"sv;
-    BOOST_LOG(fatal) << "Disable GameStream on the SHIELD tab in GeForce Experience or change the Port setting on the Advanced tab in the Sunshine Web UI."sv;
-  }
-#endif
 
-// rtsp_stream::launch_session_raise(make_launch_session(host_audio, args));
+
+  rtsp_stream::launch_session_raise(rtsp_stream::launch_session_t{
+    util::from_hex<crypto::aes_t>("", true),
+    util::from_hex<crypto::aes_t>("", true),
+    true,
+    "unique_id",
+    1920,
+    1080,
+    60,
+    0,
+    0,
+    0,
+    false,
+    true
+  });
   rtsp_stream::rtpThread();
 
-  httpThread.join();
-  configThread.join();
 
   task_pool.stop();
   task_pool.join();
 
-  // stop system tray
-#if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
-  system_tray::end_tray();
-#endif
 
 #ifdef WIN32
   // Restore global NVIDIA control panel settings

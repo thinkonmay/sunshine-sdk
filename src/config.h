@@ -79,7 +79,6 @@ namespace config {
   struct stream_t {
     std::chrono::milliseconds ping_timeout;
 
-    std::string file_apps;
 
     int fec_percentage;
 
