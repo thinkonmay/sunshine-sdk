@@ -743,20 +743,6 @@ main(int argc, char *argv[]) {
 
 
 
-  rtsp_stream::launch_session_raise(rtsp_stream::launch_session_t{
-    util::from_hex<crypto::aes_t>("", true),
-    util::from_hex<crypto::aes_t>("", true),
-    true,
-    "unique_id",
-    1920,
-    1080,
-    60,
-    0,
-    0,
-    0,
-    false,
-    true
-  });
   rtsp_stream::rtpThread();
 
 

@@ -598,14 +598,6 @@ namespace rtsp_stream {
     auto seqn_str = std::to_string(req->sequenceNumber);
     option.content = const_cast<char *>(seqn_str.c_str());
 
-    if (!server->launch_event.peek()) {
-      // /launch has not been used
-
-      respond(sock, &option, 503, "Service Unavailable", req->sequenceNumber, {});
-      return;
-    }
-    auto launch_session { server->launch_event.pop() };
-
     std::string_view payload { req->payload, (size_t) req->payloadLength };
 
     std::vector<std::string_view> lines;
@@ -661,7 +653,7 @@ namespace rtsp_stream {
 
     stream::config_t config;
 
-    config.audio.flags[audio::config_t::HOST_AUDIO] = launch_session->host_audio;
+    config.audio.flags[audio::config_t::HOST_AUDIO] = true;
     try {
       config.audio.channels = util::from_view(args.at("x-nv-audio.surround.numChannels"sv));
       config.audio.mask = util::from_view(args.at("x-nv-audio.surround.channelMask"sv));
@@ -719,7 +711,9 @@ namespace rtsp_stream {
       return;
     }
 
-    auto session = stream::session::alloc(config, launch_session->gcm_key, launch_session->iv);
+    auto a = util::from_hex<crypto::aes_t>("", true);
+    auto b = util::from_hex<crypto::aes_t>("", true);
+    auto session = stream::session::alloc(config, a,b);
 
     auto slot = server->accept(session);
     if (!slot) {
