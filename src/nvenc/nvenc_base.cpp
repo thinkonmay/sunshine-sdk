@@ -534,19 +534,7 @@ nvenc_encoded_frame nvenc_base::encode_frame(uint64_t frame_index,
                          << last_error_string;
     }
 
-    // if (config::sunshine.min_log_level <= 1) {
-    //   // Print encoded frame size stats to debug log every 20 seconds
-    //   auto callback = [&](float stat_min, float stat_max, double stat_avg) {
-    //     auto f = stat_trackers::one_digit_after_decimal();
-    //     BOOST_LOG(debug) << "NvEnc: encoded frame sizes (min max avg) " << f
-    //     % stat_min << " " << f % stat_max << " " << f % stat_avg << " kB";
-    //   };
-    //   using namespace std::literals;
-    //   encoder_state.frame_size_tracker.collect_and_callback_on_interval(encoded_frame.data.size()
-    //   / 1000., callback, 20s);
-    // }
-
-    return encoded_frame;
+     return encoded_frame;
 }
 
 bool nvenc_base::nvenc_failed(NVENCSTATUS status) {

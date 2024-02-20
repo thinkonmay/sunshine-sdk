@@ -87,22 +87,7 @@ struct stream_t {
     int channels;
 };
 
-struct nvhttp_t {
-    // Could be any of the following values:
-    // pc|lan|wan
-    std::string origin_web_ui_allowed;
 
-    std::string pkey;  // must be 2048 bits
-    std::string cert;  // must be signed with a key of 2048 bits
-
-    std::string sunshine_name;
-
-    std::string file_state;
-
-    std::string external_ip;
-    std::vector<std::string> resolutions;
-    std::vector<int> fps;
-};
 
 namespace flag {
 enum flag_e : std::size_t {
@@ -153,7 +138,5 @@ struct sunshine_t {
 
 extern video_t video;
 extern audio_t audio;
-extern stream_t stream;
-extern nvhttp_t nvhttp;
 extern sunshine_t sunshine;
 }  // namespace config

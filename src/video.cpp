@@ -622,8 +622,7 @@ static encoder_t amdvce{
         // Common options
         {
             {"filler_data"s, false},
-            {"log_to_dbg"s,
-             []() { return config::sunshine.min_log_level < 2 ? 1 : 0; }},
+            {"log_to_dbg"s, 1 },
             {"preencode"s, &config::video.amd.amd_preanalysis},
             {"quality"s, &config::video.amd.amd_quality_av1},
             {"rc"s, &config::video.amd.amd_rc_av1},
@@ -638,8 +637,7 @@ static encoder_t amdvce{
         // Common options
         {
             {"filler_data"s, false},
-            {"log_to_dbg"s,
-             []() { return config::sunshine.min_log_level < 2 ? 1 : 0; }},
+            {"log_to_dbg"s, 1 },
             {"gops_per_idr"s, 1},
             {"header_insertion_mode"s, "idr"s},
             {"preencode"s, &config::video.amd.amd_preanalysis},
@@ -659,8 +657,7 @@ static encoder_t amdvce{
         // Common options
         {
             {"filler_data"s, false},
-            {"log_to_dbg"s,
-             []() { return config::sunshine.min_log_level < 2 ? 1 : 0; }},
+            {"log_to_dbg"s, 1 },
             {"preencode"s, &config::video.amd.amd_preanalysis},
             {"qmax"s, 51},
             {"qmin"s, 0},
