@@ -1444,6 +1444,7 @@ namespace stream {
     auto video_port = map_port(VIDEO_STREAM_PORT);
     auto audio_port = map_port(AUDIO_STREAM_PORT);
 
+    BOOST_LOG(info) << "Bind Control server to port ["sv << control_port << "]: "sv;
     if (ctx.control_server.bind(address_family, control_port)) {
       BOOST_LOG(error) << "Couldn't bind Control server to port ["sv << control_port << "], likely another process already bound to the port"sv;
 
@@ -1458,6 +1459,7 @@ namespace stream {
       return -1;
     }
 
+    BOOST_LOG(info) << "Bind Video server to port ["sv << video_port << "]: "sv;
     ctx.video_sock.bind(udp::endpoint(protocol, video_port), ec);
     if (ec) {
       BOOST_LOG(fatal) << "Couldn't bind Video server to port ["sv << video_port << "]: "sv << ec.message();
@@ -1472,6 +1474,7 @@ namespace stream {
       return -1;
     }
 
+    BOOST_LOG(info) << "Bind Audio server to port ["sv << audio_port << "]: "sv;
     ctx.audio_sock.bind(udp::endpoint(protocol, audio_port), ec);
     if (ec) {
       BOOST_LOG(fatal) << "Couldn't bind Audio server to port ["sv << audio_port << "]: "sv << ec.message();
@@ -1616,7 +1619,7 @@ namespace stream {
         session->video.peer.port(), platf::qos_data_type_e::video);
     }
 
-    BOOST_LOG(debug) << "Start capturing Video"sv;
+    BOOST_LOG(info) << "Start capturing Video, client port : "sv << session->video.peer.port();
     video::capture(session->mail, session->config.monitor, session);
   }
 
@@ -1641,7 +1644,7 @@ namespace stream {
         session->audio.peer.port(), platf::qos_data_type_e::audio);
     }
 
-    BOOST_LOG(debug) << "Start capturing Audio"sv;
+    BOOST_LOG(info) << "Start capturing Audio, client port: "sv << session->audio.peer.port();
     audio::capture(session->mail, session->config.audio, session);
   }
 
