@@ -27,7 +27,7 @@ int initlibrary() {
     if (hModule == 0) return 1;
 
     callstart = (STARTQUEUE)GetProcAddress(hModule, "StartQueue");
-    callpop = (POPFROMQUEUE)GetProcAddress(hModule, "PopFromQueue");
+    callpop = (POPFROMQUEUE)GetProcAddress(hModule, "PopFromAudioQueue");
     callraise = (RAISEEVENT)GetProcAddress(hModule, "RaiseEvent");
     callraiseS = (RAISEEVENTS)GetProcAddress(hModule, "RaiseEventS");
     callwait = (WAITEVENT)GetProcAddress(hModule, "WaitEvent");

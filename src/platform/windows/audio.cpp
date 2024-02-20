@@ -72,7 +72,7 @@ namespace platf::audio {
     }
 
     ~co_init_t() override {
-      CoUninitialize();
+      // CoUninitialize();
     }
   };
 

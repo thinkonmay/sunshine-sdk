@@ -26,6 +26,9 @@ __declspec(dllexport) VideoPipeline* __cdecl StartQueue(int video_codec);
 __declspec(dllexport) int __cdecl PopFromQueue(VideoPipeline* pipeline,
                                                void* data, int* duration);
 
+__declspec(dllexport) int __cdecl PopFromAudioQueue(VideoPipeline* pipeline,
+                                               void* data, int* duration);
+
 __declspec(dllexport) void __cdecl RaiseEvent(VideoPipeline* pipeline,
                                               EventType event, int value);
 

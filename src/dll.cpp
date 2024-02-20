@@ -98,6 +98,19 @@ int __cdecl PopFromQueue(VideoPipeline *pipeline, void *data, int *duration) {
     return size;
 }
 
+int __cdecl PopFromAudioQueue(VideoPipeline *pipeline, void *data, int *duration) {
+    auto packet =
+        pipeline->mail->queue<video::packet_t>(mail::audio_packets)->pop();
+    // if (packet->frame_timestamp) {
+    // 	*duration = duration_to_latency(*packet->frame_timestamp -
+    // pipeline->start); 	pipeline->start = *packet->frame_timestamp;
+    // }
+
+    memcpy(data, packet->data(), packet->data_size());
+    int size = packet->data_size();
+    return size;
+}
+
 void __cdecl RaiseEventS(VideoPipeline *pipeline, EventType event,
                          char *value) {
     switch (event) {
