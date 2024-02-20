@@ -29,11 +29,6 @@ namespace rtsp_stream {
   };
 
   void
-  launch_session_raise(launch_session_t launch_session);
-  int
-  session_count();
-
-  void
   rtpThread();
 
 }  // namespace rtsp_stream

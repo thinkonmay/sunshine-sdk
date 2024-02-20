@@ -395,18 +395,6 @@ namespace rtsp_stream {
 
   rtsp_server_t server {};
 
-  void
-  launch_session_raise(rtsp_stream::launch_session_t launch_session) {
-    server.session_raise(launch_session);
-  }
-
-  int
-  session_count() {
-    // Ensure session_count is up-to-date
-    server.clear(false);
-
-    return server.session_count();
-  }
 
   int
   send(tcp::socket &sock, const std::string_view &sv) {
@@ -711,8 +699,8 @@ namespace rtsp_stream {
       return;
     }
 
-    auto a = util::from_hex<crypto::aes_t>("", true);
-    auto b = util::from_hex<crypto::aes_t>("", true);
+    auto a = util::from_hex<crypto::aes_t>("0", true);
+    auto b = util::from_hex<crypto::aes_t>("0", true);
     auto session = stream::session::alloc(config, a,b);
 
     auto slot = server->accept(session);
