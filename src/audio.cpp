@@ -114,7 +114,7 @@ namespace audio {
 
     auto frame_size = config.packetDuration * stream->sampleRate / 1000;
     while (auto sample = samples->pop()) {
-      buffer_t packet { 1400 };
+      packet_t packet { 1400 };
 
       int bytes = opus_multistream_encode(opus.get(), sample->data(), frame_size, std::begin(packet), packet.size());
       if (bytes < 0) {
@@ -125,7 +125,7 @@ namespace audio {
       }
 
       packet.fake_resize(bytes);
-      packets->raise(channel_data, std::move(packet));
+      packets->raise(std::move(packet));
     }
   }
 

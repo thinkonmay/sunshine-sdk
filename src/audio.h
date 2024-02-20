@@ -42,8 +42,7 @@ namespace audio {
     std::bitset<MAX_FLAGS> flags;
   };
 
-  using buffer_t = util::buffer_t<std::uint8_t>;
-  using packet_t = std::pair<void *, buffer_t>;
+  using packet_t = util::buffer_t<std::uint8_t>;
   void
   capture(safe::mail_t mail, config_t config, void *channel_data);
 }  // namespace audio

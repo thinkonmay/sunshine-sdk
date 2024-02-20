@@ -43,7 +43,7 @@ extern VideoPipeline *__cdecl StartQueue(int video_codec) {
     static VideoPipeline pipeline = {};
     pipeline.mail = std::make_shared<safe::mail_raw_t>();
     pipeline.monitor = {1920, 1080, 60, 6000, 1, 0, 1, 0, 0};
-    pipeline.soundcard = {5,2,audio::config_t::HIGH_QUALITY};
+    pipeline.soundcard = {10,2,3,0};
     pipeline.start = std::chrono::steady_clock::now();
 
     switch (video_codec) {
@@ -100,15 +100,14 @@ int __cdecl PopFromQueue(VideoPipeline *pipeline, void *data, int *duration) {
 
 int __cdecl PopFromAudioQueue(VideoPipeline *pipeline, void *data, int *duration) {
     auto packet =
-        pipeline->mail->queue<video::packet_t>(mail::audio_packets)->pop();
+        pipeline->mail->queue<audio::packet_t>(mail::audio_packets)->pop();
     // if (packet->frame_timestamp) {
     // 	*duration = duration_to_latency(*packet->frame_timestamp -
     // pipeline->start); 	pipeline->start = *packet->frame_timestamp;
     // }
 
-    memcpy(data, packet->data(), packet->data_size());
-    int size = packet->data_size();
-    return size;
+    memcpy(data, packet->begin(),packet->size());
+    return packet->size();
 }
 
 void __cdecl RaiseEventS(VideoPipeline *pipeline, EventType event,
