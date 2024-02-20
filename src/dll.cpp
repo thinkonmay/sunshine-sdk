@@ -16,24 +16,23 @@
 #include "main.h"
 #include "platform/common.h"
 #include "video.h"
+#include "audio.h"
 
 using namespace std::literals;
 
 struct _VideoPipeline {
     std::chrono::steady_clock::time_point start;
     video::config_t monitor;
+    audio::config_t soundcard;
     safe::mail_t mail;
 };
 
 extern VideoPipeline *__cdecl StartQueue(int video_codec) {
     static bool init = false;
     if (!init) {
-        // If any of the following fail, we log an error and continue event
-        // though sunshine will not function correctly. This allows access to
-        // the UI to fix configuration problems or view the logs.
-        if (platf::init()) {
+        auto deinit_guard = platf::init();
+        if (!deinit_guard) {
             BOOST_LOG(error) << "Platform failed to initialize"sv;
-            return NULL;
         } else if (video::probe_encoders()) {
             BOOST_LOG(error) << "Video failed to find working encoder"sv;
             return NULL;
@@ -44,6 +43,7 @@ extern VideoPipeline *__cdecl StartQueue(int video_codec) {
     static VideoPipeline pipeline = {};
     pipeline.mail = std::make_shared<safe::mail_raw_t>();
     pipeline.monitor = {1920, 1080, 60, 6000, 1, 0, 1, 0, 0};
+    pipeline.soundcard = {5,2,audio::config_t::HIGH_QUALITY};
     pipeline.start = std::chrono::steady_clock::now();
 
     switch (video_codec) {
@@ -67,9 +67,13 @@ extern VideoPipeline *__cdecl StartQueue(int video_codec) {
             break;
     }
 
-    auto thread = std::thread{
+    auto video = std::thread{
         [&]() { video::capture(pipeline.mail, pipeline.monitor, NULL); }};
-    thread.detach();
+    video.detach();
+
+    auto audio = std::thread{
+        [&]() { audio::capture(pipeline.mail, pipeline.soundcard, NULL); }};
+    audio.detach();
 
     return &pipeline;
 }

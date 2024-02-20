@@ -421,10 +421,4 @@ std::chrono::nanoseconds qpc_time_difference(int64_t performance_counter1,
     return {};
 }
 
-// It's not big enough to justify it's own source file :/
-namespace dxgi {
-int init();
-}
-
-bool init() { return dxgi::init() != 0; }
 }  // namespace platf

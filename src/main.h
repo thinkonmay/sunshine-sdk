@@ -42,6 +42,7 @@ namespace mail {
 
 // queue
 MAIL(video_packets);
+MAIL(audio_packets);
 
 // event
 MAIL(shutdown);

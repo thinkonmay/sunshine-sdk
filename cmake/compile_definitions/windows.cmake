@@ -23,6 +23,7 @@ configure_file(src/platform/windows/windows.rs.in windows.rc @ONLY)
 set(PLATFORM_TARGET_FILES
         "${CMAKE_CURRENT_BINARY_DIR}/windows.rc"
         src/platform/windows/misc.h
+        src/platform/windows/audio.cpp
         src/platform/windows/misc.cpp
         src/platform/windows/display.h
         src/platform/windows/display_base.cpp

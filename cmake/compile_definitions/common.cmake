@@ -43,6 +43,8 @@ set(SUNSHINE_TARGET_FILES
         src/dll.cpp
         src/video.cpp
         src/video.h
+        src/audio.h
+        src/audio.cpp
         src/video_colorspace.cpp
         src/video_colorspace.h
         src/platform/common.h

@@ -512,5 +512,5 @@ enum class qos_data_type_e : int { audio, video };
 
 typedef deinit_t client_input_t;
 
-bool init();
+std::unique_ptr<deinit_t> init();
 }  // namespace platf
