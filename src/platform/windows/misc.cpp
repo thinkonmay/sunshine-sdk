@@ -41,13 +41,13 @@
     ProcThreadAttributeValue(13, FALSE, TRUE, FALSE)
 #endif
 
-// #ifndef HAS_QOS_FLOWID
-// typedef UINT32 QOS_FLOWID;
-// #endif
+#ifndef HAS_QOS_FLOWID
+typedef UINT32 QOS_FLOWID;
+#endif
 
-// #ifndef HAS_PQOS_FLOWID
-// typedef UINT32 *PQOS_FLOWID;
-// #endif
+#ifndef HAS_PQOS_FLOWID
+typedef UINT32 *PQOS_FLOWID;
+#endif
 
 #include <qos2.h>
 

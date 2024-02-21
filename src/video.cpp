@@ -1684,7 +1684,7 @@ void encode_run(int &frame_nr,  // Store progress of the frame number
     auto cycle = std::chrono::nanoseconds(1s) / config->framerate;
     while (true) {
         if (mail->event<bool>(mail::shutdown)->peek()) {
-            BOOST_LOG(info) << "Async shutdown event raised";
+            BOOST_LOG(info) << "Async shutdown event raised on video";
             break;
         } else if (reinit_event.peek() || !images->running()) {
             break;

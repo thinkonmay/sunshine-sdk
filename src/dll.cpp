@@ -21,61 +21,81 @@
 using namespace std::literals;
 
 struct _VideoPipeline {
-    std::chrono::steady_clock::time_point start;
-    video::config_t monitor;
-    audio::config_t soundcard;
     safe::mail_t mail;
+    std::chrono::steady_clock::time_point start;
+    Codec codec;
 };
 
-extern VideoPipeline *__cdecl StartQueue(int video_codec) {
+static audio::config_t soundcard;
+static video::config_t monitor;
+std::unique_ptr<platf::deinit_t> deinit_guard;
+extern Pipeline *__cdecl StartQueue(int codec) {
+    static Pipeline video;
+    static Pipeline audio;
     static bool init = false;
     if (!init) {
-        auto deinit_guard = platf::init();
+        init = true;
+        monitor = {1920, 1080, 60, 6000, 1, 0, 1, 0, 0};
+        soundcard = {10,2,3,0};
+        deinit_guard = platf::init();
         if (!deinit_guard) {
             BOOST_LOG(error) << "Platform failed to initialize"sv;
         } else if (video::probe_encoders()) {
             BOOST_LOG(error) << "Video failed to find working encoder"sv;
             return NULL;
         }
-        init = true;
     }
 
-    static VideoPipeline pipeline = {};
-    pipeline.mail = std::make_shared<safe::mail_raw_t>();
-    pipeline.monitor = {1920, 1080, 60, 6000, 1, 0, 1, 0, 0};
-    pipeline.soundcard = {10,2,3,0};
-    pipeline.start = std::chrono::steady_clock::now();
 
-    switch (video_codec) {
+    bool is_video = true;
+    switch (codec) {
         case H265:  // h265
             BOOST_LOG(info) << ("starting pipeline with h265 codec\n");
-            pipeline.monitor.videoFormat = 1;
+            monitor.videoFormat = 1;
             config::video.hevc_mode = 1;
             config::video.av1_mode = 0;
             break;
         case AV1:  // av1
             BOOST_LOG(info) << ("starting pipeline with av1 codec\n");
-            pipeline.monitor.videoFormat = 2;
+            monitor.videoFormat = 2;
             config::video.hevc_mode = 0;
             config::video.av1_mode = 1;
             break;
+        case OPUS:  // av1
+            BOOST_LOG(info) << ("starting pipeline with opus codec\n");
+            is_video = false;
+            break;
         default:
             BOOST_LOG(info) << ("starting pipeline with h264 codec\n");
-            pipeline.monitor.videoFormat = 0;
+            monitor.videoFormat = 0;
             config::video.hevc_mode = 0;
             config::video.av1_mode = 0;
             break;
     }
 
-    auto video = std::thread{
-        [&]() { video::capture(pipeline.mail, pipeline.monitor, NULL); }};
-    video.detach();
 
-    auto audio = std::thread{
-        [&]() { audio::capture(pipeline.mail, pipeline.soundcard, NULL); }};
-    audio.detach();
+    
 
-    return &pipeline;
+
+    
+    auto pipeline = is_video 
+        ? &video
+        : &audio;
+
+    pipeline->mail = std::make_shared<safe::mail_raw_t>();
+    pipeline->start = std::chrono::steady_clock::now();
+    pipeline->codec = (Codec)codec;
+    auto thread = is_video 
+        ? std::thread{ [&]() { 
+            BOOST_LOG(info) << "Starting video thread"sv;
+            video::capture(video.mail, monitor, NULL); 
+        }}
+        : std::thread{ [&]() { 
+            BOOST_LOG(info) << "Starting audio thread"sv;
+            audio::capture(audio.mail, soundcard, NULL); 
+        }};
+    thread.detach();
+    return pipeline;
 }
 
 long long duration_to_latency(std::chrono::steady_clock::duration duration) {
@@ -85,32 +105,21 @@ long long duration_to_latency(std::chrono::steady_clock::duration duration) {
                                              std::numeric_limits<int>::max());
 };
 
-int __cdecl PopFromQueue(VideoPipeline *pipeline, void *data, int *duration) {
-    auto packet =
-        pipeline->mail->queue<video::packet_t>(mail::video_packets)->pop();
-    // if (packet->frame_timestamp) {
-    // 	*duration = duration_to_latency(*packet->frame_timestamp -
-    // pipeline->start); 	pipeline->start = *packet->frame_timestamp;
-    // }
-
-    memcpy(data, packet->data(), packet->data_size());
-    int size = packet->data_size();
-    return size;
+int __cdecl PopFromQueue(Pipeline *pipeline, void *data, int *duration) {
+    if (pipeline->codec != OPUS) {
+        auto packet = pipeline->mail->queue<video::packet_t>(mail::video_packets)->pop();
+        memcpy(data, packet->data(), packet->data_size());
+        int size = packet->data_size();
+        return size;
+    } else {
+        auto packet = pipeline->mail->queue<audio::packet_t>(mail::audio_packets)->pop();
+        memcpy(data, packet->begin(),packet->size());
+        return packet->size();
+    }
 }
 
-int __cdecl PopFromAudioQueue(VideoPipeline *pipeline, void *data, int *duration) {
-    auto packet =
-        pipeline->mail->queue<audio::packet_t>(mail::audio_packets)->pop();
-    // if (packet->frame_timestamp) {
-    // 	*duration = duration_to_latency(*packet->frame_timestamp -
-    // pipeline->start); 	pipeline->start = *packet->frame_timestamp;
-    // }
 
-    memcpy(data, packet->begin(),packet->size());
-    return packet->size();
-}
-
-void __cdecl RaiseEventS(VideoPipeline *pipeline, EventType event,
+void __cdecl RaiseEventS(Pipeline *pipeline, EventType event,
                          char *value) {
     switch (event) {
         case CHANGE_DISPLAY:  // IDR FRAME
@@ -121,7 +130,7 @@ void __cdecl RaiseEventS(VideoPipeline *pipeline, EventType event,
             break;
     }
 }
-void __cdecl RaiseEvent(VideoPipeline *pipeline, EventType event, int value) {
+void __cdecl RaiseEvent(Pipeline *pipeline, EventType event, int value) {
     switch (event) {
         case IDR_FRAME:  // IDR FRAME
             pipeline->mail->event<bool>(mail::idr)->raise(true);
@@ -143,11 +152,11 @@ void __cdecl RaiseEvent(VideoPipeline *pipeline, EventType event, int value) {
     }
 }
 
-void __cdecl WaitEvent(VideoPipeline *pipeline, EventType event) {
+void __cdecl WaitEvent(Pipeline *pipeline, EventType event) {
     while (!PeekEvent(pipeline, event)) std::this_thread::sleep_for(10ms);
 }
 
-int __cdecl PeekEvent(VideoPipeline *pipeline, EventType event) {
+int __cdecl PeekEvent(Pipeline *pipeline, EventType event) {
     switch (event) {
         case STOP:  // IDR FRAME
             return pipeline->mail->event<bool>(mail::shutdown)->peek();

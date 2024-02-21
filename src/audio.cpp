@@ -238,6 +238,8 @@ namespace audio {
 
       samples->raise(std::move(sample_buffer));
     }
+    
+    BOOST_LOG(info) << "Async shutdown event raised on audio";
   }
 
   int

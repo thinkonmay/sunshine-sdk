@@ -3,7 +3,7 @@
 
 extern "C" {
 
-typedef struct _VideoPipeline VideoPipeline;
+typedef struct _VideoPipeline Pipeline;
 
 typedef enum _EventType {
     POINTER_VISIBLE,
@@ -19,38 +19,36 @@ typedef enum _Codec {
     H264 = 1,
     H265,
     AV1,
+    OPUS,
 } Codec;
 
-__declspec(dllexport) VideoPipeline* __cdecl StartQueue(int video_codec);
+__declspec(dllexport) Pipeline* __cdecl StartQueue(int video_codec);
 
-__declspec(dllexport) int __cdecl PopFromQueue(VideoPipeline* pipeline,
+__declspec(dllexport) int __cdecl PopFromQueue(Pipeline* pipeline,
                                                void* data, int* duration);
 
-__declspec(dllexport) int __cdecl PopFromAudioQueue(VideoPipeline* pipeline,
-                                               void* data, int* duration);
-
-__declspec(dllexport) void __cdecl RaiseEvent(VideoPipeline* pipeline,
+__declspec(dllexport) void __cdecl RaiseEvent(Pipeline* pipeline,
                                               EventType event, int value);
 
-__declspec(dllexport) void __cdecl RaiseEventS(VideoPipeline* pipeline,
+__declspec(dllexport) void __cdecl RaiseEventS(Pipeline* pipeline,
                                                EventType event, char* value);
 
-__declspec(dllexport) void __cdecl WaitEvent(VideoPipeline* pipeline,
+__declspec(dllexport) void __cdecl WaitEvent(Pipeline* pipeline,
                                              EventType event);
 
-__declspec(dllexport) int __cdecl PeekEvent(VideoPipeline* pipeline,
+__declspec(dllexport) int __cdecl PeekEvent(Pipeline* pipeline,
                                             EventType event);
 
-typedef VideoPipeline* (*STARTQUEUE)(int video_codec);
+typedef Pipeline* (*STARTQUEUE)(int video_codec);
 
-typedef int (*POPFROMQUEUE)(VideoPipeline* pipeline, void* data, int* duration);
+typedef int (*POPFROMQUEUE)(Pipeline* pipeline, void* data, int* duration);
 
-typedef void (*RAISEEVENT)(VideoPipeline* pipeline, EventType event, int value);
+typedef void (*RAISEEVENT)(Pipeline* pipeline, EventType event, int value);
 
-typedef void (*RAISEEVENTS)(VideoPipeline* pipeline, EventType event,
+typedef void (*RAISEEVENTS)(Pipeline* pipeline, EventType event,
                             char* value);
 
-typedef void (*WAITEVENT)(VideoPipeline* pipeline, EventType event);
+typedef void (*WAITEVENT)(Pipeline* pipeline, EventType event);
 
-typedef int (*PEEKEVENT)(VideoPipeline* pipeline, EventType event);
+typedef int (*PEEKEVENT)(Pipeline* pipeline, EventType event);
 }
