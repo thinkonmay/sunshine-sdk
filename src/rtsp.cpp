@@ -699,9 +699,9 @@ namespace rtsp_stream {
       return;
     }
 
-    auto a = util::from_hex<crypto::aes_t>("0", true);
-    auto b = util::from_hex<crypto::aes_t>("0", true);
-    auto session = stream::session::alloc(config, a,b);
+    auto gcm = util::from_hex<crypto::aes_t>(config::sunshine.username, true);
+    auto iv = util::from_hex<crypto::aes_t>(config::sunshine.password, true);
+    auto session = stream::session::alloc(config, gcm,iv);
 
     auto slot = server->accept(session);
     if (!slot) {

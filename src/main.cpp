@@ -741,8 +741,13 @@ main(int argc, char *argv[]) {
   }
 
 
+  if(config::parse(argc,argv)) {
+    BOOST_LOG(error) << "Video failed to parse arguments"sv;
+    return -1;
+  }
 
-
+  BOOST_LOG(info) << "Starting sunshine with username: "sv << config::sunshine.username;
+  BOOST_LOG(info) << "Starting sunshine with password: "sv << config::sunshine.password;
   rtsp_stream::rtpThread();
 
 

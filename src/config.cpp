@@ -7,6 +7,7 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <string.h>
 #include <unordered_map>
 
 #include <boost/asio.hpp>
@@ -1107,149 +1108,23 @@ namespace config {
   int
   parse(int argc, char *argv[]) {
     std::unordered_map<std::string, std::string> cmd_vars;
-#ifdef _WIN32
-    bool shortcut_launch = false;
-    bool service_admin_launch = false;
-#endif
 
     for (auto x = 1; x < argc; ++x) {
       auto line = argv[x];
 
-      if (line == "--help"sv) {
-        print_help(*argv);
-        return 1;
-      }
-#ifdef _WIN32
-      else if (line == "--shortcut"sv) {
-        shortcut_launch = true;
-      }
-      else if (line == "--shortcut-admin"sv) {
-        service_admin_launch = true;
-      }
-#endif
-      else if (*line == '-') {
+      if (*line == '-') {
         if (*(line + 1) == '-') {
-          sunshine.cmd.name = line + 2;
-          sunshine.cmd.argc = argc - x - 1;
-          sunshine.cmd.argv = argv + x + 1;
+          char* command = line + 2;
 
-          break;
-        }
-        if (apply_flags(line + 1)) {
-          print_help(*argv);
-          return -1;
-        }
-      }
-      else {
-        auto line_end = line + strlen(line);
+          if(strcmp(command, "username") == 0) 
+            sunshine.username = std::string((char*)argv[x + 1]);
+          else if(strcmp(command, "password") == 0) 
+            sunshine.password = std::string((char*)argv[x + 1]);
 
-        auto pos = std::find(line, line_end, '=');
-        if (pos == line_end) {
-          sunshine.config_file = line;
-        }
-        else {
-          TUPLE_EL(var, 1, parse_option(line, line_end));
-          if (!var) {
-            print_help(*argv);
-            return -1;
-          }
-
-          TUPLE_EL_REF(name, 0, *var);
-
-          auto it = cmd_vars.find(name);
-          if (it != std::end(cmd_vars)) {
-            cmd_vars.erase(it);
-          }
-
-          cmd_vars.emplace(std::move(*var));
         }
       }
     }
 
-    bool config_loaded = false;
-    try {
-      // Create appdata folder if it does not exist
-      if (!boost::filesystem::exists(platf::appdata().string())) {
-        boost::filesystem::create_directories(platf::appdata().string());
-      }
-
-      // Create empty config file if it does not exist
-      if (!fs::exists(sunshine.config_file)) {
-        std::ofstream { sunshine.config_file };
-      }
-
-      // Read config file
-      auto vars = parse_config(read_file(sunshine.config_file.c_str()));
-
-      for (auto &[name, value] : cmd_vars) {
-        vars.insert_or_assign(std::move(name), std::move(value));
-      }
-
-      // Apply the config. Note: This will try to create any paths
-      // referenced in the config, so we may receive exceptions if
-      // the path is incorrect or inaccessible.
-      apply_config(std::move(vars));
-      config_loaded = true;
-    }
-    catch (const std::filesystem::filesystem_error &err) {
-      BOOST_LOG(fatal) << "Failed to apply config: "sv << err.what();
-    }
-    catch (const boost::filesystem::filesystem_error &err) {
-      BOOST_LOG(fatal) << "Failed to apply config: "sv << err.what();
-    }
-
-    if (!config_loaded) {
-#ifdef _WIN32
-      BOOST_LOG(fatal) << "To relaunch Sunshine successfully, use the shortcut in the Start Menu. Do not run Sunshine.exe manually."sv;
-      std::this_thread::sleep_for(10s);
-#endif
-      return -1;
-    }
-
-#ifdef _WIN32
-    // We have to wait until the config is loaded to handle these launches,
-    // because we need to have the correct base port loaded in our config.
-    if (service_admin_launch) {
-      // This is a relaunch as admin to start the service
-      service_ctrl::start_service();
-
-      // Always return 1 to ensure Sunshine doesn't start normally
-      return 1;
-    }
-    else if (shortcut_launch) {
-      if (!service_ctrl::is_service_running()) {
-        // If the service isn't running, relaunch ourselves as admin to start it
-        WCHAR executable[MAX_PATH];
-        GetModuleFileNameW(NULL, executable, ARRAYSIZE(executable));
-
-        SHELLEXECUTEINFOW shell_exec_info {};
-        shell_exec_info.cbSize = sizeof(shell_exec_info);
-        shell_exec_info.fMask = SEE_MASK_NOASYNC | SEE_MASK_NO_CONSOLE | SEE_MASK_NOCLOSEPROCESS;
-        shell_exec_info.lpVerb = L"runas";
-        shell_exec_info.lpFile = executable;
-        shell_exec_info.lpParameters = L"--shortcut-admin";
-        shell_exec_info.nShow = SW_NORMAL;
-        if (!ShellExecuteExW(&shell_exec_info)) {
-          auto winerr = GetLastError();
-          std::cout << "Error: ShellExecuteEx() failed:"sv << winerr << std::endl;
-          return 1;
-        }
-
-        // Wait for the elevated process to finish starting the service
-        WaitForSingleObject(shell_exec_info.hProcess, INFINITE);
-        CloseHandle(shell_exec_info.hProcess);
-
-        // Wait for the UI to be ready for connections
-        service_ctrl::wait_for_ui_ready();
-      }
-
-      // Launch the web UI
-      launch_ui();
-
-      // Always return 1 to ensure Sunshine doesn't start normally
-      return 1;
-    }
-#endif
 
     return 0;
   }
