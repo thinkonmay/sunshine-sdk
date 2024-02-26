@@ -40,3 +40,7 @@ endforeach()
 
 target_compile_options(sunshine PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${SUNSHINE_COMPILE_OPTIONS}>;$<$<COMPILE_LANGUAGE:CUDA>:${SUNSHINE_COMPILE_OPTIONS_CUDA};-std=c++17>)  # cmake-lint: disable=C0301
 target_compile_options(test     PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${SUNSHINE_COMPILE_OPTIONS}>;$<$<COMPILE_LANGUAGE:CUDA>:${SUNSHINE_COMPILE_OPTIONS_CUDA};-std=c++17>)  # cmake-lint: disable=C0301
+
+set_property(TARGET sunshine APPEND_STRING PROPERTY LINK_FLAGS " -static")
+set_property(TARGET sunshine APPEND_STRING PROPERTY LINK_FLAGS " -static-libgcc")
+set_property(TARGET sunshine APPEND_STRING PROPERTY LINK_FLAGS " -static-libstdc++")
