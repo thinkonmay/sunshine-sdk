@@ -221,7 +221,6 @@ namespace rtsp_stream {
   class rtsp_server_t {
   public:
     ~rtsp_server_t() {
-      clear();
     }
 
     int
@@ -285,8 +284,6 @@ namespace rtsp_stream {
       if (ec) {
         BOOST_LOG(error) << "Couldn't accept incoming connections: "sv << ec.message();
 
-        // Stop server
-        clear();
         return;
       }
 
@@ -328,56 +325,6 @@ namespace rtsp_stream {
 
     safe::event_t<rtsp_stream::launch_session_t> launch_event;
 
-    void
-    clear(bool all = true) {
-      // if a launch event timed out --> Remove it.
-      if (raised_timeout < std::chrono::steady_clock::now()) {
-        auto discarded = launch_event.pop(0s);
-        if (discarded) {
-          ++_slot_count;
-        }
-      }
-
-      auto lg = _session_slots.lock();
-
-      for (auto &slot : *_session_slots) {
-        if (slot && (all || stream::session::state(*slot) == stream::session::state_e::STOPPING)) {
-          stream::session::stop(*slot);
-          stream::session::join(*slot);
-
-          slot.reset();
-
-          ++_slot_count;
-        }
-      }
-
-      if (all && !ios.stopped()) {
-        ios.stop();
-      }
-    }
-
-    void
-    clear(std::shared_ptr<stream::session_t> *session_p) {
-      auto lg = _session_slots.lock();
-
-      session_p->reset();
-
-      ++_slot_count;
-    }
-
-    std::shared_ptr<stream::session_t> *
-    accept(std::shared_ptr<stream::session_t> &session) {
-      auto lg = _session_slots.lock();
-
-      for (auto &slot : *_session_slots) {
-        if (!slot) {
-          slot = session;
-          return &slot;
-        }
-      }
-
-      return nullptr;
-    }
 
   private:
     std::unordered_map<std::string_view, cmd_func_t> _map_cmd_cb;
@@ -703,18 +650,9 @@ namespace rtsp_stream {
     auto iv = util::from_hex<crypto::aes_t>(config::sunshine.password, true);
     auto session = stream::session::alloc(config, gcm,iv);
 
-    auto slot = server->accept(session);
-    if (!slot) {
-      BOOST_LOG(info) << "Ran out of slots for client from ["sv << ']';
-
-      respond(sock, &option, 503, "Service Unavailable", req->sequenceNumber, {});
-      return;
-    }
-
     if (stream::session::start(*session, sock.remote_endpoint().address().to_string())) {
       BOOST_LOG(error) << "Failed to start a streaming session"sv;
 
-      server->clear(slot);
       respond(sock, &option, 500, "Internal Server Error", req->sequenceNumber, {});
       return;
     }
@@ -757,17 +695,8 @@ namespace rtsp_stream {
 
     while (!shutdown_event->peek()) {
       server.iterate(std::min(500ms, config::stream.ping_timeout));
-
-      if (broadcast_shutdown_event->peek()) {
-        server.clear();
-      }
-      else {
-        // cleanup all stopped sessions
-        server.clear(false);
-      }
     }
 
-    server.clear();
   }
 
   void

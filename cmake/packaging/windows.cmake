@@ -6,14 +6,6 @@ install(TARGETS sunshine RUNTIME DESTINATION "." COMPONENT application)
 # Hardening: include zlib1.dll (loaded via LoadLibrary() in openssl's libcrypto.a)
 install(FILES "${ZLIB}" DESTINATION "." COMPONENT application)
 
-# Adding tools
-install(TARGETS dxgi-info RUNTIME DESTINATION "tools" COMPONENT dxgi)
-install(TARGETS audio-info RUNTIME DESTINATION "tools" COMPONENT audio)
-
-# Mandatory tools
-install(TARGETS ddprobe RUNTIME DESTINATION "tools" COMPONENT application)
-install(TARGETS sunshinesvc RUNTIME DESTINATION "tools" COMPONENT application)
-
 # Mandatory scripts
 install(DIRECTORY "${SUNSHINE_SOURCE_ASSETS_DIR}/windows/misc/service/"
         DESTINATION "scripts"
@@ -133,16 +125,6 @@ set(CPACK_COMPONENT_ASSETS_DISPLAY_NAME "Required Assets")
 set(CPACK_COMPONENT_ASSETS_DESCRIPTION "Shaders, default box art, and web UI.")
 set(CPACK_COMPONENT_ASSETS_GROUP "Core")
 set(CPACK_COMPONENT_ASSETS_REQUIRED true)
-
-# audio tool
-set(CPACK_COMPONENT_AUDIO_DISPLAY_NAME "audio-info")
-set(CPACK_COMPONENT_AUDIO_DESCRIPTION "CLI tool providing information about sound devices.")
-set(CPACK_COMPONENT_AUDIO_GROUP "Tools")
-
-# display tool
-set(CPACK_COMPONENT_DXGI_DISPLAY_NAME "dxgi-info")
-set(CPACK_COMPONENT_DXGI_DESCRIPTION "CLI tool providing information about graphics cards and displays.")
-set(CPACK_COMPONENT_DXGI_GROUP "Tools")
 
 # firewall scripts
 set(CPACK_COMPONENT_FIREWALL_DISPLAY_NAME "Add Firewall Exclusions")
