@@ -426,7 +426,7 @@ namespace config {
   };
 
   sunshine_t sunshine {
-    1,  // min_log_level
+    2,  // min_log_level
     0,  // flags
     {},  // User file
     {},  // Username
