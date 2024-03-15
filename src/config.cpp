@@ -1112,6 +1112,7 @@ namespace config {
     for (auto x = 1; x < argc; ++x) {
       auto line = argv[x];
 
+      int i = 0;
       if (*line == '-') {
         if (*(line + 1) == '-') {
           char* command = line + 2;
@@ -1120,6 +1121,10 @@ namespace config {
             sunshine.username = std::string((char*)argv[x + 1]);
           else if(strcmp(command, "password") == 0) 
             sunshine.password = std::string((char*)argv[x + 1]);
+          else if(strcmp(command, "port") == 0) {
+            sscanf((char*)argv[x + 1],"%d",&i);
+            sunshine.port = i;
+          }
 
         }
       }

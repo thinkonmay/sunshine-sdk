@@ -10,7 +10,7 @@
 #include "thread_safe.h"
 
 namespace rtsp_stream {
-  constexpr auto RTSP_SETUP_PORT = 21;
+  constexpr auto RTSP_SETUP_PORT = 0;
 
   struct launch_session_t {
     crypto::aes_t gcm_key;

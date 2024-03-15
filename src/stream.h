@@ -11,9 +11,9 @@
 #include "video.h"
 
 namespace stream {
-  constexpr auto VIDEO_STREAM_PORT = 9;
-  constexpr auto CONTROL_PORT = 10;
-  constexpr auto AUDIO_STREAM_PORT = 11;
+  constexpr auto CONTROL_PORT = 1;
+  constexpr auto VIDEO_STREAM_PORT = 2;
+  constexpr auto AUDIO_STREAM_PORT = 3;
 
   struct session_t;
   struct config_t {
