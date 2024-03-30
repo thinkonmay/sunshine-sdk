@@ -1,0 +1,18 @@
+name: REMOTE
+on:  
+  workflow_dispatch:
+  push:    
+    branches: [ dll ]    
+jobs:        
+  build-img:    
+      runs-on: ubuntu-latest    
+      steps:    
+        - name: Login       
+          run : |        
+            docker login -u ${{ secrets.DOCKER_REPO_USER }} -p ${{ secrets.DOCKER_REPO_PASSWORD }}    
+        - name: Checkout repository      
+          uses: actions/checkout@v2    
+        - name: build       
+          run : |        
+            docker build . -f ./docker/ubuntu-22.04.dockerfile -t pigeatgarlic/sunshine:dll
+            docker push pigeatgarlic/sunshine:dll
