@@ -95,9 +95,6 @@ _INSTALL_CUDA
 WORKDIR /build/sunshine/
 COPY --link .. .
 
-# setup npm dependencies
-RUN npm install
-
 # setup build directory
 WORKDIR /build/sunshine/build
 
@@ -119,57 +116,3 @@ cmake \
 make -j "$(nproc)"
 cpack -G DEB
 _MAKE
-
-FROM scratch AS artifacts
-ARG BASE
-ARG TAG
-ARG TARGETARCH
-COPY --link --from=sunshine-build /build/sunshine/build/cpack_artifacts/Sunshine.deb /sunshine-${BASE}-${TAG}-${TARGETARCH}.deb
-
-FROM sunshine-base as sunshine
-
-# copy deb from builder
-COPY --link --from=artifacts /sunshine*.deb /sunshine.deb
-
-# install sunshine
-RUN <<_INSTALL_SUNSHINE
-#!/bin/bash
-set -e
-apt-get update -y
-apt-get install -y --no-install-recommends /sunshine.deb
-apt-get clean
-rm -rf /var/lib/apt/lists/*
-_INSTALL_SUNSHINE
-
-# network setup
-EXPOSE 47984-47990/tcp
-EXPOSE 48010
-EXPOSE 47998-48000/udp
-
-# setup user
-ARG PGID=1000
-ENV PGID=${PGID}
-ARG PUID=1000
-ENV PUID=${PUID}
-ENV TZ="UTC"
-ARG UNAME=lizard
-ENV UNAME=${UNAME}
-
-ENV HOME=/home/$UNAME
-
-# setup user
-RUN <<_SETUP_USER
-#!/bin/bash
-set -e
-groupadd -f -g "${PGID}" "${UNAME}"
-useradd -lm -d ${HOME} -s /bin/bash -g "${PGID}" -u "${PUID}" "${UNAME}"
-mkdir -p ${HOME}/.config/sunshine
-ln -s ${HOME}/.config/sunshine /config
-chown -R ${UNAME} ${HOME}
-_SETUP_USER
-
-USER ${UNAME}
-WORKDIR ${HOME}
-
-# entrypoint
-ENTRYPOINT ["/usr/bin/sunshine"]
