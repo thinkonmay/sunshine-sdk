@@ -21,7 +21,7 @@
 [submodule "third-party/ffmpeg-macos-aarch64"]
 	path = third-party/ffmpeg-macos-aarch64
 	url = https://github.com/LizardByte/build-deps
-	branch = ffmpeg-macos-aarch64
+	branch = ffmpeg-macos-aarch64i
 [submodule "third-party/nvapi-open-source-sdk"]
 	path = third-party/nvapi-open-source-sdk
 	url = https://github.com/LizardByte/nvapi-open-source-sdk
