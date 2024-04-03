@@ -8,10 +8,6 @@ find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 pkg_check_modules(CURL REQUIRED libcurl)
 
-# miniupnp
-pkg_check_modules(MINIUPNP miniupnpc REQUIRED)
-include_directories(SYSTEM ${MINIUPNP_INCLUDE_DIRS})
-
 # ffmpeg pre-compiled binaries
 if(WIN32)
     if(NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")
