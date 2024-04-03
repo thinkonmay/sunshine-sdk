@@ -97,27 +97,6 @@ namespace platf::dxgi {
     release_frame();
   }
 
-  void
-  display_base_t::high_precision_sleep(std::chrono::nanoseconds duration) {
-    if (!timer) {
-      BOOST_LOG(error) << "Attempting high_precision_sleep() with uninitialized timer";
-      return;
-    }
-    if (duration < 0s) {
-      BOOST_LOG(error) << "Attempting high_precision_sleep() with negative duration";
-      return;
-    }
-    if (duration > 5s) {
-      BOOST_LOG(error) << "Attempting high_precision_sleep() with unexpectedly large duration (>5s)";
-      return;
-    }
-
-    LARGE_INTEGER due_time;
-    due_time.QuadPart = duration.count() / -100;
-    SetWaitableTimer(timer.get(), &due_time, 0, nullptr, nullptr, false);
-    WaitForSingleObject(timer.get(), INFINITE);
-  }
-
   capture_e
   display_base_t::capture(const push_captured_image_cb_t &push_captured_image_cb, const pull_free_image_cb_t &pull_free_image_cb, bool *cursor) {
     auto adjust_client_frame_rate = [&]() -> DXGI_RATIONAL {
@@ -167,61 +146,11 @@ namespace platf::dxgi {
       platf::capture_e status = capture_e::ok;
       std::shared_ptr<img_t> img_out;
 
-      // Try to continue frame pacing group, snapshot() is called with zero timeout after waiting for client frame interval
-      if (frame_pacing_group_start) {
-        const uint32_t seconds = (uint64_t) frame_pacing_group_frames * client_frame_rate_adjusted.Denominator / client_frame_rate_adjusted.Numerator;
-        const uint32_t remainder = (uint64_t) frame_pacing_group_frames * client_frame_rate_adjusted.Denominator % client_frame_rate_adjusted.Numerator;
-        const auto sleep_target = *frame_pacing_group_start +
-                                  std::chrono::nanoseconds(1s) * seconds +
-                                  std::chrono::nanoseconds(1s) * remainder / client_frame_rate_adjusted.Numerator;
-        const auto sleep_period = sleep_target - std::chrono::steady_clock::now();
-
-        if (sleep_period <= 0ns) {
-          // We missed next frame time, invalidating current frame pacing group
-          frame_pacing_group_start = std::nullopt;
-          frame_pacing_group_frames = 0;
-          status = capture_e::timeout;
-        }
-        else {
-          high_precision_sleep(sleep_period);
-
-          if (config::sunshine.min_log_level <= 1) {
-            // Print sleep overshoot stats to debug log every 20 seconds
-            auto print_info = [&](double min_overshoot, double max_overshoot, double avg_overshoot) {
-              auto f = stat_trackers::one_digit_after_decimal();
-              BOOST_LOG(debug) << "Sleep overshoot (min/max/avg): " << f % min_overshoot << "ms/" << f % max_overshoot << "ms/" << f % avg_overshoot << "ms";
-            };
-            std::chrono::nanoseconds overshoot_ns = std::chrono::steady_clock::now() - sleep_target;
-            sleep_overshoot_tracker.collect_and_callback_on_interval(overshoot_ns.count() / 1000000., print_info, 20s);
-          }
-
-          status = snapshot(pull_free_image_cb, img_out, 0ms, *cursor);
-
-          if (status == capture_e::ok && img_out) {
-            frame_pacing_group_frames += 1;
-          }
-          else {
-            frame_pacing_group_start = std::nullopt;
-            frame_pacing_group_frames = 0;
-          }
-        }
-      }
-
       // Start new frame pacing group if necessary, snapshot() is called with non-zero timeout
       if (status == capture_e::timeout || (status == capture_e::ok && !frame_pacing_group_start)) {
         status = snapshot(pull_free_image_cb, img_out, 200ms, *cursor);
 
-        if (status == capture_e::ok && img_out) {
-          frame_pacing_group_start = img_out->frame_timestamp;
-
-          if (!frame_pacing_group_start) {
-            BOOST_LOG(warning) << "snapshot() provided image without timestamp";
-            frame_pacing_group_start = std::chrono::steady_clock::now();
-          }
-
-          frame_pacing_group_frames = 1;
-        }
-        else if (status == platf::capture_e::timeout) {
+        if (status == platf::capture_e::timeout) {
           // The D3D11 device is protected by an unfair lock that is held the entire time that
           // IDXGIOutputDuplication::AcquireNextFrame() is running. This is normally harmless,
           // however sometimes the encoding thread needs to interact with our ID3D11Device to
@@ -798,17 +727,6 @@ namespace platf::dxgi {
 
     // Capture format will be determined from the first call to AcquireNextFrame()
     capture_format = DXGI_FORMAT_UNKNOWN;
-
-    // Use CREATE_WAITABLE_TIMER_HIGH_RESOLUTION if supported (Windows 10 1809+)
-    timer.reset(CreateWaitableTimerEx(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS));
-    if (!timer) {
-      timer.reset(CreateWaitableTimerEx(nullptr, nullptr, 0, TIMER_ALL_ACCESS));
-      if (!timer) {
-        auto winerr = GetLastError();
-        BOOST_LOG(error) << "Failed to create timer: "sv << winerr;
-        return -1;
-      }
-    }
 
     return 0;
   }

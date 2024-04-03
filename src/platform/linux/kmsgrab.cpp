@@ -605,8 +605,6 @@ namespace platf {
 
       int
       init(const std::string &display_name, const ::video::config_t &config) {
-        delay = std::chrono::nanoseconds { 1s } / config.framerate;
-
         int monitor_index = util::from_view(display_name);
         int monitor = 0;
 
@@ -1134,8 +1132,6 @@ namespace platf {
 
       mem_type_e mem_type;
 
-      std::chrono::nanoseconds delay;
-
       int img_width, img_height;
       int img_offset_x, img_offset_y;
 
@@ -1194,17 +1190,6 @@ namespace platf {
         auto next_frame = std::chrono::steady_clock::now();
 
         while (true) {
-          auto now = std::chrono::steady_clock::now();
-
-          if (next_frame > now) {
-            std::this_thread::sleep_for((next_frame - now) / 3 * 2);
-          }
-          while (next_frame > now) {
-            std::this_thread::sleep_for(1ns);
-            now = std::chrono::steady_clock::now();
-          }
-          next_frame = now + delay;
-
           std::shared_ptr<platf::img_t> img_out;
           auto status = snapshot(pull_free_image_cb, img_out, 1000ms, *cursor);
           switch (status) {
@@ -1413,17 +1398,6 @@ namespace platf {
         auto next_frame = std::chrono::steady_clock::now();
 
         while (true) {
-          auto now = std::chrono::steady_clock::now();
-
-          if (next_frame > now) {
-            std::this_thread::sleep_for((next_frame - now) / 3 * 2);
-          }
-          while (next_frame > now) {
-            std::this_thread::sleep_for(1ns);
-            now = std::chrono::steady_clock::now();
-          }
-          next_frame = now + delay;
-
           std::shared_ptr<platf::img_t> img_out;
           auto status = snapshot(pull_free_image_cb, img_out, 1000ms, *cursor);
           switch (status) {

@@ -747,8 +747,6 @@ namespace cuda {
           }
         }
 
-        delay = std::chrono::nanoseconds { 1s } / config.framerate;
-
         capture_params = NVFBC_CREATE_CAPTURE_SESSION_PARAMS { NVFBC_CREATE_CAPTURE_SESSION_PARAMS_VER };
 
         capture_params.eCaptureType = NVFBC_CAPTURE_SHARED_CUDA;
@@ -801,16 +799,6 @@ namespace cuda {
         });
 
         while (true) {
-          auto now = std::chrono::steady_clock::now();
-          if (next_frame > now) {
-            std::this_thread::sleep_for((next_frame - now) / 3 * 2);
-          }
-          while (next_frame > now) {
-            std::this_thread::sleep_for(1ns);
-            now = std::chrono::steady_clock::now();
-          }
-          next_frame = now + delay;
-
           std::shared_ptr<platf::img_t> img_out;
           auto status = snapshot(pull_free_image_cb, img_out, 150ms, *cursor);
           switch (status) {
@@ -979,7 +967,6 @@ namespace cuda {
         return 0;
       }
 
-      std::chrono::nanoseconds delay;
 
       bool cursor_visible;
       handle_t handle;

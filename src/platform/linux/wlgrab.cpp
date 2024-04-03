@@ -29,7 +29,6 @@ namespace wl {
   public:
     int
     init(platf::mem_type_e hwdevice_type, const std::string &display_name, const ::video::config_t &config) {
-      delay = std::chrono::nanoseconds { 1s } / config.framerate;
       mem_type = hwdevice_type;
 
       if (display.init()) {
@@ -114,8 +113,6 @@ namespace wl {
 
     platf::mem_type_e mem_type;
 
-    std::chrono::nanoseconds delay;
-
     wl::display_t display;
     interface_t interface;
     dmabuf_t dmabuf;
@@ -130,16 +127,6 @@ namespace wl {
       auto next_frame = std::chrono::steady_clock::now();
 
       while (true) {
-        auto now = std::chrono::steady_clock::now();
-
-        if (next_frame > now) {
-          std::this_thread::sleep_for((next_frame - now) / 3 * 2);
-        }
-        while (next_frame > now) {
-          now = std::chrono::steady_clock::now();
-        }
-        next_frame = now + delay;
-
         std::shared_ptr<platf::img_t> img_out;
         auto status = snapshot(pull_free_image_cb, img_out, 1000ms, *cursor);
         switch (status) {
@@ -260,16 +247,6 @@ namespace wl {
       auto next_frame = std::chrono::steady_clock::now();
 
       while (true) {
-        auto now = std::chrono::steady_clock::now();
-
-        if (next_frame > now) {
-          std::this_thread::sleep_for((next_frame - now) / 3 * 2);
-        }
-        while (next_frame > now) {
-          now = std::chrono::steady_clock::now();
-        }
-        next_frame = now + delay;
-
         std::shared_ptr<platf::img_t> img_out;
         auto status = snapshot(pull_free_image_cb, img_out, 1000ms, *cursor);
         switch (status) {
