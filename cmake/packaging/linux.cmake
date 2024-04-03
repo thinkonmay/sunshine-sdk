@@ -106,8 +106,3 @@ if(${SUNSHINE_BUILD_FLATPAK})
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/sunshine_kms.desktop"
             DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
 endif()
-
-# metadata file
-# todo - validate file with `appstream-util validate-relax`
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/sunshine.appdata.xml"
-        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo")
