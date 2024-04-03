@@ -9,10 +9,7 @@
 #include <iostream>
 
 // local includes
-#include "confighttp.h"
-#include "entry_handler.h"
 #include "globals.h"
-#include "httpcommon.h"
 #include "logging.h"
 #include "main.h"
 #include "nvhttp.h"
@@ -42,36 +39,6 @@ on_signal(int sig, FN &&fn) {
   std::signal(sig, on_signal_forwarder);
 }
 
-std::map<std::string_view, std::function<int(const char *name, int argc, char **argv)>> cmd_to_func {
-  { "creds"sv, args::creds },
-  { "help"sv, args::help },
-  { "version"sv, args::version },
-#ifdef _WIN32
-  { "restore-nvprefs-undo"sv, args::restore_nvprefs_undo },
-#endif
-};
-
-#ifdef _WIN32
-LRESULT CALLBACK
-SessionMonitorWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-  switch (uMsg) {
-    case WM_CLOSE:
-      DestroyWindow(hwnd);
-      return 0;
-    case WM_DESTROY:
-      PostQuitMessage(0);
-      return 0;
-    case WM_ENDSESSION: {
-      // Terminate ourselves with a blocking exit call
-      std::cout << "Received WM_ENDSESSION"sv << std::endl;
-      lifetime::exit_sunshine(0, false);
-      return 0;
-    }
-    default:
-      return DefWindowProc(hwnd, uMsg, wParam, lParam);
-  }
-}
-#endif
 
 /**
  * @brief Main application entry point.
@@ -102,10 +69,6 @@ main(int argc, char *argv[]) {
 
   mail::man = std::make_shared<safe::mail_raw_t>();
 
-  if (config::parse(argc, argv)) {
-    return 0;
-  }
-
   auto log_deinit_guard = logging::init(config::sunshine.min_log_level, config::sunshine.log_file);
   if (!log_deinit_guard) {
     BOOST_LOG(error) << "Logging failed to initialize"sv;
@@ -116,21 +79,6 @@ main(int argc, char *argv[]) {
   // the version should be printed to the log before anything else
   BOOST_LOG(info) << PROJECT_NAME << " version: " << PROJECT_VER;
 
-  if (!config::sunshine.cmd.name.empty()) {
-    auto fn = cmd_to_func.find(config::sunshine.cmd.name);
-    if (fn == std::end(cmd_to_func)) {
-      BOOST_LOG(fatal) << "Unknown command: "sv << config::sunshine.cmd.name;
-
-      BOOST_LOG(info) << "Possible commands:"sv;
-      for (auto &[key, _] : cmd_to_func) {
-        BOOST_LOG(info) << '\t' << key;
-      }
-
-      return 7;
-    }
-
-    return fn->second(argv[0], config::sunshine.cmd.argc, config::sunshine.cmd.argv);
-  }
 
 #ifdef WIN32
   // Modify relevant NVIDIA control panel settings if the system has corresponding gpu
@@ -153,79 +101,9 @@ main(int argc, char *argv[]) {
   auto session_monitor_hwnd_future = session_monitor_hwnd_promise.get_future();
   std::promise<void> session_monitor_join_thread_promise;
   auto session_monitor_join_thread_future = session_monitor_join_thread_promise.get_future();
-
-  std::thread session_monitor_thread([&]() {
-    session_monitor_join_thread_promise.set_value_at_thread_exit();
-
-    WNDCLASSA wnd_class {};
-    wnd_class.lpszClassName = "SunshineSessionMonitorClass";
-    wnd_class.lpfnWndProc = SessionMonitorWindowProc;
-    if (!RegisterClassA(&wnd_class)) {
-      session_monitor_hwnd_promise.set_value(NULL);
-      BOOST_LOG(error) << "Failed to register session monitor window class"sv << std::endl;
-      return;
-    }
-
-    auto wnd = CreateWindowExA(
-      0,
-      wnd_class.lpszClassName,
-      "Sunshine Session Monitor Window",
-      0,
-      CW_USEDEFAULT,
-      CW_USEDEFAULT,
-      CW_USEDEFAULT,
-      CW_USEDEFAULT,
-      nullptr,
-      nullptr,
-      nullptr,
-      nullptr);
-
-    session_monitor_hwnd_promise.set_value(wnd);
-
-    if (!wnd) {
-      BOOST_LOG(error) << "Failed to create session monitor window"sv << std::endl;
-      return;
-    }
-
-    ShowWindow(wnd, SW_HIDE);
-
-    // Run the message loop for our window
-    MSG msg {};
-    while (GetMessage(&msg, nullptr, 0, 0) > 0) {
-      TranslateMessage(&msg);
-      DispatchMessage(&msg);
-    }
-  });
-
-  auto session_monitor_join_thread_guard = util::fail_guard([&]() {
-    if (session_monitor_hwnd_future.wait_for(1s) == std::future_status::ready) {
-      if (HWND session_monitor_hwnd = session_monitor_hwnd_future.get()) {
-        PostMessage(session_monitor_hwnd, WM_CLOSE, 0, 0);
-      }
-
-      if (session_monitor_join_thread_future.wait_for(1s) == std::future_status::ready) {
-        session_monitor_thread.join();
-        return;
-      }
-      else {
-        BOOST_LOG(warning) << "session_monitor_join_thread_future reached timeout";
-      }
-    }
-    else {
-      BOOST_LOG(warning) << "session_monitor_hwnd_future reached timeout";
-    }
-
-    session_monitor_thread.detach();
-  });
-
 #endif
 
   task_pool.start(1);
-
-#if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
-  // create tray thread and detach it
-  system_tray::run_tray();
-#endif
 
   // Create signal handler after logging has been initialized
   auto shutdown_event = mail::man->event<bool>(mail::shutdown);
@@ -276,34 +154,12 @@ main(int argc, char *argv[]) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
   }
 
-  if (http::init()) {
-    BOOST_LOG(fatal) << "HTTP interface failed to initialize"sv;
-
-#ifdef _WIN32
-    BOOST_LOG(fatal) << "To relaunch Sunshine successfully, use the shortcut in the Start Menu. Do not run Sunshine.exe manually."sv;
-    std::this_thread::sleep_for(10s);
-#endif
-
-    return -1;
-  }
-
-  std::unique_ptr<platf::deinit_t> mDNS;
-  auto sync_mDNS = std::async(std::launch::async, [&mDNS]() {
-    mDNS = platf::publish::start();
-  });
-
-  std::unique_ptr<platf::deinit_t> upnp_unmap;
-  auto sync_upnp = std::async(std::launch::async, [&upnp_unmap]() {
-    upnp_unmap = upnp::start();
-  });
 
   // FIXME: Temporary workaround: Simple-Web_server needs to be updated or replaced
   if (shutdown_event->peek()) {
     return lifetime::desired_exit_code;
   }
 
-  std::thread httpThread { nvhttp::start };
-  std::thread configThread { confighttp::start };
 
 #ifdef _WIN32
   // If we're using the default port and GameStream is enabled, warn the user
@@ -313,18 +169,8 @@ main(int argc, char *argv[]) {
   }
 #endif
 
-  rtsp_stream::rtpThread();
-
-  httpThread.join();
-  configThread.join();
-
   task_pool.stop();
   task_pool.join();
-
-  // stop system tray
-#if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
-  system_tray::end_tray();
-#endif
 
 #ifdef WIN32
   // Restore global NVIDIA control panel settings
