@@ -7,19 +7,20 @@
 #include <csignal>
 #include <fstream>
 #include <iostream>
-#include <Windows.h>
 
 // local includes
 #include "globals.h"
 #include "logging.h"
 #include "main.h"
-#include "process.h"
 #include "version.h"
 #include "video.h"
 #include "audio.h"
 #include "input.h"
 #include "config.h"
 
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 using namespace std::literals;
 
