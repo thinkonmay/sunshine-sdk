@@ -2,15 +2,22 @@ if (APPLE)
     if(${SUNSHINE_CONFIGURE_PORTFILE})
         configure_file(packaging/macos/Portfile Portfile @ONLY)
     endif()
+    if(${SUNSHINE_CONFIGURE_HOMEBREW})
+        configure_file(packaging/macos/sunshine.rb sunshine.rb @ONLY)
+    endif()
 elseif (UNIX)
+    include(GNUInstallDirs)  # this needs to be included prior to configuring the desktop files
+
     # configure the .desktop file
     if(${SUNSHINE_BUILD_APPIMAGE})
         configure_file(packaging/linux/AppImage/sunshine.desktop sunshine.desktop @ONLY)
     elseif(${SUNSHINE_BUILD_FLATPAK})
         configure_file(packaging/linux/flatpak/sunshine.desktop sunshine.desktop @ONLY)
         configure_file(packaging/linux/flatpak/sunshine_kms.desktop sunshine_kms.desktop @ONLY)
+        configure_file(packaging/linux/sunshine_terminal.desktop sunshine_terminal.desktop @ONLY)
     else()
         configure_file(packaging/linux/sunshine.desktop sunshine.desktop @ONLY)
+        configure_file(packaging/linux/sunshine_terminal.desktop sunshine_terminal.desktop @ONLY)
     endif()
 
     # configure metadata file
@@ -22,11 +29,13 @@ elseif (UNIX)
     # configure the arch linux pkgbuild
     if(${SUNSHINE_CONFIGURE_PKGBUILD})
         configure_file(packaging/linux/Arch/PKGBUILD PKGBUILD @ONLY)
+        configure_file(packaging/linux/Arch/sunshine.install sunshine.install @ONLY)
     endif()
 
     # configure the flatpak manifest
     if(${SUNSHINE_CONFIGURE_FLATPAK_MAN})
         configure_file(packaging/linux/flatpak/dev.lizardbyte.sunshine.yml dev.lizardbyte.sunshine.yml @ONLY)
+        file(COPY packaging/linux/flatpak/deps/ DESTINATION ${CMAKE_BINARY_DIR})
     endif()
 endif()
 

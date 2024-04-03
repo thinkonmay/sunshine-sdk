@@ -12,33 +12,40 @@ MacPorts
 Install Requirements
    .. code-block:: bash
 
-      sudo port install avahi boost180 cmake curl libopus npm9 pkgconfig
+      sudo port install avahi boost180 cmake curl doxygen graphviz libopus miniupnpc npm9 pkgconfig python311 py311-pip
 
 Homebrew
 """"""""
 Install Requirements
    .. code-block:: bash
 
-      brew install boost cmake node opus pkg-config
-      # if there are issues with an SSL header that is not found:
-      cd /usr/local/include
-      ln -s ../opt/openssl/include/openssl .
+      brew install boost cmake doxygen graphviz miniupnpc node opus pkg-config python@3.11
 
-npm dependencies
-----------------
-Install npm dependencies.
-   .. code-block:: bash
+If there are issues with an SSL header that is not found:
+   .. tab:: Intel
 
-      npm install
+      .. code-block:: bash
+
+         pushd /usr/local/include
+         ln -s ../opt/openssl/include/openssl .
+         popd
+
+   .. tab:: Apple Silicon
+
+      .. code-block:: bash
+
+         pushd /opt/homebrew/include
+         ln -s ../opt/openssl/include/openssl .
+         popd
 
 Build
 -----
-.. Attention:: Ensure you are in the build directory created during the clone step earlier before continuing.
+.. attention:: Ensure you are in the build directory created during the clone step earlier before continuing.
 
 .. code-block:: bash
 
    cmake ..
-   make -j ${nproc}
+   make -j $(sysctl -n hw.ncpu)
 
    cpack -G DragNDrop  # optionally, create a macOS dmg package
 

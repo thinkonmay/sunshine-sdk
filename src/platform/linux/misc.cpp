@@ -10,6 +10,7 @@
 
 // standard includes
 #include <fstream>
+#include <iostream>
 
 // lib includes
 #include <arpa/inet.h>
@@ -26,7 +27,8 @@
 #include "graphics.h"
 #include "misc.h"
 #include "src/config.h"
-#include "src/main.h"
+#include "src/entry_handler.h"
+#include "src/logging.h"
 #include "src/platform/common.h"
 #include "vaapi.h"
 
@@ -97,14 +99,89 @@ namespace platf {
     return ifaddr_t { p };
   }
 
+  /**
+   * @brief Performs migration if necessary, then returns the appdata directory.
+   * @details This is used for the log directory, so it cannot invoke Boost logging!
+   * @return The path of the appdata directory that should be used.
+   */
   fs::path
   appdata() {
-    const char *homedir;
-    if ((homedir = getenv("HOME")) == nullptr) {
-      homedir = getpwuid(geteuid())->pw_dir;
-    }
+    static std::once_flag migration_flag;
+    static fs::path config_path;
 
-    return fs::path { homedir } / ".config/sunshine"sv;
+    // Ensure migration is only attempted once
+    std::call_once(migration_flag, []() {
+      bool found = false;
+      bool migrate_config = true;
+      const char *dir;
+      const char *homedir;
+      const char *migrate_envvar;
+
+      // Get the home directory
+      if ((homedir = getenv("HOME")) == nullptr || strlen(homedir) == 0) {
+        // If HOME is empty or not set, use the current user's home directory
+        homedir = getpwuid(geteuid())->pw_dir;
+      }
+
+      // May be set if running under a systemd service with the ConfigurationDirectory= option set.
+      if ((dir = getenv("CONFIGURATION_DIRECTORY")) != nullptr && strlen(dir) > 0) {
+        found = true;
+        config_path = fs::path(dir) / "sunshine"sv;
+      }
+      // Otherwise, follow the XDG base directory specification:
+      // https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+      if (!found && (dir = getenv("XDG_CONFIG_HOME")) != nullptr && strlen(dir) > 0) {
+        found = true;
+        config_path = fs::path(dir) / "sunshine"sv;
+      }
+      // As a last resort, use the home directory
+      if (!found) {
+        migrate_config = false;
+        config_path = fs::path(homedir) / ".config/sunshine"sv;
+      }
+
+      // migrate from the old config location if necessary
+      migrate_envvar = getenv("SUNSHINE_MIGRATE_CONFIG");
+      if (migrate_config && found && migrate_envvar && strcmp(migrate_envvar, "1") == 0) {
+        std::error_code ec;
+        fs::path old_config_path = fs::path(homedir) / ".config/sunshine"sv;
+        if (old_config_path != config_path && fs::exists(old_config_path, ec)) {
+          if (!fs::exists(config_path, ec)) {
+            std::cout << "Migrating config from "sv << old_config_path << " to "sv << config_path << std::endl;
+            if (!ec) {
+              // Create the new directory tree if it doesn't already exist
+              fs::create_directories(config_path, ec);
+            }
+            if (!ec) {
+              // Copy the old directory into the new location
+              // NB: We use a copy instead of a move so that cross-volume migrations work
+              fs::copy(old_config_path, config_path, fs::copy_options::recursive | fs::copy_options::copy_symlinks, ec);
+            }
+            if (!ec) {
+              // If the copy was successful, delete the original directory
+              fs::remove_all(old_config_path, ec);
+              if (ec) {
+                std::cerr << "Failed to clean up old config directory: " << ec.message() << std::endl;
+
+                // This is not fatal. Next time we start, we'll warn the user to delete the old one.
+                ec.clear();
+              }
+            }
+            if (ec) {
+              std::cerr << "Migration failed: " << ec.message() << std::endl;
+              config_path = old_config_path;
+            }
+          }
+          else {
+            // We cannot use Boost logging because it hasn't been initialized yet!
+            std::cerr << "Config exists in both "sv << old_config_path << " and "sv << config_path << ". Using "sv << config_path << " for config" << std::endl;
+            std::cerr << "It is recommended to remove "sv << old_config_path << std::endl;
+          }
+        }
+      }
+    });
+
+    return config_path;
   }
 
   std::string
@@ -247,6 +324,33 @@ namespace platf {
     // Gracefully clean up and restart ourselves instead of exiting
     atexit(restart_on_exit);
     lifetime::exit_sunshine(0, true);
+  }
+
+  /**
+   * @brief Attempt to gracefully terminate a process group.
+   * @param native_handle The process group ID.
+   * @return true if termination was successfully requested.
+   */
+  bool
+  request_process_group_exit(std::uintptr_t native_handle) {
+    if (kill(-((pid_t) native_handle), SIGTERM) == 0 || errno == ESRCH) {
+      BOOST_LOG(debug) << "Successfully sent SIGTERM to process group: "sv << native_handle;
+      return true;
+    }
+    else {
+      BOOST_LOG(warning) << "Unable to send SIGTERM to process group ["sv << native_handle << "]: "sv << errno;
+      return false;
+    }
+  }
+
+  /**
+   * @brief Checks if a process group still has running children.
+   * @param native_handle The process group ID.
+   * @return true if processes are still running.
+   */
+  bool
+  process_group_running(std::uintptr_t native_handle) {
+    return waitpid(-((pid_t) native_handle), nullptr, WNOHANG) >= 0;
   }
 
   struct sockaddr_in
@@ -547,61 +651,107 @@ namespace platf {
     return true;
   }
 
+  // We can't track QoS state separately for each destination on this OS,
+  // so we keep a ref count to only disable QoS options when all clients
+  // are disconnected.
+  static std::atomic<int> qos_ref_count = 0;
+
   class qos_t: public deinit_t {
   public:
-    qos_t(int sockfd, int level, int option):
-        sockfd(sockfd), level(level), option(option) {}
+    qos_t(int sockfd, std::vector<std::tuple<int, int, int>> options):
+        sockfd(sockfd), options(options) {
+      qos_ref_count++;
+    }
 
     virtual ~qos_t() {
-      int reset_val = -1;
-      if (setsockopt(sockfd, level, option, &reset_val, sizeof(reset_val)) < 0) {
-        BOOST_LOG(warning) << "Failed to reset IP TOS: "sv << errno;
+      if (--qos_ref_count == 0) {
+        for (const auto &tuple : options) {
+          auto reset_val = std::get<2>(tuple);
+          if (setsockopt(sockfd, std::get<0>(tuple), std::get<1>(tuple), &reset_val, sizeof(reset_val)) < 0) {
+            BOOST_LOG(warning) << "Failed to reset option: "sv << errno;
+          }
+        }
       }
     }
 
   private:
     int sockfd;
-    int level;
-    int option;
+    std::vector<std::tuple<int, int, int>> options;
   };
 
+  /**
+   * @brief Enables QoS on the given socket for traffic to the specified destination.
+   * @param native_socket The native socket handle.
+   * @param address The destination address for traffic sent on this socket.
+   * @param port The destination port for traffic sent on this socket.
+   * @param data_type The type of traffic sent on this socket.
+   * @param dscp_tagging Specifies whether to enable DSCP tagging on outgoing traffic.
+   */
   std::unique_ptr<deinit_t>
-  enable_socket_qos(uintptr_t native_socket, boost::asio::ip::address &address, uint16_t port, qos_data_type_e data_type) {
+  enable_socket_qos(uintptr_t native_socket, boost::asio::ip::address &address, uint16_t port, qos_data_type_e data_type, bool dscp_tagging) {
     int sockfd = (int) native_socket;
+    std::vector<std::tuple<int, int, int>> reset_options;
 
-    int level;
-    int option;
-    if (address.is_v6()) {
-      level = SOL_IPV6;
-      option = IPV6_TCLASS;
+    if (dscp_tagging) {
+      int level;
+      int option;
+
+      // With dual-stack sockets, Linux uses IPV6_TCLASS for IPv6 traffic
+      // and IP_TOS for IPv4 traffic.
+      if (address.is_v6() && !address.to_v6().is_v4_mapped()) {
+        level = SOL_IPV6;
+        option = IPV6_TCLASS;
+      }
+      else {
+        level = SOL_IP;
+        option = IP_TOS;
+      }
+
+      // The specific DSCP values here are chosen to be consistent with Windows,
+      // except that we use CS6 instead of CS7 for audio traffic.
+      int dscp = 0;
+      switch (data_type) {
+        case qos_data_type_e::video:
+          dscp = 40;
+          break;
+        case qos_data_type_e::audio:
+          dscp = 48;
+          break;
+        default:
+          BOOST_LOG(error) << "Unknown traffic type: "sv << (int) data_type;
+          break;
+      }
+
+      if (dscp) {
+        // Shift to put the DSCP value in the correct position in the TOS field
+        dscp <<= 2;
+
+        if (setsockopt(sockfd, level, option, &dscp, sizeof(dscp)) == 0) {
+          // Reset TOS to -1 when QoS is disabled
+          reset_options.emplace_back(std::make_tuple(level, option, -1));
+        }
+        else {
+          BOOST_LOG(error) << "Failed to set TOS/TCLASS: "sv << errno;
+        }
+      }
+    }
+
+    // We can use SO_PRIORITY to set outgoing traffic priority without DSCP tagging.
+    //
+    // NB: We set this after IP_TOS/IPV6_TCLASS since setting TOS value seems to
+    // reset SO_PRIORITY back to 0.
+    //
+    // 6 is the highest priority that can be used without SYS_CAP_ADMIN.
+    int priority = data_type == qos_data_type_e::audio ? 6 : 5;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) == 0) {
+      // Reset SO_PRIORITY to 0 when QoS is disabled
+      reset_options.emplace_back(std::make_tuple(SOL_SOCKET, SO_PRIORITY, 0));
     }
     else {
-      level = SOL_IP;
-      option = IP_TOS;
+      BOOST_LOG(error) << "Failed to set SO_PRIORITY: "sv << errno;
     }
 
-    // The specific DSCP values here are chosen to be consistent with Windows
-    int dscp;
-    switch (data_type) {
-      case qos_data_type_e::video:
-        dscp = 40;
-        break;
-      case qos_data_type_e::audio:
-        dscp = 56;
-        break;
-      default:
-        BOOST_LOG(error) << "Unknown traffic type: "sv << (int) data_type;
-        return nullptr;
-    }
-
-    // Shift to put the DSCP value in the correct position in the TOS field
-    dscp <<= 2;
-
-    if (setsockopt(sockfd, level, option, &dscp, sizeof(dscp)) < 0) {
-      return nullptr;
-    }
-
-    return std::make_unique<qos_t>(sockfd, level, option);
+    return std::make_unique<qos_t>(sockfd, reset_options);
   }
 
   namespace source {
@@ -650,13 +800,13 @@ namespace platf {
 
 #ifdef SUNSHINE_BUILD_DRM
   std::vector<std::string>
-  kms_display_names();
+  kms_display_names(mem_type_e hwdevice_type);
   std::shared_ptr<display_t>
   kms_display(mem_type_e hwdevice_type, const std::string &display_name, const video::config_t &config);
 
   bool
   verify_kms() {
-    return !kms_display_names().empty();
+    return !kms_display_names(mem_type_e::unknown).empty();
   }
 #endif
 
@@ -682,12 +832,22 @@ namespace platf {
     if (sources[source::WAYLAND]) return wl_display_names();
 #endif
 #ifdef SUNSHINE_BUILD_DRM
-    if (sources[source::KMS]) return kms_display_names();
+    if (sources[source::KMS]) return kms_display_names(hwdevice_type);
 #endif
 #ifdef SUNSHINE_BUILD_X11
     if (sources[source::X11]) return x11_display_names();
 #endif
     return {};
+  }
+
+  /**
+   * @brief Returns if GPUs/drivers have changed since the last call to this function.
+   * @return `true` if a change has occurred or if it is unknown whether a change occurred.
+   */
+  bool
+  needs_encoder_reenumeration() {
+    // We don't track GPU state, so we will always reenumerate. Fortunately, it is fast on Linux.
+    return true;
   }
 
   std::shared_ptr<display_t>
@@ -724,7 +884,6 @@ namespace platf {
   init() {
     // These are allowed to fail.
     gbm::init();
-    va::init();
 
     window_system = window_system_e::NONE;
 #ifdef SUNSHINE_BUILD_WAYLAND
@@ -743,32 +902,29 @@ namespace platf {
 #endif
 
 #ifdef SUNSHINE_BUILD_CUDA
-    if (config::video.capture.empty() || config::video.capture == "nvfbc") {
+    if ((config::video.capture.empty() && sources.none()) || config::video.capture == "nvfbc") {
       if (verify_nvfbc()) {
         sources[source::NVFBC] = true;
       }
     }
 #endif
 #ifdef SUNSHINE_BUILD_WAYLAND
-    if (config::video.capture.empty() || config::video.capture == "wlr") {
+    if ((config::video.capture.empty() && sources.none()) || config::video.capture == "wlr") {
       if (verify_wl()) {
         sources[source::WAYLAND] = true;
       }
     }
 #endif
 #ifdef SUNSHINE_BUILD_DRM
-    if (config::video.capture.empty() || config::video.capture == "kms") {
+    if ((config::video.capture.empty() && sources.none()) || config::video.capture == "kms") {
       if (verify_kms()) {
-        if (window_system == window_system_e::WAYLAND) {
-          // On Wayland, using KMS, the cursor is unreliable.
-          // Hide it by default
-          display_cursor = false;
-        }
         sources[source::KMS] = true;
       }
     }
 #endif
 #ifdef SUNSHINE_BUILD_X11
+    // We enumerate this capture backend regardless of other suitable sources,
+    // since it may be needed as a NvFBC fallback for software encoding on X11.
     if (config::video.capture.empty() || config::video.capture == "x11") {
       if (verify_x11()) {
         sources[source::X11] = true;

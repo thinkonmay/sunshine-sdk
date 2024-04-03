@@ -11,6 +11,7 @@ separate-locales: false
 finish-args:
   - --device=all  # access all devices
   - --env=PULSE_PROP_media.category=Manager  # allow sunshine to manage audio sinks
+  - --env=SUNSHINE_MIGRATE_CONFIG=1  # migrate config files to the new location
   - --filesystem=home  # need to save files in user's home directory
   - --share=ipc  # required for X11 shared memory extension
   - --share=network  # access network
@@ -33,6 +34,8 @@ build-options:
   prepend-ld-library-path: /usr/lib/sdk/vala/lib
 
 modules:
+  - "org.flatpak.Builder.BaseApp/xvfb.json"
+
   - name: boost
     disabled: false
     buildsystem: simple
@@ -253,6 +256,23 @@ modules:
             commands:
               - for n in $(cat patches/series); do if [[ $n != "#"* ]]; then patch -Np1 -i "patches/$n" -d .; fi; done
 
+  - name: miniupnpc
+    buildsystem: cmake
+    config-opts:
+      - -DUPNPC_BUILD_SAMPLE=OFF
+      - -DUPNPC_BUILD_SHARED=ON
+      - -DUPNPC_BUILD_TESTS=OFF
+    sources:
+      - type: archive
+        url: http://archive.ubuntu.com/ubuntu/pool/main/m/miniupnpc/miniupnpc_2.2.5.orig.tar.gz
+        sha256: 38acd5f4602f7cf8bcdc1ec30b2d58db2e9912e5d9f5350dd99b06bfdffb517c
+      - type: archive
+        url: http://archive.ubuntu.com/ubuntu/pool/main/m/miniupnpc/miniupnpc_2.2.5-1.debian.tar.xz
+        sha256: f6ab181f3c999ae0630508ea1e6c76ae302262414061acaab12bf8763431ffd1
+      - type: shell
+        commands:
+          - for n in $(cat patches/series); do if [[ $n != "#"* ]]; then patch -Np1 -i "patches/$n" -d .; fi; done
+
   - name: numactl
     buildsystem: autotools
     make-args:
@@ -308,14 +328,11 @@ modules:
       append-path: /usr/lib/sdk/node18/bin
       build-args:
         - --share=network
-      cxxflags: -I${C_INCLUDE_PATH}/libevdev-1.0
       env:
         npm_config_nodedir: /usr/lib/sdk/node18
         NPM_CONFIG_LOGLEVEL: info
-    build-commands:
-      # Install npm dependencies
-      - cd ${FLATPAK_BUILDER_BUILDDIR} && npm install
     config-opts:
+      - -DBUILD_WERROR=ON
       - -DCMAKE_BUILD_TYPE=Release
       - -DCMAKE_INSTALL_PREFIX=/app
       - -DCMAKE_CUDA_COMPILER=/app/cuda/bin/nvcc
@@ -326,6 +343,7 @@ modules:
       - -DSUNSHINE_ENABLE_DRM=ON
       - -DSUNSHINE_ENABLE_CUDA=ON
       - -DSUNSHINE_BUILD_FLATPAK=ON
+      - -DTESTS_ENABLE_PYTHON_TESTS=OFF
     sources:
       - type: git
         url: "@GITHUB_CLONE_URL@"
@@ -343,3 +361,7 @@ modules:
         's%/app/bin/sunshine%flatpak run dev.lizardbyte.sunshine\nExecStop=flatpak kill dev.lizardbyte.sunshine%g'
         /app/share/sunshine/systemd/user/sunshine.service
       - install -D $FLATPAK_BUILDER_BUILDDIR/packaging/linux/flatpak/scripts/* /app/bin
+    run-tests: true
+    test-rule: ""  # empty to disable
+    test-commands:
+      - xvfb-run tests/test_sunshine --gtest_color=yes

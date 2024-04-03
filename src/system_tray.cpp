@@ -37,14 +37,17 @@
 
   // local includes
   #include "confighttp.h"
-  #include "main.h"
+  #include "logging.h"
   #include "platform/common.h"
   #include "process.h"
+  #include "src/entry_handler.h"
+  #include "version.h"
 
 using namespace std::literals;
 
 // system_tray namespace
 namespace system_tray {
+  static std::atomic<bool> tray_initialized = false;
 
   /**
    * @brief Callback for opening the UI from the system tray.
@@ -126,9 +129,7 @@ namespace system_tray {
   // Tray menu
   static struct tray tray = {
     .icon = TRAY_ICON,
-  #if defined(_WIN32)
-    .tooltip = const_cast<char *>("Sunshine"),  // cast the string literal to a non-const char* pointer
-  #endif
+    .tooltip = PROJECT_NAME,
     .menu =
       (struct tray_menu[]) {
         // todo - use boost/locale to translate menu strings
@@ -146,6 +147,8 @@ namespace system_tray {
         { .text = "Restart", .cb = tray_restart_cb },
         { .text = "Quit", .cb = tray_quit_cb },
         { .text = nullptr } },
+    .iconPathCount = 4,
+    .allIconPaths = { TRAY_ICON, TRAY_ICON_LOCKED, TRAY_ICON_PLAYING, TRAY_ICON_PAUSING },
   };
 
   /**
@@ -238,6 +241,7 @@ namespace system_tray {
       BOOST_LOG(info) << "System tray created"sv;
     }
 
+    tray_initialized = true;
     while (tray_loop(1) == 0) {
       BOOST_LOG(debug) << "System tray loop"sv;
     }
@@ -274,6 +278,7 @@ namespace system_tray {
    */
   int
   end_tray() {
+    tray_initialized = false;
     tray_exit();
     return 0;
   }
@@ -284,6 +289,10 @@ namespace system_tray {
    */
   void
   update_tray_playing(std::string app_name) {
+    if (!tray_initialized) {
+      return;
+    }
+
     tray.notification_title = NULL;
     tray.notification_text = NULL;
     tray.notification_cb = NULL;
@@ -293,7 +302,7 @@ namespace system_tray {
     tray.icon = TRAY_ICON_PLAYING;
     tray.notification_title = "Stream Started";
     char msg[256];
-    sprintf(msg, "Streaming started for %s", app_name.c_str());
+    snprintf(msg, std::size(msg), "Streaming started for %s", app_name.c_str());
     tray.notification_text = msg;
     tray.tooltip = msg;
     tray.notification_icon = TRAY_ICON_PLAYING;
@@ -306,6 +315,10 @@ namespace system_tray {
    */
   void
   update_tray_pausing(std::string app_name) {
+    if (!tray_initialized) {
+      return;
+    }
+
     tray.notification_title = NULL;
     tray.notification_text = NULL;
     tray.notification_cb = NULL;
@@ -313,7 +326,7 @@ namespace system_tray {
     tray.icon = TRAY_ICON_PAUSING;
     tray_update(&tray);
     char msg[256];
-    sprintf(msg, "Streaming paused for %s", app_name.c_str());
+    snprintf(msg, std::size(msg), "Streaming paused for %s", app_name.c_str());
     tray.icon = TRAY_ICON_PAUSING;
     tray.notification_title = "Stream Paused";
     tray.notification_text = msg;
@@ -328,6 +341,10 @@ namespace system_tray {
    */
   void
   update_tray_stopped(std::string app_name) {
+    if (!tray_initialized) {
+      return;
+    }
+
     tray.notification_title = NULL;
     tray.notification_text = NULL;
     tray.notification_cb = NULL;
@@ -335,12 +352,12 @@ namespace system_tray {
     tray.icon = TRAY_ICON;
     tray_update(&tray);
     char msg[256];
-    sprintf(msg, "Application %s successfully stopped", app_name.c_str());
+    snprintf(msg, std::size(msg), "Application %s successfully stopped", app_name.c_str());
     tray.icon = TRAY_ICON;
     tray.notification_icon = TRAY_ICON;
     tray.notification_title = "Application Stopped";
     tray.notification_text = msg;
-    tray.tooltip = "Sunshine";
+    tray.tooltip = PROJECT_NAME;
     tray_update(&tray);
   }
 
@@ -349,6 +366,10 @@ namespace system_tray {
    */
   void
   update_tray_require_pin() {
+    if (!tray_initialized) {
+      return;
+    }
+
     tray.notification_title = NULL;
     tray.notification_text = NULL;
     tray.notification_cb = NULL;
@@ -359,7 +380,7 @@ namespace system_tray {
     tray.notification_title = "Incoming Pairing Request";
     tray.notification_text = "Click here to complete the pairing process";
     tray.notification_icon = TRAY_ICON_LOCKED;
-    tray.tooltip = "Sunshine";
+    tray.tooltip = PROJECT_NAME;
     tray.notification_cb = []() {
       launch_ui_with_path("/pin");
     };

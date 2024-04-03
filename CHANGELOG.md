@@ -1,5 +1,176 @@
 # Changelog
 
+## [0.22.2] - 2024-03-15
+**Fixed**
+- (Tray/Windows) Fix broken system tray icon on some systems
+- (Linux) Fix crash when XDG_CONFIG_HOME or CONFIGURATION_DIRECTORY are set
+- (Linux) Fix config migration across filesystems and with non-existent parent directories
+
+## [0.22.1] - 2024-03-13
+**Breaking**
+- (ArchLinux) Drop support for standalone PKGBUILD files. Use the binary Arch package or install via AUR instead.
+- (macOS) Drop support for experimental dmg package. Use Homebrew or MacPorts instead.
+
+**Added**
+- (macOS) Added Homebrew support
+
+**Changed**
+- (Process/Windows) The working directory is now searched first when the command contains a relative path
+- (ArchLinux) The kmsgrab capture backend is now compiled by default to support Wayland capture on non-wlroots-based compositors
+- (Capture/Linux) X11 capture is now preferred over kmsgrab for cards that lack atomic modesetting support to ensure cursor capture works
+- (Capture/Linux) Kmsgrab will only choose NVENC by default if the display is connected to the Nvidia GPU to avoid possible EGL import failures
+
+**Fixed**
+- (Config) Fix unsupported resolution error with some Moonlight clients
+- (Capture/Windows) Fix crash when streaming Ryujinx, Red Alert 2, and other apps that use unusually sized monochrome cursors
+- (Capture/Linux) Fix crash in KMS cursor capture when running on Arch-based distros
+- (Capture/Linux) Fix crash if CUDA GPU has a PCI ID with hexadecimal digits greater than 9
+- (Process/Windows) Fix starting apps when the working directory is enclosed in quotes
+- (Process/Windows) Fix process tree tracking when the app is launched via a cmd.exe trampoline
+- (Installer/Windows) Fix slow operation during ViGEmBus installation that may cause the installer to appear stuck
+- (Build/macOS) Fix issues building on macOS 13 and 14
+- (Build/Linux) Fix missing install script in the Arch binary package
+- (Build/Linux) Fix missing optional dependencies in the Arch binary package
+- (Build/Linux) Ensure correct Arch pkg is published to GitHub releases
+- (Capture/Linux) Fix mismatched case and unhandled exception in CUDA device lookup
+- (Config) Add missing resolution to default config ui
+- (Linux) Fix udev rules for uinput access not working until after reboot
+- (Linux) Fix wrong path in desktop files
+- (Tray) Cache icons to avoid possible DRM issues
+- (Tray) Fix attempt to update tray icon after it was destroyed
+- (Linux) Migrate old config files to new location if env SUNSHINE_MIGRATE_CONFIG=1 is set (automatically set for Flatpak)
+- (Linux/Fedora) Re-enable CUDA support and bump to 12.4.0
+
+**Misc**
+- (Build/Windows) Adjust Windows debuginfo artifact to reduce confusion with real release binaries
+
+## [0.22.0] - 2024-03-03
+**Breaking**
+- (Network) Clients must now be paired with the host before they can use Wake-on-LAN
+- (Build/Linux) Drop Fedora 37 support
+
+**Added**
+- (Input/Linux) Add native/pen touch support for Linux
+- (Capture/Linux) Add HDR streaming support for Linux using KMS capture backend
+- (Capture/Linux) Add KMS capture support for Nvidia GPUs running Wayland
+- (Network) Add support for full E2E stream encryption, configurable for LAN and WAN independently
+- (Process) Add process group tracking to automatically handle launchers that spawn other child processes
+- (Capture/Windows) Add setting for controlling GPU power saving and encoding latency tradeoff for NVENC
+- (Capture/Windows) Add additional encoding settings for NVENC
+- (Process/Windows) Add experimental support for launching URLs and other non-exe files
+- (Capture/Windows) Add setting to allow use of slower HEVC encoding on older Intel GPUs
+- (Input/Windows) Add settings to control automatic gamepad type selection heuristics
+- (Input/Windows) Add setting to allow DS4 back/select button to trigger touchpad click
+- (Input) Add setting to disable high resolution scrolling and native pen/touch support
+- (Network) Add support for certificates types other than RSA-2048
+- (Build/Linux) Add Fedora 39 docker image and rpm package
+- (Capture/Linux) Display monitor indexes in logs for wlroots and KMS capture backends
+- (UI) Add link to logs inside fatal error container
+- (UI) Add hash handler and ids for all configuration categories and settings
+
+**Changed**
+- (UI) Several configuration options have been moved to more suitable locations
+- (Network) Client-selected bitrate is now adjusted for FEC percentage and other stream overhead
+- (Capture/Linux) Improve VAAPI encoding performance on Intel GPUs
+- (Capture) Connection establishment delay is reduced by eliminating many encoder probing operations
+- (Process) Graceful termination of running processes is attempted first when stopping apps
+- (Capture) Improve software encoding performance by enabling multi-threaded color conversion
+- (Capture) Adjust default CPU thread count for software encoding from 1 to 2 for improved performance
+- (Steam/Windows) Modernized the default Steam app shortcut to avoid depending on Steam's install location and support app termination
+- (Linux) Updated desktop files
+- (Config) Add 2560x1440 to default resolutions
+- (Network) Use the configured ping timeout for the initial launch event timeout
+- (UI) Migrate UI to Vite and Vue3, and various UX improvements
+- (Logging) Adjust wording and severity of some log messages
+- (Build) Use a single submodule for ffmpeg
+- (Install/Windows) Skip ViGEmBus installation if a supported version is already installed
+- (Build/Linux) Optionally, allow using the system installation of wayland-protocols
+- (Build/Linux) Make vaapi optional
+- (Windows) Replace boost::json with nlohmann/json
+
+**Fixed**
+- (Network/Windows) Fix auto-discovery of hosts by iOS/tvOS clients
+- (Network) Fix immediate connection termination when streaming over some Internet connections
+- (Capture/Linux) Fix missing mouse cursor when using KMS capture on a GPU with hardware cursor support
+- (Capture/Windows) Add workaround for Nvidia driver bug causing Sunshine to crash when RTX HDR is globally enabled
+- (Capture/Windows) Add workaround for AMD driver bug on pre-RDNA GPUs causing hardware encoding failure
+- (Capture/Windows) Reintroduce support for NVENC on older Nvidia GPU drivers (v456.71-v522.25)
+- (Capture/Windows) Fix encoding on old Intel GPUs that don't support low-power H.264 encoding
+- (Capture/Linux) Fix GL errors or corrupt video output on GPUs that use aux planes such as Intel Arc
+- (Capture/Linux) Fix GL errors or corrupt video output on GPUs that use DRM modifiers on YUV buffers
+- (Input/Windows) Fix non-functional duplicate controllers appearing in rare cases
+- (Input/Windows) Avoid triggering crash in ViGEmBus when the system goes to sleep
+- (Input/Linux) Fix scrolling in applications that don't support high-resolution scrolling
+- (Input/Linux) Fix absolute mouse input being interpreted as touch input
+- (Capture/Linux) Fix wlroots capture causing GL errors and crashes
+- (Capture/Linux) Fix wlroots capture failing when the display scale factor was not 1
+- (Capture/Linux) Fix excessive CPU usage when using wlroots capture backend
+- (Capture/Linux) Fix capture of virtual displays created by the amdgpu kernel driver
+- (Audio/Windows) Fix audio capture failures on Insider Preview versions of Windows 11
+- (Capture/Windows) Fix incorrect portrait mode rotation
+- (Capture/Windows) Fix capture recovery when a driver update/crash occurs while streaming
+- (Capture/Windows) Fix delay displaying UAC dialogs when the mouse cursor is not moving
+- (Capture/Linux) Fix corrupt video output or stream disconnections if the display resolution changes while streaming
+- (Capture/Linux) Fix color of aspect ratio padding in the capture image with VAAPI
+- (Capture/Linux) Fix NVENC initialization error when using X11 capture with some GPUs
+- (Tray/Linux) Fix random crash when the tray icon is updating
+- (Network) Fix QoS tagging when running in IPv4+IPv6 mode
+- (Process) Fix termination of child processes upon app quit when the parent has already terminated
+- (Process) Fix notification of graceful termination to connected clients when Sunshine quits
+- (Capture) Fix corrupt output or green aspect-ratio padding when using software encoding with some video resolutions
+- (Windows) Fix crashes when processing file paths or other strings with certain non-ASCII characters
+- (Capture) Ensure user supplied framerates are used exclusively in place of pre-defined framerates
+- (CMake/Linux) Skip including unnecessary headers
+- (Capture/Linux) Replace vaTerminate method with dl handle
+- (Capture/Linux) Fix capture when DRM is enabled and x11 is disabled
+- (Tray) Use PROJECT_NAME definition for tooltip
+- (CMake) Use GNUInstallDirs to install data and lib directories
+- (macOS) Replace deprecated code
+- (API) Allow trailing slashes in on API endpoints
+- (API) Add additional pin validation
+- (Linux) Use XDG spec for fetching config directory
+- (CMake) Properly find evdev
+- (Config) Properly save global_prep_cmd and fps settings
+
+**Dependencies**
+- Bump third-party/wayland-protocols from 681c33c to 46f201b
+- Bump third-party/nv-codec-headers from 9402b5a to 22441b5
+- Bump third-party/nanors from 395e5ad to e9e242e
+- Bump third-party/Simple-Web-Server from 2f29926 to 27b41f5
+- Bump ffmpeg
+- Bump third-party/tray from 2664388 to 2bf1c61
+- Bump actions/setup-python from 4 to 5
+- Bump actions/upload-artifact from 3 to 4
+- Bump @fortawesome/fontawesome-free from 6.4.2 to 6.5.1
+- Bump babel from 2.13.0 to 2.14.0
+- Move miniupnpc from submodule to system installed package
+- Bump furo from 2023.9.10 to 2024.1.29
+- Bump third-party/moonlight-common-c from f78f213 to cbd0ec1
+- Bump third-party/ViGEmClient from 1920260 to 8d71f67
+- Bump peter-evans/create-pull-request from 5 to 6
+- Bump bootstrap from 5.3.2 to 5.3.3
+
+**Misc**
+- (Build) Update global workflows
+- (Docs/Linux) Add example for setting custom resolution with NVIDIA
+- (Docs) Fix broken links
+- (Docs/Windows) Add information about disk permissions
+- (Docs) Fix failing images
+- (Docs) Use glob pattern to match source code docs
+- (CI/macOS) Install boost from source
+- (Docs) Add reset credentials examples for unique packages
+- (Docs) Refactor and general cleanup
+- (Docs) Cross-reference config settings to the UI
+- (Docs/Docker) Add podman notes
+- (Build) Use CMAKE_SOURCE_DIR property everywhere
+- (Build/Docker) Add docker toolchain file for CLion
+- (macOS) Various code style fixes
+- (Deps) Alphabetize git submodules
+- (Docs/Examples) Update URI examples
+- (Refactor) Refactored some code in preparation for unit testing implementation
+- (CMake) Add option to skip cuda inheriting compile options
+- (CMake) Add option to error build on warnings
+
 ## [0.21.0] - 2023-10-15
 **Added**
 - (Input) Add support for automatically selecting the emulated controller type based on the physical controller connected to the client
@@ -592,3 +763,6 @@ settings. In v0.17.0, games now run under your user account without elevated pri
 [0.19.1]: https://github.com/LizardByte/Sunshine/releases/tag/v0.19.1
 [0.20.0]: https://github.com/LizardByte/Sunshine/releases/tag/v0.20.0
 [0.21.0]: https://github.com/LizardByte/Sunshine/releases/tag/v0.21.0
+[0.22.0]: https://github.com/LizardByte/Sunshine/releases/tag/v0.22.0
+[0.22.1]: https://github.com/LizardByte/Sunshine/releases/tag/v0.22.1
+[0.22.2]: https://github.com/LizardByte/Sunshine/releases/tag/v0.22.2

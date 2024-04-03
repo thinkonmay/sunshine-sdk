@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.18)
 # `CMAKE_CUDA_ARCHITECTURES` requires 3.18
+# set_source_files_properties requires 3.18
 # todo - set this conditionally
 
 # todo - set version to 0.0.0 once confident in automated versioning
-project(Sunshine VERSION 0.21.0
-        DESCRIPTION "Sunshine is a self-hosted game stream host for Moonlight."
+project(Sunshine VERSION 0.22.2
+        DESCRIPTION "Self-hosted game stream host for Moonlight"
         HOMEPAGE_URL "https://app.lizardbyte.dev/Sunshine")
 
 set(PROJECT_LICENSE "GPL-3.0")
@@ -20,7 +21,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 # set the module path, used for includes
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # set version info for this build
 include(${CMAKE_MODULE_PATH}/prep/build_version.cmake)
