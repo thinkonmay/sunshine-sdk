@@ -3,10 +3,8 @@
 
 
 # common dependencies
-find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
-pkg_check_modules(CURL REQUIRED libcurl)
 
 # ffmpeg pre-compiled binaries
 if(WIN32)

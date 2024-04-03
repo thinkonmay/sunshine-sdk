@@ -16,6 +16,8 @@
 #include "process.h"
 #include "version.h"
 #include "video.h"
+#include "audio.h"
+#include "input.h"
 #include "config.h"
 
 
@@ -139,14 +141,49 @@ main(int argc, char *argv[]) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
   }
 
+  auto video_capture = std::thread{[&](){
+    video::capture(mail::man,video::config_t{
+      1920, 1080, 60, 6000, 1, 0, 1, 0, 0
+    },NULL);
+  }};
+  auto audio_capture = std::thread{[&](){
+    audio::capture(mail::man,audio::config_t{
+      10,2,3,0
+    },NULL);
+  }};
+    
+  auto video_packets = mail::man->queue<video::packet_t>(mail::video_packets);
+  auto audio_packets = mail::man->queue<audio::packet_t>(mail::audio_packets);
+  auto video_handle = std::thread{[&](){
+    while (!shutdown_event->peek()) {
+      if(!video_packets->peek()) {
+        std::this_thread::sleep_for(1ms);
+        continue;
+      }
 
-  // FIXME: Temporary workaround: Simple-Web_server needs to be updated or replaced
-  if (shutdown_event->peek()) {
-    return 0;
-  }
+      auto packet = video_packets->pop();
+      BOOST_LOG(info) << "Receive video packet size " << packet->data_size() << "\n";
+    }
+  }};
+  auto audio_handle = std::thread{[&](){
+    while (!shutdown_event->peek()) {
+      if(!audio_packets->peek()) {
+        std::this_thread::sleep_for(1ms);
+        continue;
+      }
 
+      auto packet = audio_packets->pop();
+      BOOST_LOG(info) << "Receive audio packet size " << packet->second.size() << "\n";
+    }
+  }};
 
+  while (!shutdown_event->peek())
+    std::this_thread::sleep_for(1s);
 
+  video_handle.join();
+  audio_handle.join();
+  audio_capture.join();
+  video_capture.join();
   task_pool.stop();
   task_pool.join();
 
