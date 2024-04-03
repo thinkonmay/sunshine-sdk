@@ -49,21 +49,14 @@ endif()
 
 target_compile_options(sunshine PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${SUNSHINE_COMPILE_OPTIONS}>;$<$<COMPILE_LANGUAGE:CUDA>:${SUNSHINE_COMPILE_OPTIONS_CUDA};-std=c++17>)  # cmake-lint: disable=C0301
 
-# tests
-if(BUILD_TESTS)
-    add_subdirectory(tests)
-endif()
-
 # custom compile flags, must be after adding tests
 
 # src/upnp
 set_source_files_properties("${CMAKE_SOURCE_DIR}/src/upnp.cpp"
-        DIRECTORY "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/tests"
         PROPERTIES COMPILE_FLAGS -Wno-pedantic)
 
 # third-party/nanors
 set_source_files_properties("${CMAKE_SOURCE_DIR}/third-party/nanors/rs.c"
-        DIRECTORY "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/tests"
         PROPERTIES COMPILE_FLAGS "-include deps/obl/autoshim.h -ftree-vectorize")
 
 # third-party/ViGEmClient
@@ -74,7 +67,6 @@ string(APPEND VIGEM_COMPILE_FLAGS "-Wno-class-memaccess ")
 string(APPEND VIGEM_COMPILE_FLAGS "-Wno-unused-function ")
 string(APPEND VIGEM_COMPILE_FLAGS "-Wno-unused-variable ")
 set_source_files_properties("${CMAKE_SOURCE_DIR}/third-party/ViGEmClient/src/ViGEmClient.cpp"
-        DIRECTORY "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/tests"
         PROPERTIES
         COMPILE_DEFINITIONS "UNICODE=1;ERROR_INVALID_DEVICE_OBJECT_PARAMETER=650"
         COMPILE_FLAGS ${VIGEM_COMPILE_FLAGS})

@@ -1,4 +1,0 @@
-/* Hide pages while localization is loading */
-[v-cloak] {
-    display: none;
-}
