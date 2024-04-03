@@ -49,22 +49,10 @@ configure_file("${CMAKE_SOURCE_DIR}/src/version.h.in" version.h @ONLY)
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")  # required for importing version.h
 
 set(SUNSHINE_TARGET_FILES
-        "${CMAKE_SOURCE_DIR}/third-party/nanors/rs.c"
-        "${CMAKE_SOURCE_DIR}/third-party/nanors/rs.h"
-        "${CMAKE_SOURCE_DIR}/third-party/moonlight-common-c/src/Input.h"
-        "${CMAKE_SOURCE_DIR}/third-party/moonlight-common-c/src/Rtsp.h"
-        "${CMAKE_SOURCE_DIR}/third-party/moonlight-common-c/src/RtspParser.c"
-        "${CMAKE_SOURCE_DIR}/third-party/moonlight-common-c/src/Video.h"
-        "${CMAKE_SOURCE_DIR}/third-party/tray/tray.h"
-        "${CMAKE_SOURCE_DIR}/src/upnp.cpp"
-        "${CMAKE_SOURCE_DIR}/src/upnp.h"
         "${CMAKE_SOURCE_DIR}/src/cbs.cpp"
         "${CMAKE_SOURCE_DIR}/src/utility.h"
-        "${CMAKE_SOURCE_DIR}/src/uuid.h"
         "${CMAKE_SOURCE_DIR}/src/config.h"
         "${CMAKE_SOURCE_DIR}/src/config.cpp"
-        "${CMAKE_SOURCE_DIR}/src/entry_handler.cpp"
-        "${CMAKE_SOURCE_DIR}/src/entry_handler.h"
         "${CMAKE_SOURCE_DIR}/src/file_handler.cpp"
         "${CMAKE_SOURCE_DIR}/src/file_handler.h"
         "${CMAKE_SOURCE_DIR}/src/globals.cpp"
@@ -73,18 +61,6 @@ set(SUNSHINE_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/logging.h"
         "${CMAKE_SOURCE_DIR}/src/main.cpp"
         "${CMAKE_SOURCE_DIR}/src/main.h"
-        "${CMAKE_SOURCE_DIR}/src/crypto.cpp"
-        "${CMAKE_SOURCE_DIR}/src/crypto.h"
-        "${CMAKE_SOURCE_DIR}/src/nvhttp.cpp"
-        "${CMAKE_SOURCE_DIR}/src/nvhttp.h"
-        "${CMAKE_SOURCE_DIR}/src/httpcommon.cpp"
-        "${CMAKE_SOURCE_DIR}/src/httpcommon.h"
-        "${CMAKE_SOURCE_DIR}/src/confighttp.cpp"
-        "${CMAKE_SOURCE_DIR}/src/confighttp.h"
-        "${CMAKE_SOURCE_DIR}/src/rtsp.cpp"
-        "${CMAKE_SOURCE_DIR}/src/rtsp.h"
-        "${CMAKE_SOURCE_DIR}/src/stream.cpp"
-        "${CMAKE_SOURCE_DIR}/src/stream.h"
         "${CMAKE_SOURCE_DIR}/src/video.cpp"
         "${CMAKE_SOURCE_DIR}/src/video.h"
         "${CMAKE_SOURCE_DIR}/src/video_colorspace.cpp"
@@ -94,13 +70,7 @@ set(SUNSHINE_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/audio.cpp"
         "${CMAKE_SOURCE_DIR}/src/audio.h"
         "${CMAKE_SOURCE_DIR}/src/platform/common.h"
-        "${CMAKE_SOURCE_DIR}/src/process.cpp"
-        "${CMAKE_SOURCE_DIR}/src/process.h"
-        "${CMAKE_SOURCE_DIR}/src/network.cpp"
-        "${CMAKE_SOURCE_DIR}/src/network.h"
         "${CMAKE_SOURCE_DIR}/src/move_by_copy.h"
-        "${CMAKE_SOURCE_DIR}/src/system_tray.cpp"
-        "${CMAKE_SOURCE_DIR}/src/system_tray.h"
         "${CMAKE_SOURCE_DIR}/src/task_pool.h"
         "${CMAKE_SOURCE_DIR}/src/thread_pool.h"
         "${CMAKE_SOURCE_DIR}/src/thread_safe.h"
@@ -122,9 +92,6 @@ include_directories("${CMAKE_SOURCE_DIR}")
 include_directories(
         SYSTEM
         "${CMAKE_SOURCE_DIR}/third-party"
-        "${CMAKE_SOURCE_DIR}/third-party/moonlight-common-c/enet/include"
-        "${CMAKE_SOURCE_DIR}/third-party/nanors"
-        "${CMAKE_SOURCE_DIR}/third-party/nanors/deps/obl"
         ${FFMPEG_INCLUDE_DIRS}
         ${PLATFORM_INCLUDE_DIRS}
 )
@@ -132,7 +99,6 @@ include_directories(
 list(APPEND SUNSHINE_EXTERNAL_LIBRARIES
         ${MINIUPNP_LIBRARIES}
         ${CMAKE_THREAD_LIBS_INIT}
-        enet
         opus
         ${FFMPEG_LIBRARIES}
         ${Boost_LIBRARIES}

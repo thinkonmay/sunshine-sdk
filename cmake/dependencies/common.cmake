@@ -1,13 +1,6 @@
 # load common dependencies
 # this file will also load platform specific dependencies
 
-# submodules
-# moonlight common library
-set(ENET_NO_INSTALL ON CACHE BOOL "Don't install any libraries build for enet")
-add_subdirectory("${CMAKE_SOURCE_DIR}/third-party/moonlight-common-c/enet")
-
-# web server
-add_subdirectory("${CMAKE_SOURCE_DIR}/third-party/Simple-Web-Server")
 
 # common dependencies
 find_package(OpenSSL REQUIRED)

@@ -7,21 +7,17 @@
 #include <csignal>
 #include <fstream>
 #include <iostream>
+#include <Windows.h>
 
 // local includes
 #include "globals.h"
 #include "logging.h"
 #include "main.h"
-#include "nvhttp.h"
 #include "process.h"
-#include "system_tray.h"
-#include "upnp.h"
 #include "version.h"
 #include "video.h"
+#include "config.h"
 
-extern "C" {
-#include <rs.h>
-}
 
 using namespace std::literals;
 
@@ -52,7 +48,6 @@ on_signal(int sig, FN &&fn) {
  */
 int
 main(int argc, char *argv[]) {
-  lifetime::argv = argv;
 
   task_pool_util::TaskPool::task_id_t force_shutdown = nullptr;
 
@@ -113,7 +108,6 @@ main(int argc, char *argv[]) {
     auto task = []() {
       BOOST_LOG(fatal) << "10 seconds passed, yet Sunshine's still running: Forcing shutdown"sv;
       logging::log_flush();
-      lifetime::debug_trap();
     };
     force_shutdown = task_pool.pushDelayed(task, 10s).task_id;
 
@@ -126,14 +120,11 @@ main(int argc, char *argv[]) {
     auto task = []() {
       BOOST_LOG(fatal) << "10 seconds passed, yet Sunshine's still running: Forcing shutdown"sv;
       logging::log_flush();
-      lifetime::debug_trap();
     };
     force_shutdown = task_pool.pushDelayed(task, 10s).task_id;
 
     shutdown_event->raise(true);
   });
-
-  proc::refresh(config::stream.file_apps);
 
   // If any of the following fail, we log an error and continue event though sunshine will not function correctly.
   // This allows access to the UI to fix configuration problems or view the logs.
@@ -143,12 +134,6 @@ main(int argc, char *argv[]) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
   }
 
-  auto proc_deinit_guard = proc::init();
-  if (!proc_deinit_guard) {
-    BOOST_LOG(error) << "Proc failed to initialize"sv;
-  }
-
-  reed_solomon_init();
   auto input_deinit_guard = input::init();
   if (video::probe_encoders()) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
@@ -157,17 +142,10 @@ main(int argc, char *argv[]) {
 
   // FIXME: Temporary workaround: Simple-Web_server needs to be updated or replaced
   if (shutdown_event->peek()) {
-    return lifetime::desired_exit_code;
+    return 0;
   }
 
 
-#ifdef _WIN32
-  // If we're using the default port and GameStream is enabled, warn the user
-  if (config::sunshine.port == 47989 && is_gamestream_enabled()) {
-    BOOST_LOG(fatal) << "GameStream is still enabled in GeForce Experience! This *will* cause streaming problems with Sunshine!"sv;
-    BOOST_LOG(fatal) << "Disable GameStream on the SHIELD tab in GeForce Experience or change the Port setting on the Advanced tab in the Sunshine Web UI."sv;
-  }
-#endif
 
   task_pool.stop();
   task_pool.join();
@@ -180,5 +158,5 @@ main(int argc, char *argv[]) {
   }
 #endif
 
-  return lifetime::desired_exit_code;
+  return 0;
 }

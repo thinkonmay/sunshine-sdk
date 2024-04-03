@@ -51,14 +51,6 @@ target_compile_options(sunshine PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${SUNSHINE_COM
 
 # custom compile flags, must be after adding tests
 
-# src/upnp
-set_source_files_properties("${CMAKE_SOURCE_DIR}/src/upnp.cpp"
-        PROPERTIES COMPILE_FLAGS -Wno-pedantic)
-
-# third-party/nanors
-set_source_files_properties("${CMAKE_SOURCE_DIR}/third-party/nanors/rs.c"
-        PROPERTIES COMPILE_FLAGS "-include deps/obl/autoshim.h -ftree-vectorize")
-
 # third-party/ViGEmClient
 set(VIGEM_COMPILE_FLAGS "")
 string(APPEND VIGEM_COMPILE_FLAGS "-Wno-unknown-pragmas ")

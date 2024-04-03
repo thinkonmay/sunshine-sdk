@@ -31,7 +31,6 @@ file(GLOB NVPREFS_FILES CONFIGURE_DEPENDS
 include_directories(SYSTEM "${CMAKE_SOURCE_DIR}/third-party/ViGEmClient/include")
 
 set(PLATFORM_TARGET_FILES
-        "${CMAKE_SOURCE_DIR}/src/platform/windows/publish.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/windows/misc.h"
         "${CMAKE_SOURCE_DIR}/src/platform/windows/misc.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/windows/input.cpp"
@@ -64,12 +63,12 @@ list(PREPEND PLATFORM_LIBRARIES
         userenv
         synchronization.lib
         avrt
+        ole32
+        oleaut32
+        imm32
+        winmm
+        version
         iphlpapi
         shlwapi
         PkgConfig::NLOHMANN_JSON
         ${CURL_STATIC_LIBRARIES})
-
-if(SUNSHINE_ENABLE_TRAY)
-    list(APPEND PLATFORM_TARGET_FILES
-            "${CMAKE_SOURCE_DIR}/third-party/tray/tray_windows.c")
-endif()

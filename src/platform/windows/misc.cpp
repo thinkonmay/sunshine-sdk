@@ -36,7 +36,6 @@
 
 #include "misc.h"
 
-#include "src/entry_handler.h"
 #include "src/globals.h"
 #include "src/logging.h"
 #include "src/platform/common.h"
@@ -1255,15 +1254,6 @@ namespace platf {
 
   void
   restart() {
-    // If we're running standalone, we have to respawn ourselves via CreateProcess().
-    // If we're running from the service, we should just exit and let it respawn us.
-    if (GetConsoleWindow() != NULL) {
-      // Avoid racing with the new process by waiting until we're exiting to start it.
-      atexit(restart_on_exit);
-    }
-
-    // We use an async exit call here because we can't block the HTTP thread or we'll hang shutdown.
-    lifetime::exit_sunshine(0, true);
   }
 
   struct enum_wnd_context_t {

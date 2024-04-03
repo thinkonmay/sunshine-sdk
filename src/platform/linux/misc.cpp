@@ -27,7 +27,6 @@
 #include "graphics.h"
 #include "misc.h"
 #include "src/config.h"
-#include "src/entry_handler.h"
 #include "src/logging.h"
 #include "src/platform/common.h"
 #include "vaapi.h"
@@ -311,19 +310,6 @@ namespace platf {
     for (int fd = STDERR_FILENO + 1; fd < openmax; fd++) {
       close(fd);
     }
-
-    // Re-exec ourselves with the same arguments
-    if (execv(executable, lifetime::get_argv()) < 0) {
-      BOOST_LOG(fatal) << "execv() failed: "sv << errno;
-      return;
-    }
-  }
-
-  void
-  restart() {
-    // Gracefully clean up and restart ourselves instead of exiting
-    atexit(restart_on_exit);
-    lifetime::exit_sunshine(0, true);
   }
 
   /**
