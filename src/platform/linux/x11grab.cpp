@@ -476,8 +476,6 @@ namespace platf {
 
     capture_e
     capture(const push_captured_image_cb_t &push_captured_image_cb, const pull_free_image_cb_t &pull_free_image_cb, bool *cursor) override {
-      auto next_frame = std::chrono::steady_clock::now();
-
       while (true) {
 
         std::shared_ptr<platf::img_t> img_out;
@@ -607,8 +605,6 @@ namespace platf {
 
     capture_e
     capture(const push_captured_image_cb_t &push_captured_image_cb, const pull_free_image_cb_t &pull_free_image_cb, bool *cursor) override {
-      auto next_frame = std::chrono::steady_clock::now();
-
       while (true) {
         std::shared_ptr<platf::img_t> img_out;
         auto status = snapshot(pull_free_image_cb, img_out, 1000ms, *cursor);

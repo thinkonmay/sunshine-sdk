@@ -201,38 +201,6 @@ if(NOT ${CUDA_FOUND}
     message(FATAL_ERROR "Couldn't find either cuda, wayland, x11, (libdrm and libcap), or libva")
 endif()
 
-# tray icon
-if(${SUNSHINE_ENABLE_TRAY})
-    pkg_check_modules(APPINDICATOR appindicator3-0.1)
-    if(APPINDICATOR_FOUND)
-        list(APPEND SUNSHINE_DEFINITIONS TRAY_LEGACY_APPINDICATOR=1)
-    else()
-        pkg_check_modules(APPINDICATOR ayatana-appindicator3-0.1)
-        if(APPINDICATOR_FOUND)
-            list(APPEND SUNSHINE_DEFINITIONS TRAY_AYATANA_APPINDICATOR=1)
-        endif ()
-    endif()
-    pkg_check_modules(LIBNOTIFY libnotify)
-    if(NOT APPINDICATOR_FOUND OR NOT LIBNOTIFY_FOUND)
-        set(SUNSHINE_TRAY 0)
-        message(WARNING "Missing appindicator or libnotify, disabling tray icon")
-        message(STATUS "APPINDICATOR_FOUND: ${APPINDICATOR_FOUND}")
-        message(STATUS "LIBNOTIFY_FOUND: ${LIBNOTIFY_FOUND}")
-    else()
-        include_directories(SYSTEM ${APPINDICATOR_INCLUDE_DIRS} ${LIBNOTIFY_INCLUDE_DIRS})
-        link_directories(${APPINDICATOR_LIBRARY_DIRS} ${LIBNOTIFY_LIBRARY_DIRS})
-
-        list(APPEND SUNSHINE_EXTERNAL_LIBRARIES ${APPINDICATOR_LIBRARIES} ${LIBNOTIFY_LIBRARIES})
-    endif()
-else()
-    set(SUNSHINE_TRAY 0)
-    message(STATUS "Tray icon disabled")
-endif()
-
-if (${SUNSHINE_TRAY} EQUAL 0 AND SUNSHINE_REQUIRE_TRAY)
-    message(FATAL_ERROR "Tray icon is required")
-endif()
-
 list(APPEND PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/platform/linux/graphics.h"
         "${CMAKE_SOURCE_DIR}/src/platform/linux/graphics.cpp"
