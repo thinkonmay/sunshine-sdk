@@ -56,55 +56,160 @@ typedef struct {
 */
 import "C"
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
+const (
+	audio = 1
+	video = 2
+)
 
-func main(){
-	mod,err := syscall.LoadDLL("libparent.dll")
+type DataType int
+
+func peek(memory *C.SharedMemory, media DataType) bool {
+	if media == video {
+		return memory.video_order[0] != -1
+	} else if media == audio {
+		return memory.audio_order[0] != -1
+	}
+
+	panic(fmt.Errorf("unknown data type"))
+}
+
+func byteSliceToString(s []byte) string {
+	n := bytes.IndexByte(s, 0)
+	if n >= 0 {
+		s = s[:n]
+	}
+	return string(s)
+}
+
+func copyAndCapture(r io.Reader) {
+	buf := make([]byte, 1024)
+	for {
+		n, err := r.Read(buf[:])
+		if err != nil {
+			return
+		}
+
+		if n < 1 {
+			continue
+		}
+
+		lines := strings.Split(string(buf[:n]), "\n")
+		for _, line := range lines {
+			sublines := strings.Split(line, "\r")
+			for _, subline := range sublines {
+				if len(subline) == 0 {
+					continue
+				}
+
+				fmt.Printf("sunshine: %s\n", subline)
+			}
+		}
+	}
+}
+
+func Start() {
+	mod, err := syscall.LoadDLL("libparent.dll")
 	if err != nil {
 		panic(err)
 	}
-	deinit,err := mod.FindProc("deinit_shared_memory")
+	deinit, err := mod.FindProc("deinit_shared_memory")
 	if err != nil {
 		panic(err)
 	}
 	defer deinit.Call()
 
-	proc,err := mod.FindProc("allocate_shared_memory")
+	proc, err := mod.FindProc("allocate_shared_memory")
+	if err != nil {
+		panic(err)
+	}
+	lock, err := mod.FindProc("lock_shared_memory")
+	if err != nil {
+		panic(err)
+	}
+	unlock, err := mod.FindProc("unlock_shared_memory")
 	if err != nil {
 		panic(err)
 	}
 
-	buffer := make([]byte,128) 
+	buffer := make([]byte, 128)
 	handle := C.longlong(0)
-	ptr,_,err := proc.Call(
+	ptr, _, err := proc.Call(
 		uintptr(unsafe.Pointer(&buffer[0])),
 		uintptr(unsafe.Pointer(&handle)))
 	if !errors.Is(err, windows.ERROR_SUCCESS) {
 		panic(err)
 	}
 
-	// fun,err := syscall.GetProcAddress(lib, "allocate_shared_memory")
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// i := C.longlong(0)
-	// ret, _, callErr := syscall.SyscallN(fun,uintptr(unsafe.Pointer(&i)))
-	// if callErr != 0 {
-	// 	panic(err)
-	// }
-
-	// fmt.Println(i)
-
-	fmt.Println(string(buffer))
 	memory := (*C.SharedMemory)(unsafe.Pointer(ptr))
-	fmt.Println(memory.video_order)
-	fmt.Println(memory.audio_order)
+	handle_video := func() {
+		lock.Call(ptr)
+		defer unlock.Call(ptr)
+
+		block := memory.video[memory.video_order[0]]
+		fmt.Printf("video buffer %d\n", block.size)
+
+		for i := 0; i < C.QUEUE_SIZE-1; i++ {
+			memory.video_order[i] = memory.video_order[i+1]
+		}
+
+		memory.video_order[C.QUEUE_SIZE-1] = -1
+	}
+
+	handle_audio := func() {
+		lock.Call(ptr)
+		defer unlock.Call(ptr)
+
+		block := memory.audio[memory.audio_order[0]]
+		fmt.Printf("audio buffer %d\n", block.size)
+
+		for i := 0; i < C.QUEUE_SIZE-1; i++ {
+			memory.audio_order[i] = memory.audio_order[i+1]
+		}
+
+		memory.audio_order[C.QUEUE_SIZE-1] = -1
+	}
+
+	go func() {
+		for {
+			for peek(memory, video) {
+				handle_video()
+			}
+			for peek(memory, audio) {
+				handle_audio()
+			}
+
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
+	arg1 := fmt.Sprintf("%d", handle)
+	arg2 := byteSliceToString(buffer)
+	cmd := exec.Command("E:\\thinkmay\\worker\\sunshine\\sunshine.exe", arg1, arg2)
+
+	stdoutIn, _ := cmd.StdoutPipe()
+	stderrIn, _ := cmd.StderrPipe()
+	cmd.Start()
+	go copyAndCapture(stderrIn)
+	go copyAndCapture(stdoutIn)
+
+	chann := make(chan os.Signal, 16)
+	signal.Notify(chann, syscall.SIGTERM, os.Interrupt)
+	<-chann
+	cmd.Process.Kill()
+	fmt.Println("Stopped.")
 }

@@ -26,7 +26,7 @@ extern "C" {
 #include <boost/algorithm/string/predicate.hpp>
 
 #if !defined(SUNSHINE_SHADERS_DIR)  // for testing this needs to be defined in cmake as we don't do an install
-  #define SUNSHINE_SHADERS_DIR SUNSHINE_ASSETS_DIR "/shaders/directx"
+  #define SUNSHINE_SHADERS_DIR "./directx"
 #endif
 namespace platf {
   using namespace std::literals;

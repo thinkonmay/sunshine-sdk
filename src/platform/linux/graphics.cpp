@@ -23,7 +23,7 @@ extern "C" {
 #define DRM_FORMAT_MOD_INVALID fourcc_mod_code(0, ((1ULL << 56) - 1))
 
 #if !defined(SUNSHINE_SHADERS_DIR)  // for testing this needs to be defined in cmake as we don't do an install
-  #define SUNSHINE_SHADERS_DIR SUNSHINE_ASSETS_DIR "/shaders/opengl"
+  #define SUNSHINE_SHADERS_DIR "./opengl"
 #endif
 
 using namespace std::literals;

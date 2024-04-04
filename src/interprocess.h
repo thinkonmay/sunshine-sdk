@@ -54,7 +54,6 @@ typedef struct {
 } Event;
 
 typedef struct {
-    interprocess_mutex lock;
     Packet audio[QUEUE_SIZE];
     Packet video[QUEUE_SIZE];
     int audio_order[QUEUE_SIZE];
@@ -62,6 +61,7 @@ typedef struct {
 
 
     Event events[EVENT_TYPE_MAX];
+    interprocess_mutex lock;
 }SharedMemory;
 
 void 
