@@ -19,6 +19,12 @@
 using namespace boost::interprocess;
 using namespace std::literals;
 
+#if _WIN32
+#define EXPORTS(x)  x __cdecl
+#else
+#define EXPORTS(x)  x
+#endif
+
 
 typedef struct {
     Packet audio[QUEUE_SIZE];
@@ -32,11 +38,14 @@ typedef struct {
 }SharedMemoryInternal;
 
 
-void lock_shared_memory(SharedMemory* memory){
+EXPORTS(void) 
+lock_shared_memory(SharedMemory* memory){
     SharedMemoryInternal* internal = (SharedMemoryInternal*) memory;
     internal->lock.lock();
 }
-void unlock_shared_memory(SharedMemory* memory){
+
+EXPORTS(void) 
+unlock_shared_memory(SharedMemory* memory){
     SharedMemoryInternal* internal = (SharedMemoryInternal*) memory;
     internal->lock.unlock();
 }
@@ -62,7 +71,7 @@ managed_shared_memory segment(create_only, random.c_str(), 2 * sizeof(SharedMemo
 
 
 
-void 
+EXPORTS(void) 
 init_shared_memory(SharedMemory* memory){
     for (int i = 0; i < QUEUE_SIZE; i++) {
         memory->audio_order[i] = -1;
@@ -75,13 +84,13 @@ init_shared_memory(SharedMemory* memory){
 
 
 
-void
+EXPORTS(void) 
 deinit_shared_memory() {
     shared_memory_object::remove(random.c_str());
 }
 
 
-SharedMemory*
+EXPORTS(SharedMemory*) 
 allocate_shared_memory(long long* handle) {
     //Allocate a portion of the segment (raw memory)
     std::size_t free_memory = segment.get_free_memory();
@@ -102,7 +111,7 @@ allocate_shared_memory(long long* handle) {
 }
 
 
-void
+EXPORTS(void) 
 free_shared_memory(SharedMemory* buffer) {
     segment.deallocate(buffer);
 }
