@@ -69,10 +69,9 @@ managed_shared_memory segment(create_only, randkey.c_str(), 2 * sizeof(SharedMem
 
 void
 init_shared_memory(SharedMemory* memory){
-    for (int i = 0; i < QUEUE_SIZE; i++) {
-        memory->queues[QueueType::Audio].order[i] = -1;
-        memory->queues[QueueType::Video].order[i] = -1;
-    }
+    for (int i = 0; i < QUEUE_SIZE; i++)
+        for (int j = 0; j < QueueType::Max; j++)
+            memory->queues[j].order[i] = -1;
 
     for (int i = 0; i < EventType::EVENT_TYPE_MAX; i++) 
         memory->events[i].read = 1;

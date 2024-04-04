@@ -1029,7 +1029,6 @@ namespace video {
       }
     });
 
-    auto switch_display_event = mail::man->event<int>(mail::switch_display);
 
     // Wait for the initial capture context or a request to stop the queue
     auto initial_capture_ctx = capture_ctx_queue->pop();
@@ -1163,6 +1162,12 @@ namespace video {
             capture_ctx->images->raise(img);
           }
 
+          if (capture_ctx->config.display.has_value() &&
+              capture_ctx->config.display.value() != display_names[display_p]) {
+            artificial_reinit = true;
+            return false;
+          }
+
           ++capture_ctx;
         })
 
@@ -1174,10 +1179,6 @@ namespace video {
           capture_ctxs.emplace_back(std::move(*capture_ctx_queue->pop()));
         }
 
-        if (switch_display_event->peek()) {
-          artificial_reinit = true;
-          return false;
-        }
 
         return true;
       };
@@ -1232,9 +1233,20 @@ namespace video {
             refresh_displays(encoder.platform_formats->dev_type, display_names, display_p);
 
             // Process any pending display switch with the new list of displays
-            if (switch_display_event->peek()) {
-              display_p = std::clamp(*switch_display_event->pop(), 0, (int) display_names.size() - 1);
+            if (capture_ctxs.front().config.display.has_value() && 
+                capture_ctxs.front().config.display.value() != display_names[display_p]) {
+              for (int i = 0; i < display_names.size();i ++) {
+                if (capture_ctxs.front().config.display.value() == display_names[i]) {
+                  BOOST_LOG(info) << "Switched to display " << display_names[i];
+                  display_p = i;
+                  goto next;
+                }
+              }
+
+              BOOST_LOG(info) << "Display " << capture_ctxs.front().config.display.value() << " not found";
+              capture_ctxs.front().config.display = std::nullopt;
             }
+          next:
 
             // reset_display() will sleep between retries
             reset_display(disp, encoder.platform_formats->dev_type, display_names[display_p], capture_ctxs.front().config);
@@ -1751,18 +1763,24 @@ namespace video {
     int &frame_nr,  // Store progress of the frame number
     safe::mail_t mail,
     img_event_t images,
-    config_t config,
+    config_t* config,
     std::shared_ptr<platf::display_t> disp,
     std::unique_ptr<platf::encode_device_t> encode_device,
     safe::signal_t &reinit_event,
     const encoder_t &encoder,
     void *channel_data) {
-    auto session = make_encode_session(disp.get(), encoder, config, disp->width, disp->height, std::move(encode_device));
+    auto session = make_encode_session(disp.get(), encoder, *config, disp->width, disp->height, std::move(encode_device));
     if (!session) {
       return;
     }
 
     auto shutdown_event = mail->event<bool>(mail::shutdown);
+    auto bitrate_events = mail->event<int>(mail::bitrate);
+    auto framerate_events = mail->event<int>(mail::framerate);
+
+    BOOST_LOG(info) << "framerate "sv << config->framerate;
+    BOOST_LOG(info) << "bitrate "sv << config->bitrate;
+
     auto packets = mail::man->queue<packet_t>(mail::video_packets);
     auto idr_events = mail->event<bool>(mail::idr);
     auto invalidate_ref_frames_events = mail->event<std::pair<int64_t, int64_t>>(mail::invalidate_ref_frames);
@@ -1778,6 +1796,11 @@ namespace video {
       }
     }
 
+    std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
+    auto timestamp = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    auto cycle = std::chrono::nanoseconds(1s) / config->framerate;
+    auto sleep_period = 0ns;
     while (true) {
       if (shutdown_event->peek() || reinit_event.peek() || !images->running()) {
         break;
@@ -1791,6 +1814,16 @@ namespace video {
         }
       }
 
+      if (bitrate_events->peek()) {
+          config->bitrate = bitrate_events->pop().value();
+          BOOST_LOG(info) << "bitrate changed to "sv << config->bitrate;
+          break;
+      } else if (framerate_events->peek()) {
+          config->framerate = framerate_events->pop().value();
+          BOOST_LOG(info) << "framerate changed to "sv << config->framerate;
+          break;
+      }
+
       if (idr_events->peek()) {
         requested_idr_frame = true;
         idr_events->pop();
@@ -1800,11 +1833,8 @@ namespace video {
         session->request_idr_frame();
       }
 
-      std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
-
-      // Encode at a minimum of 10 FPS to avoid image quality issues with static content
       if (!requested_idr_frame || images->peek()) {
-        if (auto img = images->pop(100ms)) {
+        if (auto img = images->pop()) {
           frame_timestamp = img->frame_timestamp;
           if (session->convert(*img)) {
             BOOST_LOG(error) << "Could not convert image"sv;
@@ -1816,11 +1846,18 @@ namespace video {
         }
       }
 
+      sleep_period = 1s / config->framerate - cycle;
+      if(sleep_period > 0s) 
+        std::this_thread::sleep_for(sleep_period);
+
       if (encode(frame_nr++, *session, packets, channel_data, frame_timestamp)) {
         BOOST_LOG(error) << "Could not encode video packet"sv;
         return;
       }
 
+      now = std::chrono::steady_clock::now();
+      cycle = now - timestamp;
+      timestamp = now;
       session->request_normal_frame();
     }
   }
@@ -1929,8 +1966,6 @@ namespace video {
 
     std::shared_ptr<platf::display_t> disp;
 
-    auto switch_display_event = mail::man->event<int>(mail::switch_display);
-
     if (synced_session_ctxs.empty()) {
       auto ctx = encode_session_ctx_queue.pop();
       if (!ctx) {
@@ -1943,11 +1978,20 @@ namespace video {
     while (encode_session_ctx_queue.running()) {
       // Refresh display names since a display removal might have caused the reinitialization
       refresh_displays(encoder.platform_formats->dev_type, display_names, display_p);
-
       // Process any pending display switch with the new list of displays
-      if (switch_display_event->peek()) {
-        display_p = std::clamp(*switch_display_event->pop(), 0, (int) display_names.size() - 1);
+      if (synced_session_ctxs.front()->config.display.has_value()  && 
+          synced_session_ctxs.front()->config.display.value() != display_names[display_p]) {
+        for (int i = 0; i < display_names.size();i ++) {
+          if (synced_session_ctxs.front()->config.display.value() == display_names[i]) {
+            BOOST_LOG(info) << "Switched to display " << display_names[i];
+            display_p = i;
+            goto next;
+          }
+        }
+        BOOST_LOG(info) << "Display " << synced_session_ctxs.front()->config.display.value() << " not found";
+        synced_session_ctxs.front()->config.display = std::nullopt;
       }
+    next:
 
       // reset_display() will sleep between retries
       reset_display(disp, encoder.platform_formats->dev_type, display_names[display_p], synced_session_ctxs.front()->config);
@@ -2013,6 +2057,12 @@ namespace video {
             continue;
           }
 
+          if (ctx->config.display.has_value() &&
+              ctx->config.display.value() != display_names[display_p]) {
+            ec = platf::capture_e::reinit;
+            return false;
+          }
+
           if (ctx->idr_events->peek()) {
             pos->session->request_idr_frame();
             ctx->idr_events->pop();
@@ -2042,10 +2092,6 @@ namespace video {
           ++pos;
         })
 
-        if (switch_display_event->peek()) {
-          ec = platf::capture_e::reinit;
-          return false;
-        }
 
         return true;
       };
@@ -2173,7 +2219,7 @@ namespace video {
       encode_run(
         frame_nr,
         mail, images,
-        config, display,
+        &config, display,
         std::move(encode_device),
         ref->reinit_event, *ref->encoder_p,
         channel_data);
@@ -2286,8 +2332,8 @@ namespace video {
     encoder.av1.capabilities.set();
 
     // First, test encoder viability
-    config_t config_max_ref_frames { 1920, 1080, 60, 1000, 1, 1, 1, 0, 0 };
-    config_t config_autoselect { 1920, 1080, 60, 1000, 1, 0, 1, 0, 0 };
+    config_t config_max_ref_frames { std::nullopt, 1920, 1080, 60, 1000, 1, 1, 1, 0, 0 };
+    config_t config_autoselect { std::nullopt, 1920, 1080, 60, 1000, 1, 0, 1, 0, 0 };
 
     // If the encoder isn't supported at all (not even H.264), bail early
     reset_display(disp, encoder.platform_formats->dev_type, config::video.output_name, config_autoselect);
@@ -2407,7 +2453,7 @@ namespace video {
     }
 
     std::vector<std::pair<encoder_t::flag_e, config_t>> configs {
-      { encoder_t::DYNAMIC_RANGE, { 1920, 1080, 60, 1000, 1, 0, 3, 1, 1 } },
+      { encoder_t::DYNAMIC_RANGE, { std::nullopt, 1920, 1080, 60, 1000, 1, 0, 3, 1, 1 } },
     };
 
     for (auto &[flag, config] : configs) {

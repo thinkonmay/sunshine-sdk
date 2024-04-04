@@ -4,13 +4,22 @@ package main
 #define QUEUE_SIZE 16
 #define PACKET_SIZE 32 * 1024
 
+enum QueueType {
+    Video0,
+    Video1,
+    Audio,
+    Microphone,
+    Max
+};
+
 typedef struct {
     int is_idr;
-}VideoMetadata;
+    enum QueueType type;
+}Metadata;
 
 typedef struct {
     int size;
-    VideoMetadata metadata;
+    Metadata metadata;
     char data[PACKET_SIZE];
 } Packet;
 
@@ -18,7 +27,6 @@ typedef enum _EventType {
     POINTER_VISIBLE,
     CHANGE_BITRATE,
     CHANGE_FRAMERATE,
-    CHANGE_DISPLAY,
     IDR_FRAME,
 
     STOP,
@@ -40,12 +48,6 @@ typedef struct {
     int read;
 } Event;
 
-enum QueueType {
-    Video,
-    Audio,
-    Microphone,
-    Max
-};
 
 typedef struct _Queue{
     Packet array[QUEUE_SIZE];
@@ -56,9 +58,6 @@ typedef struct {
     Queue queues[Max];
     Event events[EVENT_TYPE_MAX];
 }SharedMemory;
-
-
-
 
 */
 import "C"
@@ -87,7 +86,7 @@ type DataType int
 
 func peek(memory *C.SharedMemory, media DataType) bool {
 	if media == video {
-		return memory.queues[C.Video].order[0] != -1
+		return memory.queues[C.Video0].order[0] != -1
 	} else if media == audio {
 		return memory.queues[C.Audio].order[0] != -1
 	}
@@ -177,14 +176,14 @@ func main() {
 		lock.Call(pointer)
 		defer unlock.Call(pointer)
 
-		block := memory.queues[C.Video].array[memory.queues[C.Video].order[0]]
+		block := memory.queues[C.Video0].array[memory.queues[C.Video0].order[0]]
 		fmt.Printf("video buffer %d\n", block.size)
 
 		for i := 0; i < C.QUEUE_SIZE-1; i++ {
-			memory.queues[C.Video].order[i] = memory.queues[C.Video].order[i+1]
+			memory.queues[C.Video0].order[i] = memory.queues[C.Video0].order[i+1]
 		}
 
-		memory.queues[C.Video].order[C.QUEUE_SIZE-1] = -1
+		memory.queues[C.Video0].order[C.QUEUE_SIZE-1] = -1
 	}
 
 	handle_audio := func() {

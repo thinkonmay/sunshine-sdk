@@ -83,96 +83,26 @@ int find_available_slot(int* orders) {
 }
 
 
-void 
-push_audio_packet(SharedMemory* memory, void* data, int size){
-    // wait while queue is full
-    while (queue_size(memory->queues[QueueType::Audio].order) == QUEUE_SIZE) 
-        std::this_thread::sleep_for(1ms);
-
-    scoped_lock<interprocess_mutex> lock(memory->lock);
-
-
-    int available = find_available_slot(memory->queues[QueueType::Audio].order);
-    memory->queues[QueueType::Audio].order[queue_size(memory->queues[QueueType::Audio].order)] = available;
-    Packet* block = &memory->queues[QueueType::Audio].array[available];
-    memcpy(block->data,data,size);
-    block->size = size;
-
-}
 
 void 
-push_video_packet(SharedMemory* memory, 
+push_packet(SharedMemory* memory, 
                   void* data, 
                   int size, 
-                  VideoMetadata metadata){
+                  Metadata metadata){
     // wait while queue is full
-    while (queue_size(memory->queues[QueueType::Video].order) == QUEUE_SIZE) 
+    while (queue_size(memory->queues[metadata.type].order) == QUEUE_SIZE) 
         std::this_thread::sleep_for(1ms);
 
     scoped_lock<interprocess_mutex> lock(memory->lock);
 
-    int available = find_available_slot(memory->queues[QueueType::Video].order);
-    memory->queues[QueueType::Video].order[queue_size(memory->queues[QueueType::Video].order)] = available;
-    Packet* block = &memory->queues[QueueType::Video].array[available];
+    int available = find_available_slot(memory->queues[metadata.type].order);
+    memory->queues[metadata.type].order[queue_size(memory->queues[metadata.type].order)] = available;
+    Packet* block = &memory->queues[metadata.type].array[available];
     memcpy(block->data,data,size);
     block->size = size;
     block->metadata = metadata;
 }
 
-int
-peek_video_packet(SharedMemory* memory){
-    return memory->queues[QueueType::Video].order[0] != -1;
-}
-
-int
-peek_audio_packet(SharedMemory* memory){
-    return memory->queues[QueueType::Audio].order[0] != -1;
-}
-
-void 
-pop_audio_packet(SharedMemory* memory, void* data, int* size){
-    while (!peek_audio_packet(memory))
-        std::this_thread::sleep_for(1ms);
-
-    scoped_lock<interprocess_mutex> lock(memory->lock);
-    // std::cout << "Audio buffer size : " << queue_size(memory->queues[QueueType::Audio].order) << "\n";
-
-    int pop = memory->queues[QueueType::Audio].order[0];
-    Packet *block = &memory->queues[QueueType::Audio].array[pop];
-    memcpy(data,block->data,block->size);
-    *size = block->size;
-
-    // reorder
-    for (int i = 0; i < QUEUE_SIZE - 1; i++)
-        memory->queues[QueueType::Audio].order[i] = memory->queues[QueueType::Audio].order[i+1];
-    
-    memory->queues[QueueType::Audio].order[QUEUE_SIZE - 1] = -1;
-    
-}
-
-VideoMetadata
-pop_video_packet(SharedMemory* memory, void* data, int* size){
-    while (!peek_video_packet(memory))
-        std::this_thread::sleep_for(1ms);
-
-    scoped_lock<interprocess_mutex> lock(memory->lock);
-    // std::cout << "Video buffer size : " << queue_size(memory->queues[QueueType::Video].order) << "\n";
-
-    int pop = memory->queues[QueueType::Video].order[0];
-    Packet *block = &memory->queues[QueueType::Video].array[pop];
-    memcpy(data,block->data,block->size);
-    *size = block->size;
-    auto copy = block->metadata;
-
-    // reorder
-    for (int i = 0; i < QUEUE_SIZE - 1; i++)
-        memory->queues[QueueType::Video].order[i] = memory->queues[QueueType::Video].order[i+1];
-    
-    memory->queues[QueueType::Video].order[QUEUE_SIZE - 1] = -1;
-
-    
-    return copy;
-}
 
 void 
 raise_event(SharedMemory* memory, EventType type, Event event){
@@ -189,10 +119,4 @@ Event
 pop_event(SharedMemory* memory, EventType type){
     memory->events[type].read = true;
     return memory->events[type];
-}
-
-void
-wait_event(SharedMemory* memory, EventType type){
-    while(memory->events[type].read)
-        std::this_thread::sleep_for(1ms);
 }

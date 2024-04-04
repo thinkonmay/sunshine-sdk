@@ -295,6 +295,8 @@ namespace video {
 
   /* Encoding configuration requested by remote client */
   struct config_t {
+    std::optional<std::string> display;
+
     int width;  // Video width in pixels
     int height;  // Video height in pixels
     int framerate;  // Requested framerate, used in individual frame bitrate budget calculation

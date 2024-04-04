@@ -14,13 +14,22 @@ extern "C" {
 #define QUEUE_SIZE 16
 #define PACKET_SIZE 32 * 1024
 
+enum QueueType {
+    Video0,
+    Video1,
+    Audio,
+    Microphone,
+    Max
+};
+
 typedef struct {
     int is_idr;
-}VideoMetadata;
+    QueueType type;
+}Metadata;
 
 typedef struct {
     int size;
-    VideoMetadata metadata;
+    Metadata metadata;
     char data[PACKET_SIZE];
 } Packet;
 
@@ -28,7 +37,6 @@ typedef enum _EventType {
     POINTER_VISIBLE,
     CHANGE_BITRATE,
     CHANGE_FRAMERATE,
-    CHANGE_DISPLAY,
     IDR_FRAME,
 
     STOP,
@@ -50,12 +58,6 @@ typedef struct {
     int read;
 } Event;
 
-enum QueueType {
-    Video,
-    Audio,
-    Microphone,
-    Max
-};
 
 typedef struct _Queue{
     Packet array[QUEUE_SIZE];

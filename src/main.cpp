@@ -149,8 +149,12 @@ main(int argc, char *argv[]) {
   SharedMemory* memory = obtain_shared_memory(argv[1]);
 
   auto video_capture = std::thread{[&](){
+    std::optional<std::string> display = std::string("123");
+    if (argc > 2)
+      display = std::string(argv[2]);
+
     video::capture(mail::man,video::config_t{
-      1920, 1080, 60, 6000, 1, 0, 1, 0, 0
+      display, 1920, 1080, 60, 6000, 1, 0, 1, 0, 0
     },NULL);
   }};
   auto audio_capture = std::thread{[&](){
@@ -161,18 +165,34 @@ main(int argc, char *argv[]) {
     
   auto video_packets = mail::man->queue<video::packet_t>(mail::video_packets);
   auto audio_packets = mail::man->queue<audio::packet_t>(mail::audio_packets);
+  auto bitrate       = mail::man->event<int>(mail::bitrate);
+  auto framerate     = mail::man->event<int>(mail::framerate);
+  auto idr           = mail::man->event<bool>(mail::idr);
+  auto input         = input::alloc(mail::man);
+
   auto push = std::thread{[&](){
     while (!shutdown_event->peek()) {
       while(video_packets->peek()) {
         auto packet = video_packets->pop();
-        push_video_packet(memory,packet->data(),packet->data_size(),VideoMetadata{
-          packet->is_idr()
+        push_packet(memory,packet->data(),packet->data_size(),Metadata{
+          packet->is_idr(),QueueType::Video0
         });
       }
       while(audio_packets->peek()) {
         auto packet = audio_packets->pop();
-        push_audio_packet(memory,packet->second.begin(),packet->second.size());
+        push_packet(memory,packet->second.begin(),packet->second.size(),Metadata{
+          0,QueueType::Audio
+        });
       }
+
+      if(peek_event(memory,EventType::CHANGE_BITRATE))
+        bitrate->raise(pop_event(memory,EventType::CHANGE_BITRATE).value_number);
+      if(peek_event(memory,EventType::CHANGE_FRAMERATE)) 
+        framerate->raise(pop_event(memory,EventType::CHANGE_FRAMERATE).value_number);
+      if(peek_event(memory,EventType::POINTER_VISIBLE)) 
+        display_cursor = pop_event(memory,EventType::POINTER_VISIBLE).value_number;
+      if(peek_event(memory,EventType::IDR_FRAME)) 
+        idr->raise(pop_event(memory,EventType::IDR_FRAME).value_number > 0);
 
       std::this_thread::sleep_for(1ms);
     }

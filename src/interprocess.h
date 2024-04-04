@@ -14,15 +14,22 @@
 #define QUEUE_SIZE 16
 #define PACKET_SIZE 32 * 1024
 
+enum QueueType {
+    Video0,
+    Video1,
+    Audio,
+    Microphone,
+    Max
+};
+
 typedef struct {
     int is_idr;
-
-
-}VideoMetadata;
+    QueueType type;
+}Metadata;
 
 typedef struct {
     int size;
-    VideoMetadata metadata;
+    Metadata metadata;
     char data[PACKET_SIZE];
 } Packet;
 
@@ -30,7 +37,6 @@ typedef enum _EventType {
     POINTER_VISIBLE,
     CHANGE_BITRATE,
     CHANGE_FRAMERATE,
-    CHANGE_DISPLAY,
     IDR_FRAME,
 
     STOP,
@@ -52,12 +58,6 @@ typedef struct {
     int read;
 } Event;
 
-enum QueueType {
-    Video,
-    Audio,
-    Microphone,
-    Max
-};
 
 typedef struct _Queue{
     Packet array[QUEUE_SIZE];
@@ -74,22 +74,7 @@ SharedMemory*
 obtain_shared_memory(char* key);
 
 void 
-push_audio_packet(SharedMemory* memory, void* data, int size);
-
-void 
-push_video_packet(SharedMemory* memory, void* data, int size, VideoMetadata metadata);
-
-int
-peek_video_packet(SharedMemory* memory);
-
-int
-peek_audio_packet(SharedMemory* memory);
-
-void 
-pop_audio_packet(SharedMemory* memory, void* data, int* size);
-
-VideoMetadata
-pop_video_packet(SharedMemory* memory, void* data, int* size);
+push_packet(SharedMemory* memory, void* data, int size, Metadata metadata);
 
 void 
 raise_event(SharedMemory* memory, EventType type, Event event);
@@ -99,6 +84,3 @@ peek_event(SharedMemory* memory, EventType type);
 
 Event
 pop_event(SharedMemory* memory, EventType type);
-
-void
-wait_event(SharedMemory* memory, EventType type);

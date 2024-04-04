@@ -28,7 +28,8 @@ namespace mail {
   MAIL(shutdown);
   MAIL(video_packets);
   MAIL(audio_packets);
-  MAIL(switch_display);
+  MAIL(bitrate);
+  MAIL(framerate);
 
   // Local mail
   MAIL(touch_port);
