@@ -7,9 +7,11 @@
 #include <csignal>
 #include <fstream>
 #include <iostream>
+#include <boost/interprocess/managed_shared_memory.hpp>
 
 // local includes
 #include "globals.h"
+#include "interprocess.h"
 #include "logging.h"
 #include "main.h"
 #include "version.h"
@@ -23,6 +25,7 @@
 #endif
 
 using namespace std::literals;
+using namespace boost::interprocess;
 
 std::map<int, std::function<void()>> signal_handlers;
 void
@@ -141,6 +144,21 @@ main(int argc, char *argv[]) {
   if (video::probe_encoders()) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
   }
+
+
+  //Open managed segment
+  managed_shared_memory segment(open_only, "MySharedMemory");
+
+  //An handle from the base address can identify any byte of the shared 
+  //memory segment even if it is mapped in different base addresses
+  managed_shared_memory::handle_t handle = 0;
+
+  //Obtain handle value
+  std::stringstream s; s << argv[1]; s >> handle;
+
+  //Get buffer local address from handle
+  SharedMemory* memory = (SharedMemory*)segment.get_address_from_handle(handle);
+
 
   auto video_capture = std::thread{[&](){
     video::capture(mail::man,video::config_t{

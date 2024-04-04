@@ -3,17 +3,19 @@
 
 add_executable(sunshine ${SUNSHINE_TARGET_FILES})
 
-# Homebrew build fails the vite build if we set these environment variables
-# this block must be before the platform specific code
-if(${SUNSHINE_BUILD_HOMEBREW})
-    set(NPM_SOURCE_ASSETS_DIR "")
-    set(NPM_ASSETS_DIR "")
-    set(NPM_BUILD_HOMEBREW "true")
-else()
-    set(NPM_SOURCE_ASSETS_DIR ${SUNSHINE_SOURCE_ASSETS_DIR})
-    set(NPM_ASSETS_DIR ${CMAKE_BINARY_DIR})
-    set(NPM_BUILD_HOMEBREW "")
-endif()
+
+
+add_executable(parent 
+        "${CMAKE_SOURCE_DIR}/src/parent.cpp"
+        "${CMAKE_SOURCE_DIR}/src/interprocess.h"
+        "${CMAKE_SOURCE_DIR}/src/interprocess.cpp")
+set_target_properties(parent PROPERTIES CXX_STANDARD 17)
+target_link_libraries(parent
+        ${CMAKE_THREAD_LIBS_INIT}
+        ${Boost_LIBRARIES})
+target_compile_options(parent PRIVATE ${SUNSHINE_COMPILE_OPTIONS})
+
+
 
 # platform specific target definitions
 if(WIN32)
