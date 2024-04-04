@@ -186,7 +186,7 @@ main(int argc, char *argv[]) {
         push_audio_packet(memory,packet->second.begin(),packet->second.size());
       }
 
-      std::this_thread::sleep_for(100us);
+      std::this_thread::sleep_for(1ms);
     }
   }};
 

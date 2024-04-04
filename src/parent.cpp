@@ -45,7 +45,7 @@ int main (int argc, char *argv[]) {
                 pop_video_packet(memory,buffer,&size);
                 std::cout << "Video buffer received : " << size << "\n";
             }
-            std::this_thread::sleep_for(100us);
+            std::this_thread::sleep_for(1ms);
         }
     }};
 
