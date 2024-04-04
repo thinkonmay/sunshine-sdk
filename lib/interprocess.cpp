@@ -3,18 +3,13 @@
  * @brief Implementation for globally accessible variables and functions.
  */
 #include "interprocess.h"
-
 #include <thread>
 #include <stdio.h>
-#include <iostream>
 
 #include <boost/interprocess/sync/scoped_lock.hpp>
 #include <boost/interprocess/sync/interprocess_mutex.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
 
-#include <thread>
-#include <ctime>
-#include <unistd.h>
 
 using namespace boost::interprocess;
 using namespace std::literals;
@@ -56,22 +51,25 @@ std::string gen_random(const int len) {
         "0123456789"
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz";
-    std::string tmp_s;
+    std::string tmp_s = "thinkmay";
     tmp_s.reserve(len);
 
+    srand(std::chrono::duration_cast<std::chrono::nanoseconds>
+              (std::chrono::high_resolution_clock::now().time_since_epoch()).count());
     for (int i = 0; i < len; ++i) {
-        tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)];
+        int j = rand() % (sizeof(alphanum) - 1);
+        tmp_s += alphanum[j];
     }
-    
+
     return tmp_s;
 }
 
-std::string random = gen_random(12);
+std::string random = gen_random(20);
 managed_shared_memory segment(create_only, random.c_str(), 2 * sizeof(SharedMemory));
 
 
 
-EXPORTS(void) 
+void
 init_shared_memory(SharedMemory* memory){
     for (int i = 0; i < QUEUE_SIZE; i++) {
         memory->audio_order[i] = -1;
@@ -91,7 +89,7 @@ deinit_shared_memory() {
 
 
 EXPORTS(SharedMemory*) 
-allocate_shared_memory(long long* handle) {
+allocate_shared_memory(char* rand,long long* handle) {
     //Allocate a portion of the segment (raw memory)
     std::size_t free_memory = segment.get_free_memory();
     SharedMemory* memory = (SharedMemory*)segment.allocate(sizeof(SharedMemory));
@@ -106,7 +104,7 @@ allocate_shared_memory(long long* handle) {
     managed_shared_memory::handle_t hnd = segment.get_handle_from_address((void*)memory);
     *handle = hnd;
 
-    // thread_test.join();
+    memcpy(rand,random.c_str(),random.size());
     return memory;
 }
 

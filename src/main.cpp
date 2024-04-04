@@ -145,16 +145,12 @@ main(int argc, char *argv[]) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
   }
 
+  managed_shared_memory::handle_t handle = 0;
+  std::stringstream s; s << argv[1]; s >> handle;
 
   //Open managed segment
-  managed_shared_memory segment(open_only, "MySharedMemory");
+  managed_shared_memory segment(open_only, argv[2]);
 
-  //An handle from the base address can identify any byte of the shared 
-  //memory segment even if it is mapped in different base addresses
-  managed_shared_memory::handle_t handle = 0;
-
-  //Obtain handle value
-  std::stringstream s; s << argv[1]; s >> handle;
 
   //Get buffer local address from handle
   SharedMemory* memory = (SharedMemory*)segment.get_address_from_handle(handle);

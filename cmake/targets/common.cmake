@@ -1,21 +1,16 @@
 # common target definitions
 # this file will also load platform specific macros
 
-add_executable(sunshine ${SUNSHINE_TARGET_FILES})
-
-
-
 add_library(parent SHARED
         "${CMAKE_SOURCE_DIR}/lib/interprocess.h"
         "${CMAKE_SOURCE_DIR}/lib/interprocess.cpp"
         )
 set_target_properties(parent PROPERTIES CXX_STANDARD 17)
-target_link_libraries(parent
-        ${CMAKE_THREAD_LIBS_INIT}
-        ${Boost_LIBRARIES})
-target_compile_options(parent PRIVATE ${SUNSHINE_COMPILE_OPTIONS})
+set_property(TARGET parent APPEND_STRING PROPERTY LINK_FLAGS " -static")
+set_property(TARGET parent APPEND_STRING PROPERTY LINK_FLAGS " -static-libgcc")
+set_property(TARGET parent APPEND_STRING PROPERTY LINK_FLAGS " -static-libstdc++")
 
-
+add_executable(sunshine ${SUNSHINE_TARGET_FILES})
 
 # platform specific target definitions
 if(WIN32)
