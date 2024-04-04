@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include <boost/interprocess/sync/scoped_lock.hpp>
+#include <boost/interprocess/managed_shared_memory.hpp>
 
 using namespace boost::interprocess;
 using namespace std::literals;
@@ -16,17 +17,31 @@ using namespace std::literals;
 
 
 
-void 
-init_shared_memory(SharedMemory* memory){
-    for (int i = 0; i < QUEUE_SIZE; i++) {
-        memory->audio_order[i] = -1;
-        memory->video_order[i] = -1;
+SharedMemory* obtain_shared_memory(char* rand) {
+    std::vector<std::string> strings;
+
+    std::istringstream f(rand);
+    std::string s;    
+    while (getline(f, s, ';')) {
+        strings.push_back(s);
     }
 
-    for (int i = 0; i < EventType::EVENT_TYPE_MAX; i++) 
-        memory->events[i].read = 1;
-}
+    if(strings.size() != 2)
+        return NULL;
 
+    std::stringstream h;
+    std::stringstream k;
+    long long handle;  h << strings.at(1); h >> handle;
+    std::string key;  k << strings.at(0); k >> key;
+
+    //Open managed segment
+    static managed_shared_memory segment(open_only, key.c_str());
+
+    //Get buffer local address from handle
+    SharedMemory* memory = (SharedMemory*)segment.get_address_from_handle(handle);
+
+    return memory;
+}
 
 int queue_size(int* queue) {
     int i = 0;

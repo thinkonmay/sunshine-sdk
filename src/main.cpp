@@ -145,16 +145,8 @@ main(int argc, char *argv[]) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
   }
 
-  managed_shared_memory::handle_t handle = 0;
-  std::stringstream s; s << argv[1]; s >> handle;
-
-  //Open managed segment
-  managed_shared_memory segment(open_only, argv[2]);
-
-
   //Get buffer local address from handle
-  SharedMemory* memory = (SharedMemory*)segment.get_address_from_handle(handle);
-
+  SharedMemory* memory = obtain_shared_memory(argv[1]);
 
   auto video_capture = std::thread{[&](){
     video::capture(mail::man,video::config_t{

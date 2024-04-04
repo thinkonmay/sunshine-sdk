@@ -87,9 +87,35 @@ deinit_shared_memory() {
     shared_memory_object::remove(random.c_str());
 }
 
+EXPORTS(SharedMemory*) 
+obtain_shared_memory(char* rand){
+    std::vector<std::string> strings;
+
+    std::istringstream f(rand);
+    std::string s;    
+    while (getline(f, s, ';')) {
+        strings.push_back(s);
+    }
+
+    if(strings.size() != 2)
+        return NULL;
+    
+    std::stringstream h;
+    std::stringstream k;
+    long long handle;  h << strings.at(1); h >> handle;
+    std::string key;  k << strings.at(0); k >> key;
+
+    //Open managed segment
+    static managed_shared_memory segment(open_only, key.c_str());
+
+    //Get buffer local address from handle
+    SharedMemory* memory = (SharedMemory*)segment.get_address_from_handle(handle);
+
+    return memory;
+}
 
 EXPORTS(SharedMemory*) 
-allocate_shared_memory(char* rand,long long* handle) {
+allocate_shared_memory(char* rand) {
     //Allocate a portion of the segment (raw memory)
     std::size_t free_memory = segment.get_free_memory();
     SharedMemory* memory = (SharedMemory*)segment.allocate(sizeof(SharedMemory));
@@ -102,9 +128,10 @@ allocate_shared_memory(char* rand,long long* handle) {
     //An handle from the base address can identify any byte of the shared 
     //memory segment even if it is mapped in different base addresses
     managed_shared_memory::handle_t hnd = segment.get_handle_from_address((void*)memory);
-    *handle = hnd;
 
-    memcpy(rand,random.c_str(),random.size());
+    std::stringstream s; s << random << ";" << hnd; 
+    std::string c; s >> c;
+    memcpy(rand,c.c_str(),c.size());
     return memory;
 }
 

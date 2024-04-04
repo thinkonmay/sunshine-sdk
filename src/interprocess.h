@@ -64,8 +64,8 @@ typedef struct {
     interprocess_mutex lock;
 }SharedMemory;
 
-void 
-init_shared_memory(SharedMemory* memory);
+SharedMemory*
+obtain_shared_memory(char* key);
 
 void 
 push_audio_packet(SharedMemory* memory, void* data, int size);

@@ -122,7 +122,7 @@ func copyAndCapture(r io.Reader) {
 	}
 }
 
-func Start() {
+func main() {
 	mod, err := syscall.LoadDLL("libparent.dll")
 	if err != nil {
 		panic(err)
@@ -133,6 +133,10 @@ func Start() {
 	}
 	defer deinit.Call()
 
+	obtain, err := mod.FindProc("obtain_shared_memory")
+	if err != nil {
+		panic(err)
+	}
 	proc, err := mod.FindProc("allocate_shared_memory")
 	if err != nil {
 		panic(err)
@@ -147,18 +151,24 @@ func Start() {
 	}
 
 	buffer := make([]byte, 128)
-	handle := C.longlong(0)
-	ptr, _, err := proc.Call(
+	_, _, err = proc.Call(
 		uintptr(unsafe.Pointer(&buffer[0])),
-		uintptr(unsafe.Pointer(&handle)))
+	)
 	if !errors.Is(err, windows.ERROR_SUCCESS) {
 		panic(err)
 	}
 
-	memory := (*C.SharedMemory)(unsafe.Pointer(ptr))
+	pointer,_,err := obtain.Call(
+		uintptr(unsafe.Pointer(&buffer[0])),
+	)
+	if !errors.Is(err, windows.ERROR_SUCCESS) {
+		panic(err)
+	}
+
+	memory := (*C.SharedMemory)(unsafe.Pointer(pointer))
 	handle_video := func() {
-		lock.Call(ptr)
-		defer unlock.Call(ptr)
+		lock.Call(pointer)
+		defer unlock.Call(pointer)
 
 		block := memory.video[memory.video_order[0]]
 		fmt.Printf("video buffer %d\n", block.size)
@@ -171,8 +181,8 @@ func Start() {
 	}
 
 	handle_audio := func() {
-		lock.Call(ptr)
-		defer unlock.Call(ptr)
+		lock.Call(pointer)
+		defer unlock.Call(pointer)
 
 		block := memory.audio[memory.audio_order[0]]
 		fmt.Printf("audio buffer %d\n", block.size)
@@ -197,9 +207,9 @@ func Start() {
 		}
 	}()
 
-	arg1 := fmt.Sprintf("%d", handle)
-	arg2 := byteSliceToString(buffer)
-	cmd := exec.Command("E:\\thinkmay\\worker\\sunshine\\sunshine.exe", arg1, arg2)
+	cmd := exec.Command("E:\\thinkmay\\worker\\sunshine\\build\\sunshine.exe",
+		byteSliceToString(buffer),
+	)
 
 	stdoutIn, _ := cmd.StdoutPipe()
 	stderrIn, _ := cmd.StderrPipe()

@@ -243,7 +243,7 @@ namespace platf::dxgi {
       return true;
     }
 
-    std::string cmd = "tools\\ddprobe.exe";
+    std::string cmd = "ddprobe.exe";
 
     // We start at 1 because 0 is automatic selection which can be overridden by
     // the GPU driver control panel options. Since ddprobe.exe can have different
