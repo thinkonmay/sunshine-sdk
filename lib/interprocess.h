@@ -50,13 +50,20 @@ typedef struct {
     int read;
 } Event;
 
+enum QueueType {
+    Video,
+    Audio,
+    Microphone,
+    Max
+};
+
+typedef struct _Queue{
+    Packet array[QUEUE_SIZE];
+    int order[QUEUE_SIZE];
+}Queue;
+
 typedef struct {
-    Packet audio[QUEUE_SIZE];
-    Packet video[QUEUE_SIZE];
-    int audio_order[QUEUE_SIZE];
-    int video_order[QUEUE_SIZE];
-
-
+    Queue queues[QueueType::Max];
     Event events[EVENT_TYPE_MAX];
 }SharedMemory;
 

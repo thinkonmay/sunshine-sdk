@@ -84,15 +84,15 @@ int find_available_slot(int* orders) {
 void 
 push_audio_packet(SharedMemory* memory, void* data, int size){
     // wait while queue is full
-    while (queue_size(memory->audio_order) == QUEUE_SIZE) 
+    while (queue_size(memory->queues[QueueType::Audio].order) == QUEUE_SIZE) 
         std::this_thread::sleep_for(1ms);
 
     scoped_lock<interprocess_mutex> lock(memory->lock);
 
 
-    int available = find_available_slot(memory->audio_order);
-    memory->audio_order[queue_size(memory->audio_order)] = available;
-    Packet* block = &memory->audio[available];
+    int available = find_available_slot(memory->queues[QueueType::Audio].order);
+    memory->queues[QueueType::Audio].order[queue_size(memory->queues[QueueType::Audio].order)] = available;
+    Packet* block = &memory->queues[QueueType::Audio].array[available];
     memcpy(block->data,data,size);
     block->size = size;
 
@@ -104,14 +104,14 @@ push_video_packet(SharedMemory* memory,
                   int size, 
                   VideoMetadata metadata){
     // wait while queue is full
-    while (queue_size(memory->video_order) == QUEUE_SIZE) 
+    while (queue_size(memory->queues[QueueType::Video].order) == QUEUE_SIZE) 
         std::this_thread::sleep_for(1ms);
 
     scoped_lock<interprocess_mutex> lock(memory->lock);
 
-    int available = find_available_slot(memory->video_order);
-    memory->video_order[queue_size(memory->video_order)] = available;
-    Packet* block = &memory->video[available];
+    int available = find_available_slot(memory->queues[QueueType::Video].order);
+    memory->queues[QueueType::Video].order[queue_size(memory->queues[QueueType::Video].order)] = available;
+    Packet* block = &memory->queues[QueueType::Video].array[available];
     memcpy(block->data,data,size);
     block->size = size;
     block->metadata = metadata;
@@ -119,12 +119,12 @@ push_video_packet(SharedMemory* memory,
 
 int
 peek_video_packet(SharedMemory* memory){
-    return memory->video_order[0] != -1;
+    return memory->queues[QueueType::Video].order[0] != -1;
 }
 
 int
 peek_audio_packet(SharedMemory* memory){
-    return memory->audio_order[0] != -1;
+    return memory->queues[QueueType::Audio].order[0] != -1;
 }
 
 void 
@@ -133,18 +133,18 @@ pop_audio_packet(SharedMemory* memory, void* data, int* size){
         std::this_thread::sleep_for(1ms);
 
     scoped_lock<interprocess_mutex> lock(memory->lock);
-    // std::cout << "Audio buffer size : " << queue_size(memory->audio_order) << "\n";
+    // std::cout << "Audio buffer size : " << queue_size(memory->queues[QueueType::Audio].order) << "\n";
 
-    int pop = memory->audio_order[0];
-    Packet *block = &memory->audio[pop];
+    int pop = memory->queues[QueueType::Audio].order[0];
+    Packet *block = &memory->queues[QueueType::Audio].array[pop];
     memcpy(data,block->data,block->size);
     *size = block->size;
 
     // reorder
     for (int i = 0; i < QUEUE_SIZE - 1; i++)
-        memory->audio_order[i] = memory->audio_order[i+1];
+        memory->queues[QueueType::Audio].order[i] = memory->queues[QueueType::Audio].order[i+1];
     
-    memory->audio_order[QUEUE_SIZE - 1] = -1;
+    memory->queues[QueueType::Audio].order[QUEUE_SIZE - 1] = -1;
     
 }
 
@@ -154,19 +154,19 @@ pop_video_packet(SharedMemory* memory, void* data, int* size){
         std::this_thread::sleep_for(1ms);
 
     scoped_lock<interprocess_mutex> lock(memory->lock);
-    // std::cout << "Video buffer size : " << queue_size(memory->video_order) << "\n";
+    // std::cout << "Video buffer size : " << queue_size(memory->queues[QueueType::Video].order) << "\n";
 
-    int pop = memory->video_order[0];
-    Packet *block = &memory->video[pop];
+    int pop = memory->queues[QueueType::Video].order[0];
+    Packet *block = &memory->queues[QueueType::Video].array[pop];
     memcpy(data,block->data,block->size);
     *size = block->size;
     auto copy = block->metadata;
 
     // reorder
     for (int i = 0; i < QUEUE_SIZE - 1; i++)
-        memory->video_order[i] = memory->video_order[i+1];
+        memory->queues[QueueType::Video].order[i] = memory->queues[QueueType::Video].order[i+1];
     
-    memory->video_order[QUEUE_SIZE - 1] = -1;
+    memory->queues[QueueType::Video].order[QUEUE_SIZE - 1] = -1;
 
     
     return copy;

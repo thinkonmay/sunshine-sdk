@@ -22,12 +22,7 @@ using namespace std::literals;
 
 
 typedef struct {
-    Packet audio[QUEUE_SIZE];
-    Packet video[QUEUE_SIZE];
-    int audio_order[QUEUE_SIZE];
-    int video_order[QUEUE_SIZE];
-
-
+    Queue queues[QueueType::Max];
     Event events[EVENT_TYPE_MAX];
     interprocess_mutex lock;
 }SharedMemoryInternal;
@@ -72,8 +67,8 @@ managed_shared_memory segment(create_only, random.c_str(), 2 * sizeof(SharedMemo
 void
 init_shared_memory(SharedMemory* memory){
     for (int i = 0; i < QUEUE_SIZE; i++) {
-        memory->audio_order[i] = -1;
-        memory->video_order[i] = -1;
+        memory->queues[QueueType::Audio].order[i] = -1;
+        memory->queues[QueueType::Video].order[i] = -1;
     }
 
     for (int i = 0; i < EventType::EVENT_TYPE_MAX; i++) 

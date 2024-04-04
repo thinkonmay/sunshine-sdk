@@ -40,13 +40,20 @@ typedef struct {
     int read;
 } Event;
 
+enum QueueType {
+    Video,
+    Audio,
+    Microphone,
+    Max
+};
+
+typedef struct _Queue{
+    Packet array[QUEUE_SIZE];
+    int order[QUEUE_SIZE];
+}Queue;
+
 typedef struct {
-    Packet audio[QUEUE_SIZE];
-    Packet video[QUEUE_SIZE];
-    int audio_order[QUEUE_SIZE];
-    int video_order[QUEUE_SIZE];
-
-
+    Queue queues[Max];
     Event events[EVENT_TYPE_MAX];
 }SharedMemory;
 
@@ -80,9 +87,9 @@ type DataType int
 
 func peek(memory *C.SharedMemory, media DataType) bool {
 	if media == video {
-		return memory.video_order[0] != -1
+		return memory.queues[C.Video].order[0] != -1
 	} else if media == audio {
-		return memory.audio_order[0] != -1
+		return memory.queues[C.Audio].order[0] != -1
 	}
 
 	panic(fmt.Errorf("unknown data type"))
@@ -158,7 +165,7 @@ func main() {
 		panic(err)
 	}
 
-	pointer,_,err := obtain.Call(
+	pointer, _, err := obtain.Call(
 		uintptr(unsafe.Pointer(&buffer[0])),
 	)
 	if !errors.Is(err, windows.ERROR_SUCCESS) {
@@ -170,28 +177,28 @@ func main() {
 		lock.Call(pointer)
 		defer unlock.Call(pointer)
 
-		block := memory.video[memory.video_order[0]]
+		block := memory.queues[C.Video].array[memory.queues[C.Video].order[0]]
 		fmt.Printf("video buffer %d\n", block.size)
 
 		for i := 0; i < C.QUEUE_SIZE-1; i++ {
-			memory.video_order[i] = memory.video_order[i+1]
+			memory.queues[C.Video].order[i] = memory.queues[C.Video].order[i+1]
 		}
 
-		memory.video_order[C.QUEUE_SIZE-1] = -1
+		memory.queues[C.Video].order[C.QUEUE_SIZE-1] = -1
 	}
 
 	handle_audio := func() {
 		lock.Call(pointer)
 		defer unlock.Call(pointer)
 
-		block := memory.audio[memory.audio_order[0]]
+		block := memory.queues[C.Audio].array[memory.queues[C.Audio].order[0]]
 		fmt.Printf("audio buffer %d\n", block.size)
 
 		for i := 0; i < C.QUEUE_SIZE-1; i++ {
-			memory.audio_order[i] = memory.audio_order[i+1]
+			memory.queues[C.Audio].order[i] = memory.queues[C.Audio].order[i+1]
 		}
 
-		memory.audio_order[C.QUEUE_SIZE-1] = -1
+		memory.queues[C.Audio].order[C.QUEUE_SIZE-1] = -1
 	}
 
 	go func() {
