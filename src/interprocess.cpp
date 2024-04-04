@@ -5,6 +5,9 @@
 #include "interprocess.h"
 
 #include <thread>
+#include <stdio.h>
+#include <iostream>
+
 #include <boost/interprocess/sync/scoped_lock.hpp>
 
 using namespace boost::interprocess;
@@ -35,6 +38,33 @@ int queue_size(int* queue) {
     return i;
 }
 
+int find_available_slot(int* orders) {
+    int available = -1;
+    // find available packet slot
+    for (int k = 0; k < QUEUE_SIZE; k++) {
+        int fnd = 0;
+
+        int* copy = orders;
+        int j = 0;
+        while ( *copy != -1 && j != QUEUE_SIZE) {
+            if (*copy == k) {
+                fnd = 1;
+                break;
+            }
+
+            j++;
+            copy++;
+        }
+
+        if (!fnd) {
+            available = k;
+            break;
+        }
+    }
+
+    return available;
+}
+
 
 void 
 push_audio_packet(SharedMemory* memory, void* data, int size){
@@ -44,28 +74,8 @@ push_audio_packet(SharedMemory* memory, void* data, int size){
 
     scoped_lock<interprocess_mutex> lock(memory->lock);
 
-    int available = -1;
-    // find available packet slot
-    for (int k = 0; k < QUEUE_SIZE; k++) {
-        int fnd = 0;
 
-        int j = 0;
-        while ( memory->audio_order[j] != -1 && j != QUEUE_SIZE) {
-            if (memory->audio_order[j] == k) {
-                fnd = 1;
-                break;
-            }
-
-            j++;
-        }
-
-        if (fnd)
-            continue;
-        
-        available = k;
-    }
-    
-    
+    int available = find_available_slot(memory->audio_order);
     memory->audio_order[queue_size(memory->audio_order)] = available;
     Packet* block = &memory->audio[available];
     memcpy(block->data,data,size);
@@ -79,32 +89,12 @@ push_video_packet(SharedMemory* memory,
                   int size, 
                   VideoMetadata metadata){
     // wait while queue is full
-    while (queue_size(memory->audio_order) == QUEUE_SIZE) 
+    while (queue_size(memory->video_order) == QUEUE_SIZE) 
         std::this_thread::sleep_for(1ms);
 
     scoped_lock<interprocess_mutex> lock(memory->lock);
 
-    int available = -1;
-    for (int k = 0; k < QUEUE_SIZE; k++) {
-        int fnd = 0;
-
-        int j = 0;
-        while ( memory->video_order[j] != -1 && j != QUEUE_SIZE) {
-            if (memory->video_order[j] == k) {
-                fnd = 1;
-                break;
-            }
-
-            j++;
-        }
-
-        if (fnd)
-            continue;
-        
-        available = k;
-    }
-    
-    
+    int available = find_available_slot(memory->video_order);
     memory->video_order[queue_size(memory->video_order)] = available;
     Packet* block = &memory->video[available];
     memcpy(block->data,data,size);
@@ -128,6 +118,7 @@ pop_audio_packet(SharedMemory* memory, void* data, int* size){
         std::this_thread::sleep_for(1ms);
 
     scoped_lock<interprocess_mutex> lock(memory->lock);
+    // std::cout << "Audio buffer size : " << queue_size(memory->audio_order) << "\n";
 
     int pop = memory->audio_order[0];
     Packet *block = &memory->audio[pop];
@@ -148,6 +139,7 @@ pop_video_packet(SharedMemory* memory, void* data, int* size){
         std::this_thread::sleep_for(1ms);
 
     scoped_lock<interprocess_mutex> lock(memory->lock);
+    // std::cout << "Video buffer size : " << queue_size(memory->video_order) << "\n";
 
     int pop = memory->video_order[0];
     Packet *block = &memory->video[pop];

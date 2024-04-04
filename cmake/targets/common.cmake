@@ -8,7 +8,8 @@ add_executable(sunshine ${SUNSHINE_TARGET_FILES})
 add_executable(parent 
         "${CMAKE_SOURCE_DIR}/src/parent.cpp"
         "${CMAKE_SOURCE_DIR}/src/interprocess.h"
-        "${CMAKE_SOURCE_DIR}/src/interprocess.cpp")
+        "${CMAKE_SOURCE_DIR}/src/interprocess.cpp"
+        )
 set_target_properties(parent PROPERTIES CXX_STANDARD 17)
 target_link_libraries(parent
         ${CMAKE_THREAD_LIBS_INIT}
@@ -64,15 +65,3 @@ set_source_files_properties("${CMAKE_SOURCE_DIR}/third-party/ViGEmClient/src/ViG
         PROPERTIES
         COMPILE_DEFINITIONS "UNICODE=1;ERROR_INVALID_DEVICE_OBJECT_PARAMETER=650"
         COMPILE_FLAGS ${VIGEM_COMPILE_FLAGS})
-
-# src/nvhttp
-string(TOUPPER "x${CMAKE_BUILD_TYPE}" BUILD_TYPE)
-if("${BUILD_TYPE}" STREQUAL "XDEBUG")
-    if(WIN32)
-        set_source_files_properties("${CMAKE_SOURCE_DIR}/src/nvhttp.cpp"
-                DIRECTORY "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/tests"
-                PROPERTIES COMPILE_FLAGS -O2)
-    endif()
-else()
-    add_definitions(-DNDEBUG)
-endif()

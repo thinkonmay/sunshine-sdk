@@ -173,34 +173,27 @@ main(int argc, char *argv[]) {
     
   auto video_packets = mail::man->queue<video::packet_t>(mail::video_packets);
   auto audio_packets = mail::man->queue<audio::packet_t>(mail::audio_packets);
-  auto video_handle = std::thread{[&](){
+  auto push = std::thread{[&](){
     while (!shutdown_event->peek()) {
-      if(!video_packets->peek()) {
-        std::this_thread::sleep_for(1ms);
-        continue;
+      while(video_packets->peek()) {
+        auto packet = video_packets->pop();
+        push_video_packet(memory,packet->data(),packet->data_size(),VideoMetadata{
+          packet->is_idr()
+        });
+      }
+      while(audio_packets->peek()) {
+        auto packet = audio_packets->pop();
+        push_audio_packet(memory,packet->second.begin(),packet->second.size());
       }
 
-      auto packet = video_packets->pop();
-      BOOST_LOG(info) << "Receive video packet size " << packet->data_size() << "\n";
-    }
-  }};
-  auto audio_handle = std::thread{[&](){
-    while (!shutdown_event->peek()) {
-      if(!audio_packets->peek()) {
-        std::this_thread::sleep_for(1ms);
-        continue;
-      }
-
-      auto packet = audio_packets->pop();
-      BOOST_LOG(info) << "Receive audio packet size " << packet->second.size() << "\n";
+      std::this_thread::sleep_for(100us);
     }
   }};
 
   while (!shutdown_event->peek())
     std::this_thread::sleep_for(1s);
 
-  video_handle.join();
-  audio_handle.join();
+  push.join();
   audio_capture.join();
   video_capture.join();
   task_pool.stop();

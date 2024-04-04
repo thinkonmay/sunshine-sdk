@@ -26,6 +26,7 @@ int main (int argc, char *argv[]) {
     //Allocate a portion of the segment (raw memory)
     std::size_t free_memory = segment.get_free_memory();
     SharedMemory* memory = (SharedMemory*)segment.allocate(sizeof(SharedMemory));
+    init_shared_memory(memory);
 
     //Check invariant
     if(free_memory <= segment.get_free_memory())
@@ -33,18 +34,35 @@ int main (int argc, char *argv[]) {
 
     auto running = true;
     auto thread = std::thread{[&](){
+        int size;
+        char buffer[PACKET_SIZE] = {0};
         while (running) {
-            // std::this_thread::sleep_for(1ms);
-            // if (!video_buffer->read) {
-            //     std::cout << "Audio buffer received : " << video_buffer->size << "\n";
-            //     video_buffer->read = true;
-            // }
-            // if (!audio_buffer->read) {
-            //     std::cout << "Video buffer received : " << audio_buffer->size << "\n";
-            //     audio_buffer->read = true;
-            // }
+            while(peek_audio_packet(memory)) {
+                pop_audio_packet(memory,buffer,&size);
+                std::cout << "Audio buffer received : " << size << "\n";
+            }
+            while(peek_video_packet(memory)) {
+                pop_video_packet(memory,buffer,&size);
+                std::cout << "Video buffer received : " << size << "\n";
+            }
+            std::this_thread::sleep_for(100us);
         }
     }};
+
+    // auto thread_test = std::thread{[&](){
+    //     int size = 120;
+    //     char buffer[PACKET_SIZE] = {0};
+    //     while (running) {
+    //         std::this_thread::sleep_for(1ms);
+    //         push_audio_packet(memory,buffer,size);
+    //         push_video_packet(memory,buffer,size,VideoMetadata{0});
+    //         size++;
+    //     }
+    // }};
+
+    // while (running)
+    //     std::this_thread::sleep_for(1s);
+
 
     //An handle from the base address can identify any byte of the shared 
     //memory segment even if it is mapped in different base addresses
@@ -66,5 +84,6 @@ int main (int argc, char *argv[]) {
 
     running = false;
     thread.join();
+    // thread_test.join();
     return 0;
 }
