@@ -10,7 +10,6 @@
 #include <boost/interprocess/sync/interprocess_mutex.hpp>
 
 
-using namespace boost::interprocess;
 
 #define QUEUE_SIZE 16
 #define PACKET_SIZE 32 * 1024
@@ -68,7 +67,7 @@ typedef struct _Queue{
 typedef struct {
     Queue queues[QueueType::Max];
     Event events[EVENT_TYPE_MAX];
-    interprocess_mutex lock;
+    boost::interprocess::interprocess_mutex lock;
 }SharedMemory;
 
 SharedMemory*

@@ -5,6 +5,9 @@
 #include "interprocess.h"
 #include <thread>
 #include <stdio.h>
+#include <iostream>
+#include <sstream>
+#include <vector>
 
 #include <boost/interprocess/sync/scoped_lock.hpp>
 #include <boost/interprocess/sync/interprocess_mutex.hpp>
@@ -59,8 +62,8 @@ std::string gen_random(const int len) {
     return tmp_s;
 }
 
-std::string random = gen_random(20);
-managed_shared_memory segment(create_only, random.c_str(), 2 * sizeof(SharedMemory));
+std::string randkey = gen_random(20);
+managed_shared_memory segment(create_only, randkey.c_str(), 2 * sizeof(SharedMemory));
 
 
 
@@ -79,7 +82,7 @@ init_shared_memory(SharedMemory* memory){
 
 EXPORTS(void) 
 deinit_shared_memory() {
-    shared_memory_object::remove(random.c_str());
+    shared_memory_object::remove(randkey.c_str());
 }
 
 EXPORTS(SharedMemory*) 
@@ -124,7 +127,7 @@ allocate_shared_memory(char* rand) {
     //memory segment even if it is mapped in different base addresses
     managed_shared_memory::handle_t hnd = segment.get_handle_from_address((void*)memory);
 
-    std::stringstream s; s << random << ";" << hnd; 
+    std::stringstream s; s << randkey << ";" << hnd; 
     std::string c; s >> c;
     memcpy(rand,c.c_str(),c.size());
     return memory;

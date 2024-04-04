@@ -6,7 +6,9 @@
 
 #include <thread>
 #include <stdio.h>
+#include <vector>
 #include <iostream>
+#include <sstream>
 
 #include <boost/interprocess/sync/scoped_lock.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
