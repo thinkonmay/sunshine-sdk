@@ -5,10 +5,9 @@ add_executable(sunshine ${SUNSHINE_TARGET_FILES})
 
 
 
-add_executable(parent 
-        "${CMAKE_SOURCE_DIR}/src/parent.cpp"
-        "${CMAKE_SOURCE_DIR}/src/interprocess.h"
-        "${CMAKE_SOURCE_DIR}/src/interprocess.cpp"
+add_library(parent SHARED
+        "${CMAKE_SOURCE_DIR}/lib/interprocess.h"
+        "${CMAKE_SOURCE_DIR}/lib/interprocess.cpp"
         )
 set_target_properties(parent PROPERTIES CXX_STANDARD 17)
 target_link_libraries(parent
