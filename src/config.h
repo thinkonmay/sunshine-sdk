@@ -192,9 +192,4 @@ namespace config {
   extern nvhttp_t nvhttp;
   extern input_t input;
   extern sunshine_t sunshine;
-
-  int
-  parse(int argc, char *argv[]);
-  std::unordered_map<std::string, std::string>
-  parse_config(const std::string_view &file_content);
 }  // namespace config
