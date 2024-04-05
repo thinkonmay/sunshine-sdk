@@ -146,7 +146,7 @@ main(int argc, char *argv[]) {
   }
 
   //Get buffer local address from handle
-  SharedMemory* memory = obtain_shared_memory(argv[1]);
+  SharedMemoryInternal* memory = obtain_shared_memory(argv[1]);
 
   auto video_capture = std::thread{[&](){
     std::optional<std::string> display = std::string("123");

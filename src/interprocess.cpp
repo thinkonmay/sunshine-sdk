@@ -19,7 +19,7 @@ using namespace std::literals;
 
 
 
-SharedMemory* obtain_shared_memory(char* rand) {
+SharedMemoryInternal* obtain_shared_memory(char* rand) {
     std::vector<std::string> strings;
 
     std::istringstream f(rand);
@@ -40,7 +40,7 @@ SharedMemory* obtain_shared_memory(char* rand) {
     static managed_shared_memory segment(open_only, key.c_str());
 
     //Get buffer local address from handle
-    SharedMemory* memory = (SharedMemory*)segment.get_address_from_handle(handle);
+    SharedMemoryInternal* memory = (SharedMemoryInternal*)segment.get_address_from_handle(handle);
 
     return memory;
 }
@@ -85,7 +85,7 @@ int find_available_slot(int* orders) {
 
 
 void 
-push_packet(SharedMemory* memory, 
+push_packet(SharedMemoryInternal* memory, 
                   void* data, 
                   int size, 
                   Metadata metadata){
@@ -105,18 +105,18 @@ push_packet(SharedMemory* memory,
 
 
 void 
-raise_event(SharedMemory* memory, EventType type, Event event){
+raise_event(SharedMemoryInternal* memory, EventType type, Event event){
     event.read = false;
     memcpy(&memory->events[type],&event,sizeof(Event));
 }
 
 int
-peek_event(SharedMemory* memory, EventType type){
+peek_event(SharedMemoryInternal* memory, EventType type){
     return !memory->events[type].read;
 }
 
 Event
-pop_event(SharedMemory* memory, EventType type){
+pop_event(SharedMemoryInternal* memory, EventType type){
     memory->events[type].read = true;
     return memory->events[type];
 }

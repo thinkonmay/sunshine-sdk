@@ -2,6 +2,7 @@
 # this file will also load platform specific macros
 
 add_library(parent SHARED
+        "${CMAKE_SOURCE_DIR}/smemory.h"
         "${CMAKE_SOURCE_DIR}/lib/interprocess.h"
         "${CMAKE_SOURCE_DIR}/lib/interprocess.cpp"
         )
