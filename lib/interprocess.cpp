@@ -63,7 +63,7 @@ std::string gen_random(const int len) {
 }
 
 std::string randkey = gen_random(20);
-managed_shared_memory segment(create_only, randkey.c_str(), 2 * sizeof(SharedMemory));
+managed_shared_memory segment(create_only, randkey.c_str(), 2 * sizeof(SharedMemoryInternal));
 
 
 
@@ -115,7 +115,7 @@ EXPORTS(SharedMemory*)
 allocate_shared_memory(char* rand) {
     //Allocate a portion of the segment (raw memory)
     std::size_t free_memory = segment.get_free_memory();
-    SharedMemory* memory = (SharedMemory*)segment.allocate(sizeof(SharedMemory));
+    SharedMemory* memory = (SharedMemory*)segment.allocate(sizeof(SharedMemoryInternal));
     init_shared_memory(memory);
 
     //Check invariant
