@@ -96,8 +96,8 @@ namespace audio {
   auto control_shared = safe::make_shared<audio_ctx_t>(start_audio_control, stop_audio_control);
 
   void
-  encodeThread(sample_queue_t samples, config_t config, void *channel_data) {
-    auto packets = mail::man->queue<packet_t>(mail::audio_packets);
+  encodeThread(safe::mail_t mail,sample_queue_t samples, config_t config, void *channel_data) {
+    auto packets = mail->queue<packet_t>(mail::audio_packets);
     auto stream = &stream_configs[map_stream(config.channels, config.flags[config_t::HIGH_QUALITY])];
 
     // Encoding takes place on this thread
@@ -204,7 +204,7 @@ namespace audio {
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
 
     auto samples = std::make_shared<sample_queue_t::element_type>(30);
-    std::thread thread { encodeThread, samples, config, channel_data };
+    std::thread thread { encodeThread, mail, samples, config, channel_data };
 
     auto fg = util::fail_guard([&]() {
       samples->stop();

@@ -107,8 +107,8 @@ main(int argc, char *argv[]) {
   task_pool.start(1);
 
   // Create signal handler after logging has been initialized
-  auto shutdown_event = mail::man->event<bool>(mail::shutdown);
-  on_signal(SIGINT, [&force_shutdown, shutdown_event]() {
+  auto process_shutdown_event = mail::man->event<bool>(mail::shutdown);
+  on_signal(SIGINT, [&force_shutdown, process_shutdown_event]() {
     BOOST_LOG(info) << "Interrupt handler called"sv;
 
     auto task = []() {
@@ -117,10 +117,10 @@ main(int argc, char *argv[]) {
     };
     force_shutdown = task_pool.pushDelayed(task, 10s).task_id;
 
-    shutdown_event->raise(true);
+    process_shutdown_event->raise(true);
   });
 
-  on_signal(SIGTERM, [&force_shutdown, shutdown_event]() {
+  on_signal(SIGTERM, [&force_shutdown, process_shutdown_event]() {
     BOOST_LOG(info) << "Terminate handler called"sv;
 
     auto task = []() {
@@ -129,7 +129,7 @@ main(int argc, char *argv[]) {
     };
     force_shutdown = task_pool.pushDelayed(task, 10s).task_id;
 
-    shutdown_event->raise(true);
+    process_shutdown_event->raise(true);
   });
 
   // If any of the following fail, we log an error and continue event though sunshine will not function correctly.
@@ -146,64 +146,90 @@ main(int argc, char *argv[]) {
   }
 
   //Get buffer local address from handle
-  SharedMemoryInternal* memory = obtain_shared_memory(argv[1]);
+  SharedMemory* memory = obtain_shared_memory(argv[1]);
 
-  auto video_capture = std::thread{[&](){
-    std::optional<std::string> display = std::string("123");
-    if (argc > 2)
-      display = std::string(argv[2]);
+  auto video_capture = [&](safe::mail_t mail, char* displayin){
+    std::optional<std::string> display = std::nullopt;
+    if (strlen(displayin) > 0)
+      display = std::string(displayin);
 
-    video::capture(mail::man,video::config_t{
+    video::capture(mail,video::config_t{
       display, 1920, 1080, 60, 6000, 1, 0, 1, 0, 0
     },NULL);
-  }};
-  auto audio_capture = std::thread{[&](){
-    audio::capture(mail::man,audio::config_t{
+  };
+
+  auto audio_capture = [&](safe::mail_t mail){
+    audio::capture(mail,audio::config_t{
       10,2,3,0
     },NULL);
-  }};
+  };
     
-  auto video_packets = mail::man->queue<video::packet_t>(mail::video_packets);
-  auto audio_packets = mail::man->queue<audio::packet_t>(mail::audio_packets);
-  auto bitrate       = mail::man->event<int>(mail::bitrate);
-  auto framerate     = mail::man->event<int>(mail::framerate);
-  auto idr           = mail::man->event<bool>(mail::idr);
-  auto input         = input::alloc(mail::man);
 
-  auto push = std::thread{[&](){
-    while (!shutdown_event->peek()) {
+  auto push = [process_shutdown_event](safe::mail_t mail, Queue* queue){
+    auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
+    auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
+    auto bitrate       = mail->event<int>(mail::bitrate);
+    auto framerate     = mail->event<int>(mail::framerate);
+    auto idr           = mail->event<bool>(mail::idr);
+    auto local_shutdown= mail->event<bool>(mail::shutdown);
+    auto input         = input::alloc(mail);
+    
+    while (!process_shutdown_event->peek() && !local_shutdown->peek() && queue->metadata.active) {
       while(video_packets->peek()) {
         auto packet = video_packets->pop();
-        push_packet(memory,packet->data(),packet->data_size(),Metadata{
-          packet->is_idr(),QueueType::Video0
-        });
+        push_packet(queue,packet->data(),packet->data_size(),PacketMetadata{ packet->is_idr() });
       }
       while(audio_packets->peek()) {
         auto packet = audio_packets->pop();
-        push_packet(memory,packet->second.begin(),packet->second.size(),Metadata{
-          0,QueueType::Audio
-        });
+        push_packet(queue,packet->second.begin(),packet->second.size(),PacketMetadata{ 0 });
       }
 
-      if(peek_event(memory,EventType::CHANGE_BITRATE))
-        bitrate->raise(pop_event(memory,EventType::CHANGE_BITRATE).value_number);
-      if(peek_event(memory,EventType::CHANGE_FRAMERATE)) 
-        framerate->raise(pop_event(memory,EventType::CHANGE_FRAMERATE).value_number);
-      if(peek_event(memory,EventType::POINTER_VISIBLE)) 
-        display_cursor = pop_event(memory,EventType::POINTER_VISIBLE).value_number;
-      if(peek_event(memory,EventType::IDR_FRAME)) 
-        idr->raise(pop_event(memory,EventType::IDR_FRAME).value_number > 0);
+      if(peek_event(queue,EventType::Bitrate))
+        bitrate->raise(pop_event(queue,EventType::Bitrate).value_number);
+      if(peek_event(queue,EventType::Framerate)) 
+        framerate->raise(pop_event(queue,EventType::Framerate).value_number);
+      if(peek_event(queue,EventType::Pointer)) 
+        display_cursor = pop_event(queue,EventType::Pointer).value_number;
+      if(peek_event(queue,EventType::Idr)) 
+        idr->raise(pop_event(queue,EventType::Idr).value_number > 0);
 
       std::this_thread::sleep_for(1ms);
     }
-  }};
 
-  while (!shutdown_event->peek())
-    std::this_thread::sleep_for(1s);
+    if (!local_shutdown->peek())
+      local_shutdown->raise(true);
 
-  push.join();
-  audio_capture.join();
-  video_capture.join();
+    queue->metadata.running = 0;
+  };
+
+  std::vector<QueueType> actives;
+  while (!process_shutdown_event->peek()) {
+    for (int i = 0; i < QueueType::QueueMax; i++) {
+      auto queue = &memory->queues[i];
+      if (!queue->metadata.active || queue->metadata.running)
+        continue;
+
+      queue->metadata.running = 1;
+      if (i == QueueType::Video0 || i == QueueType::Video1) {
+        auto mail = std::make_shared<safe::mail_raw_t>();
+        auto capture = std::thread{video_capture,mail,queue->metadata.display};
+        auto forward = std::thread{push,mail,queue};
+        capture.detach();
+        forward.detach();
+      } else if (i == QueueType::Audio) {
+        auto mail = std::make_shared<safe::mail_raw_t>();
+        auto capture = std::thread{audio_capture,mail};
+        auto forward = std::thread{push,mail,queue};
+        capture.detach();
+        forward.detach();
+      }
+    }
+    
+    
+
+    std::this_thread::sleep_for(100ms);
+  }
+
   task_pool.stop();
   task_pool.join();
 

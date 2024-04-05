@@ -20,23 +20,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const (
-	audio = 1
-	video = 2
-)
-
-type DataType int
-
-func peek(memory *C.SharedMemory, media DataType) bool {
-	if media == video {
-		return memory.queues[C.Video0].order[0] != -1
-	} else if media == audio {
-		return memory.queues[C.Audio].order[0] != -1
-	}
-
-	panic(fmt.Errorf("unknown data type"))
-}
-
 func byteSliceToString(s []byte) string {
 	n := bytes.IndexByte(s, 0)
 	if n >= 0 {
@@ -90,14 +73,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	lock, err := mod.FindProc("lock_shared_memory")
-	if err != nil {
-		panic(err)
-	}
-	unlock, err := mod.FindProc("unlock_shared_memory")
-	if err != nil {
-		panic(err)
-	}
 
 	buffer := make([]byte, 128)
 	_, _, err = proc.Call(
@@ -115,44 +90,42 @@ func main() {
 	}
 
 	memory := (*C.SharedMemory)(unsafe.Pointer(pointer))
-	handle_video := func() {
-		lock.Call(pointer)
-		defer unlock.Call(pointer)
-
-		block := memory.queues[C.Video0].array[memory.queues[C.Video0].order[0]]
-		fmt.Printf("video buffer %d\n", block.size)
-
-		for i := 0; i < C.QUEUE_SIZE-1; i++ {
-			memory.queues[C.Video0].order[i] = memory.queues[C.Video0].order[i+1]
-		}
-
-		memory.queues[C.Video0].order[C.QUEUE_SIZE-1] = -1
-	}
-
-	handle_audio := func() {
-		lock.Call(pointer)
-		defer unlock.Call(pointer)
-
-		block := memory.queues[C.Audio].array[memory.queues[C.Audio].order[0]]
-		fmt.Printf("audio buffer %d\n", block.size)
-
-		for i := 0; i < C.QUEUE_SIZE-1; i++ {
-			memory.queues[C.Audio].order[i] = memory.queues[C.Audio].order[i+1]
-		}
-
-		memory.queues[C.Audio].order[C.QUEUE_SIZE-1] = -1
-	}
-
 	go func() {
 		for {
-			for peek(memory, video) {
-				handle_video()
-			}
-			for peek(memory, audio) {
-				handle_audio()
-			}
+			memory.queues[C.Video0].metadata.active = C.int(0)
+			memory.queues[C.Video1].metadata.active = C.int(0)
+			memory.queues[C.Audio].metadata.active = C.int(0)
 
-			time.Sleep(time.Millisecond)
+			time.Sleep(time.Second * 10)
+
+			memory.queues[C.Video0].metadata.active = C.int(1)
+			memory.queues[C.Video1].metadata.active = C.int(1)
+			memory.queues[C.Audio].metadata.active = C.int(1)
+
+			time.Sleep(time.Second * 10)
+		}
+	}()
+	go func() {
+		indexes := make([]int,C.QueueMax)
+		for i,_  := range indexes {
+			indexes[i] = int(memory.queues[i].index) 
+		}
+
+		for {
+			for queue_type,_  := range indexes {
+				if memory.queues[queue_type].metadata.running != 1 {
+					continue
+				}
+
+				for int(memory.queues[queue_type].index) > indexes[queue_type] {
+					new_index := indexes[queue_type] + 1
+					real_index := new_index % C.QUEUE_SIZE
+					block := memory.queues[queue_type].array[real_index]
+					fmt.Printf("Queue type %d, downstream index %d, upstream index %d, receive size %d\n",queue_type,new_index, memory.queues[queue_type].index,block.size)
+					indexes[queue_type] = new_index;
+				}
+			}
+			time.Sleep(time.Microsecond * 100)
 		}
 	}()
 

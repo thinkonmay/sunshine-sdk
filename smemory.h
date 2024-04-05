@@ -1,4 +1,4 @@
-#define QUEUE_SIZE 16
+#define QUEUE_SIZE 256
 #define PACKET_SIZE 32 * 1024
 
 enum QueueType {
@@ -6,52 +6,57 @@ enum QueueType {
     Video1,
     Audio,
     Microphone,
-    Max
+    QueueMax
 };
 
 typedef enum _EventType {
-    POINTER_VISIBLE,
-    CHANGE_BITRATE,
-    CHANGE_FRAMERATE,
-    IDR_FRAME,
-
-    STOP,
-    HDR_CALLBACK,
-    EVENT_TYPE_MAX
+    Pointer,
+    Bitrate,
+    Framerate,
+    Idr,
+    Hdr,
+    Stop,
+    EventMax
 } EventType;
 
 typedef struct {
     int is_idr;
-    enum QueueType type;
-}Metadata;
+}PacketMetadata;
+
+typedef struct {
+    int active;
+    int running;
+
+    char display[64];
+}QueueMetadata;
 
 typedef struct {
     int size;
-    Metadata metadata;
+    PacketMetadata metadata;
     char data[PACKET_SIZE];
 } Packet;
 
 typedef enum _DataType {
     HDR_INFO,
+    NUMBER,
+    STRING,
 } DataType;
 
 typedef struct {
+    int read;
+    DataType type;
+    int data_size;
     int value_number;
     char value_raw[PACKET_SIZE];
-    int data_size;
-
-    DataType type;
-
-    int read;
 } Event;
 
-
 typedef struct _Queue{
+    int index;
+    QueueMetadata metadata;
+    Event events[EventMax];
     Packet array[QUEUE_SIZE];
-    int order[QUEUE_SIZE];
 }Queue;
 
 typedef struct {
-    Queue queues[Max];
-    Event events[EVENT_TYPE_MAX];
+    Queue queues[QueueMax];
 }SharedMemory;

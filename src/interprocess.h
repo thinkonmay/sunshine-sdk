@@ -7,28 +7,19 @@
 #include "thread_pool.h"
 #include "thread_safe.h"
 
-#include <boost/interprocess/sync/interprocess_mutex.hpp>
-
-
 #include <smemory.h>
 
-typedef struct {
-    Queue queues[QueueType::Max];
-    Event events[EVENT_TYPE_MAX];
-    boost::interprocess::interprocess_mutex lock;
-}SharedMemoryInternal;
-
-SharedMemoryInternal*
+SharedMemory*
 obtain_shared_memory(char* key);
 
 void 
-push_packet(SharedMemoryInternal* memory, void* data, int size, Metadata metadata);
+push_packet(Queue* memory, void* data, int size, PacketMetadata metadata);
 
 void 
-raise_event(SharedMemoryInternal* memory, EventType type, Event event);
+raise_event(Queue* memory, EventType type, Event event);
 
 int
-peek_event(SharedMemoryInternal* memory, EventType type);
+peek_event(Queue* memory, EventType type);
 
 Event
-pop_event(SharedMemoryInternal* memory, EventType type);
+pop_event(Queue* memory, EventType type);

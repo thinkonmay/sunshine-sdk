@@ -9,8 +9,6 @@
 #include <sstream>
 #include <vector>
 
-#include <boost/interprocess/sync/scoped_lock.hpp>
-#include <boost/interprocess/sync/interprocess_mutex.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
 
 
@@ -23,25 +21,6 @@ using namespace std::literals;
 #define EXPORTS(x)  x
 #endif
 
-
-typedef struct {
-    Queue queues[QueueType::Max];
-    Event events[EVENT_TYPE_MAX];
-    interprocess_mutex lock;
-}SharedMemoryInternal;
-
-
-EXPORTS(void) 
-lock_shared_memory(SharedMemory* memory){
-    SharedMemoryInternal* internal = (SharedMemoryInternal*) memory;
-    internal->lock.lock();
-}
-
-EXPORTS(void) 
-unlock_shared_memory(SharedMemory* memory){
-    SharedMemoryInternal* internal = (SharedMemoryInternal*) memory;
-    internal->lock.unlock();
-}
 
 
 std::string gen_random(const int len) {
@@ -63,18 +42,18 @@ std::string gen_random(const int len) {
 }
 
 std::string randkey = gen_random(20);
-managed_shared_memory segment(create_only, randkey.c_str(), 2 * sizeof(SharedMemoryInternal));
+managed_shared_memory segment(create_only, randkey.c_str(), 2 * sizeof(SharedMemory));
 
 
 
 void
 init_shared_memory(SharedMemory* memory){
-    for (int i = 0; i < QUEUE_SIZE; i++)
-        for (int j = 0; j < QueueType::Max; j++)
-            memory->queues[j].order[i] = -1;
+    for (int j = 0; j < QueueType::QueueMax; j++) {
+        for (int k = 0; k < EventType::EventMax; k++) 
+            memory->queues[j].events[k].read = 1;
 
-    for (int i = 0; i < EventType::EVENT_TYPE_MAX; i++) 
-        memory->events[i].read = 1;
+        memory->queues[j].index = QUEUE_SIZE - 1;
+    }
 }
 
 
@@ -115,7 +94,7 @@ EXPORTS(SharedMemory*)
 allocate_shared_memory(char* rand) {
     //Allocate a portion of the segment (raw memory)
     std::size_t free_memory = segment.get_free_memory();
-    SharedMemory* memory = (SharedMemory*)segment.allocate(sizeof(SharedMemoryInternal));
+    SharedMemory* memory = (SharedMemory*)segment.allocate(sizeof(SharedMemory));
     init_shared_memory(memory);
 
     //Check invariant

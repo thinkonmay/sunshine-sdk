@@ -17,8 +17,6 @@ extern "C" {
 
 EXPORT(SharedMemory*) allocate_shared_memory(char* rand) ;
 EXPORT(SharedMemory*) obtain_shared_memory(char* rand) ;
-EXPORT(void) lock_shared_memory(SharedMemory* memory);
-EXPORT(void) unlock_shared_memory(SharedMemory* memory);
 EXPORT(void) free_shared_memory(SharedMemory* buffer);
 EXPORT(void) deinit_shared_memory();
 }

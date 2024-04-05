@@ -1781,7 +1781,7 @@ namespace video {
     BOOST_LOG(info) << "framerate "sv << config->framerate;
     BOOST_LOG(info) << "bitrate "sv << config->bitrate;
 
-    auto packets = mail::man->queue<packet_t>(mail::video_packets);
+    auto packets = mail->queue<packet_t>(mail::video_packets);
     auto idr_events = mail->event<bool>(mail::idr);
     auto invalidate_ref_frames_events = mail->event<std::pair<int64_t, int64_t>>(mail::invalidate_ref_frames);
 
@@ -2243,7 +2243,7 @@ namespace video {
       ref->encode_session_ctx_queue.raise(sync_session_ctx_t {
         &join_event,
         mail->event<bool>(mail::shutdown),
-        mail::man->queue<packet_t>(mail::video_packets),
+        mail->queue<packet_t>(mail::video_packets),
         std::move(idr_events),
         mail->event<hdr_info_t>(mail::hdr),
         mail->event<input::touch_port_t>(mail::touch_port),
