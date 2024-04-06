@@ -28,6 +28,7 @@ typedef struct {
     int running;
 
     char display[64];
+    int codec;
 }QueueMetadata;
 
 typedef struct {

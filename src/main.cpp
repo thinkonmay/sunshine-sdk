@@ -148,13 +148,13 @@ main(int argc, char *argv[]) {
   //Get buffer local address from handle
   SharedMemory* memory = obtain_shared_memory(argv[1]);
 
-  auto video_capture = [&](safe::mail_t mail, char* displayin){
+  auto video_capture = [&](safe::mail_t mail, char* displayin,int codec){
     std::optional<std::string> display = std::nullopt;
     if (strlen(displayin) > 0)
       display = std::string(displayin);
 
     video::capture(mail,video::config_t{
-      display, 1920, 1080, 60, 6000, 1, 0, 1, 0, 0
+      display, 1920, 1080, 60, 6000, 1, 0, 1, codec, 0
     },NULL);
   };
 
@@ -212,7 +212,7 @@ main(int argc, char *argv[]) {
       queue->metadata.running = 1;
       if (i == QueueType::Video0 || i == QueueType::Video1) {
         auto mail = std::make_shared<safe::mail_raw_t>();
-        auto capture = std::thread{video_capture,mail,queue->metadata.display};
+        auto capture = std::thread{video_capture,mail,queue->metadata.display,queue->metadata.codec};
         auto forward = std::thread{push,mail,queue};
         capture.detach();
         forward.detach();
