@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -118,7 +117,7 @@ func main() {
 		indexes[i] = &j
 	}
 
-	for queue_type,i := range indexes {
+	for queue_type, i := range indexes {
 		go func(queue *C.Queue, index *int) {
 			buffer := make([]byte, int(C.PACKET_SIZE))
 			payloader := payloaders[queue.metadata.codec]()
@@ -142,20 +141,12 @@ func main() {
 
 				time.Sleep(time.Microsecond * 100)
 			}
-		}(&memory.queues[queue_type],i)
+		}(&memory.queues[queue_type], i)
 	}
 
-	cmd := exec.Command("E:\\thinkmay\\worker\\sunshine\\build\\sunshine.exe", byteSliceToString(buffer))
-	cmd.Dir = "E:\\thinkmay\\worker\\sunshine\\build"
-	stdoutIn, _ := cmd.StdoutPipe()
-	stderrIn, _ := cmd.StderrPipe()
-	cmd.Start()
-	go copyAndCapture(stderrIn)
-	go copyAndCapture(stdoutIn)
-
+	fmt.Printf("execute sunshine with command : ./sunshine.exe \"%s\"\n", byteSliceToString(buffer))
 	chann := make(chan os.Signal, 16)
 	signal.Notify(chann, syscall.SIGTERM, os.Interrupt)
 	<-chann
-	cmd.Process.Kill()
 	fmt.Println("Stopped.")
 }
