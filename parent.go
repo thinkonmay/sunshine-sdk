@@ -95,13 +95,8 @@ func main() {
 	}
 
 	memory := (*C.SharedMemory)(unsafe.Pointer(pointer))
-	memory.queues[C.Video0].metadata.active = C.int(1)
 	memory.queues[C.Video0].metadata.codec = C.int(1)
-
-	memory.queues[C.Video1].metadata.active = C.int(1)
 	memory.queues[C.Video1].metadata.codec = C.int(0)
-
-	memory.queues[C.Audio].metadata.active = C.int(1)
 	memory.queues[C.Audio].metadata.codec = C.int(3)
 
 	payloaders := map[C.int]func() codec.Payloader{
@@ -123,10 +118,6 @@ func main() {
 			payloader := payloaders[queue.metadata.codec]()
 
 			for {
-				if queue.metadata.running != 1 {
-					continue
-				}
-
 				for int(queue.index) > *index {
 					new_index := *index + 1
 					real_index := new_index % C.QUEUE_SIZE

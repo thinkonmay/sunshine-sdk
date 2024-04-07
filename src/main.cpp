@@ -141,8 +141,12 @@ main(int argc, char *argv[]) {
   }
 
   auto input_deinit_guard = input::init();
-  if (video::probe_encoders()) {
+
+  int queuetype = -1;
+  std::stringstream ss; ss << argv[2]; ss >> queuetype;
+  if (queuetype != QueueType::Audio && video::probe_encoders()) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
+    return -1;
   }
 
   //Get buffer local address from handle
@@ -173,8 +177,9 @@ main(int argc, char *argv[]) {
     auto idr           = mail->event<bool>(mail::idr);
     auto local_shutdown= mail->event<bool>(mail::shutdown);
     auto input         = input::alloc(mail);
-    
-    while (!process_shutdown_event->peek() && !local_shutdown->peek() && queue->metadata.active) {
+
+    queue->metadata.active = 1;
+    while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       while(video_packets->peek()) {
         auto packet = video_packets->pop();
         push_packet(queue,packet->data(),packet->data_size(),PacketMetadata{ packet->is_idr() });
@@ -199,37 +204,31 @@ main(int argc, char *argv[]) {
     if (!local_shutdown->peek())
       local_shutdown->raise(true);
 
-    queue->metadata.running = 0;
+    queue->metadata.active = 0;
   };
 
-  std::vector<QueueType> actives;
-  while (!process_shutdown_event->peek()) {
-    for (int i = 0; i < QueueType::QueueMax; i++) {
-      auto queue = &memory->queues[i];
-      if (!queue->metadata.active || queue->metadata.running)
-        continue;
 
-      queue->metadata.running = 1;
-      if (i == QueueType::Video0 || i == QueueType::Video1) {
-        auto mail = std::make_shared<safe::mail_raw_t>();
-        auto capture = std::thread{video_capture,mail,queue->metadata.display,queue->metadata.codec};
-        auto forward = std::thread{push,mail,queue};
-        capture.detach();
-        forward.detach();
-      } else if (i == QueueType::Audio) {
-        auto mail = std::make_shared<safe::mail_raw_t>();
-        auto capture = std::thread{audio_capture,mail};
-        auto forward = std::thread{push,mail,queue};
-        capture.detach();
-        forward.detach();
-      }
-    }
-    
-    
-
-    std::this_thread::sleep_for(100ms);
+  auto mail = std::make_shared<safe::mail_raw_t>();
+  auto queue = &memory->queues[queuetype];
+  BOOST_LOG(info) << "Starting capture on channel " << queuetype;
+  if (queuetype == QueueType::Video0 || queuetype == QueueType::Video1) {
+    auto capture = std::thread{video_capture,mail,queue->metadata.display,queue->metadata.codec};
+    auto forward = std::thread{push,mail,queue};
+    capture.detach();
+    forward.detach();
+  } else if (queuetype == QueueType::Audio) {
+    auto capture = std::thread{audio_capture,mail};
+    auto forward = std::thread{push,mail,queue};
+    capture.detach();
+    forward.detach();
   }
 
+  auto local_shutdown= mail->event<bool>(mail::shutdown);
+  while (!process_shutdown_event->peek() && !local_shutdown->peek())
+    std::this_thread::sleep_for(1s);
+
+  // let other threads to close
+  std::this_thread::sleep_for(1s);
   task_pool.stop();
   task_pool.join();
 

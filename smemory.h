@@ -25,8 +25,6 @@ typedef struct {
 
 typedef struct {
     int active;
-    int running;
-
     char display[64];
     int codec;
 }QueueMetadata;
