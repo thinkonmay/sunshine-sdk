@@ -1620,10 +1620,10 @@ namespace input {
    * @param input_data The input message.
    */
   void
-  passthrough(std::shared_ptr<input_t> &input, std::vector<std::uint8_t> &&input_data) {
+  passthrough(std::shared_ptr<input_t> &input, std::vector<std::uint8_t> input_data) {
     {
       std::lock_guard<std::mutex> lg(input->input_queue_lock);
-      input->input_queue.push_back(std::move(input_data));
+      input->input_queue.push_back(input_data);
     }
     task_pool.push(passthrough_next_message, input);
   }

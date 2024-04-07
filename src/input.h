@@ -17,7 +17,7 @@ namespace input {
   void
   reset(std::shared_ptr<input_t> &input);
   void
-  passthrough(std::shared_ptr<input_t> &input, std::vector<std::uint8_t> &&input_data);
+  passthrough(std::shared_ptr<input_t> &input, std::vector<std::uint8_t> input_data);
 
   [[nodiscard]] std::unique_ptr<platf::deinit_t>
   init();

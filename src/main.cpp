@@ -144,7 +144,9 @@ main(int argc, char *argv[]) {
 
   int queuetype = -1;
   std::stringstream ss; ss << argv[2]; ss >> queuetype;
-  if (queuetype != QueueType::Audio && video::probe_encoders()) {
+  if ((queuetype != QueueType::Audio && 
+       queuetype != QueueType::Input) || 
+       video::probe_encoders()) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
     return -1;
   }
@@ -169,6 +171,28 @@ main(int argc, char *argv[]) {
   };
     
 
+  auto pull = [process_shutdown_event](safe::mail_t mail, Queue* queue){
+    auto input         = input::alloc(mail);
+    auto local_shutdown= mail->event<bool>(mail::shutdown);
+
+    queue->metadata.active = 1;
+    auto current_index = queue->index;
+    while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
+      while (current_index < queue->index) {
+        current_index++;
+        auto real_index = current_index % QUEUE_SIZE;
+        auto data = queue->array[real_index].data;
+        auto size = queue->array[real_index].size;
+        std::vector<uint8_t> raw(data, data + size);
+        input::passthrough(input,raw);
+      }
+      
+
+      std::this_thread::sleep_for(1ms);
+    }
+    queue->metadata.active = 0;
+  };
+
   auto push = [process_shutdown_event](safe::mail_t mail, Queue* queue){
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
@@ -176,7 +200,6 @@ main(int argc, char *argv[]) {
     auto framerate     = mail->event<int>(mail::framerate);
     auto idr           = mail->event<bool>(mail::idr);
     auto local_shutdown= mail->event<bool>(mail::shutdown);
-    auto input         = input::alloc(mail);
 
     queue->metadata.active = 1;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
@@ -221,6 +244,10 @@ main(int argc, char *argv[]) {
     auto forward = std::thread{push,mail,queue};
     capture.detach();
     forward.detach();
+  } else if (queuetype == QueueType::Input) {
+    auto process = std::thread{pull,mail,queue};
+    process.detach();
+
   }
 
   auto local_shutdown= mail->event<bool>(mail::shutdown);
