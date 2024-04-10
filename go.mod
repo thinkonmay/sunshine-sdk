@@ -4,6 +4,7 @@ go 1.22.1
 
 require (
 	github.com/AlexxIT/go2rtc v1.8.5
+	github.com/ebitengine/purego v0.7.1
 	github.com/pion/rtp v1.8.5
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/sys v0.18.0
