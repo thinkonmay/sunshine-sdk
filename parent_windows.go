@@ -95,7 +95,7 @@ func main() {
 	}
 
 	memory := (*C.SharedMemory)(unsafe.Pointer(pointer))
-	memory.queues[C.Video0].metadata.codec = C.int(1)
+	memory.queues[C.Video0].metadata.codec = C.int(0)
 	memory.queues[C.Video1].metadata.codec = C.int(0)
 	memory.queues[C.Audio].metadata.codec = C.int(3)
 
@@ -135,7 +135,7 @@ func main() {
 		}(&memory.queues[queue_type], i)
 	}
 
-	fmt.Printf("execute sunshine with command : ./sunshine.exe \"%s\"\n", byteSliceToString(buffer))
+	fmt.Printf("execute sunshine with command : ./sunshine.exe \"%s\" 0\n", byteSliceToString(buffer))
 	chann := make(chan os.Signal, 16)
 	signal.Notify(chann, syscall.SIGTERM, os.Interrupt)
 	<-chann

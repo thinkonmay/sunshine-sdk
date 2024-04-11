@@ -144,11 +144,11 @@ main(int argc, char *argv[]) {
 
   int queuetype = -1;
   std::stringstream ss; ss << argv[2]; ss >> queuetype;
-  if ((queuetype != QueueType::Audio && 
-       queuetype != QueueType::Input) || 
-       video::probe_encoders()) {
-    BOOST_LOG(error) << "Video failed to find working encoder"sv;
-    return -1;
+  if(queuetype != QueueType::Audio && queuetype != QueueType::Input) {
+    if (video::probe_encoders()) {
+      BOOST_LOG(error) << "Video failed to find working encoder"sv;
+      return -1;
+    }
   }
 
   //Get buffer local address from handle
@@ -254,6 +254,7 @@ main(int argc, char *argv[]) {
   while (!process_shutdown_event->peek() && !local_shutdown->peek())
     std::this_thread::sleep_for(1s);
 
+  BOOST_LOG(info) << "Closed" << queuetype;
   // let other threads to close
   std::this_thread::sleep_for(1s);
   task_pool.stop();
