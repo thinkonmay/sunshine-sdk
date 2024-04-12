@@ -3,6 +3,7 @@
  * @brief Implementation for globally accessible variables and functions.
  */
 #include "interprocess.h"
+#include "logging.h"
 
 #include <thread>
 #include <stdio.h>
@@ -76,5 +77,6 @@ peek_event(Queue* memory, EventType type){
 Event
 pop_event(Queue* queue, EventType type){
     queue->events[type].read = true;
+    BOOST_LOG(info) << "Receive event " << type;
     return queue->events[type];
 }

@@ -2,17 +2,40 @@ package main
 
 /*
 #include "smemory.h"
+#include "Input.h"
 #include <string.h>
+
+
+void
+write(Queue* queue, void* data, int size) {
+	int new_index = queue->index + 1;
+	Packet* block = &queue->array[new_index % QUEUE_SIZE];
+	block->size = size;
+	memcpy(block->data,data,size);
+	queue->index = new_index;
+}
+
+
+void
+keyboard_passthrough(Queue* queue, int keycode, int up, int scancode) {
+	NV_KEYBOARD_PACKET packet = {0};
+	packet.header.magic = up == 0
+		? KEY_DOWN_EVENT_MAGIC
+		: KEY_UP_EVENT_MAGIC;
+	packet.keyCode = keycode;
+	write(queue,&packet,sizeof(NV_KEYBOARD_PACKET));
+}
+
+
 */
 import "C"
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -33,30 +56,9 @@ func byteSliceToString(s []byte) string {
 	return string(s)
 }
 
-func copyAndCapture(r io.Reader) {
-	buf := make([]byte, 1024)
-	for {
-		n, err := r.Read(buf[:])
-		if err != nil {
-			return
-		}
-
-		if n < 1 {
-			continue
-		}
-
-		lines := strings.Split(string(buf[:n]), "\n")
-		for _, line := range lines {
-			sublines := strings.Split(line, "\r")
-			for _, subline := range sublines {
-				if len(subline) == 0 {
-					continue
-				}
-
-				fmt.Printf("sunshine: %s\n", subline)
-			}
-		}
-	}
+func ConvertBEEdian(in uint16) C.short {
+	bytes := binary.BigEndian.AppendUint16([]byte{}, in)
+	return C.short(binary.LittleEndian.Uint16(bytes))
 }
 
 func main() {
@@ -112,28 +114,74 @@ func main() {
 		indexes[i] = &j
 	}
 
-	for queue_type, i := range indexes {
-		go func(queue *C.Queue, index *int) {
-			buffer := make([]byte, int(C.PACKET_SIZE))
-			payloader := payloaders[queue.metadata.codec]()
+	go func(queue *C.Queue, index *int) {
+		buffer := make([]byte, int(C.PACKET_SIZE))
+		payloader := payloaders[queue.metadata.codec]()
 
+		go func() {
 			for {
-				for int(queue.index) > *index {
-					new_index := *index + 1
-					real_index := new_index % C.QUEUE_SIZE
-					block := queue.array[real_index]
-
-					C.memcpy(unsafe.Pointer(&buffer[0]), unsafe.Pointer(&block.data[0]), C.ulonglong(block.size))
-					payloads := payloader.Payload(1200, buffer[:block.size])
-					fmt.Printf("Queue type %d, downstream index %d, upstream index %d, receive size %d\n", queue_type, new_index, queue.index, len(payloads))
-
-					*index = new_index
-				}
-
-				time.Sleep(time.Microsecond * 100)
+				queue.events[C.Idr].value_number = 1
+				queue.events[C.Idr].read = 0
+				time.Sleep(time.Second)
 			}
-		}(&memory.queues[queue_type], i)
-	}
+		}()
+
+		for {
+			for int(queue.index) > *index {
+				new_index := *index + 1
+				real_index := new_index % C.QUEUE_SIZE
+				block := queue.array[real_index]
+
+				C.memcpy(unsafe.Pointer(&buffer[0]), unsafe.Pointer(&block.data[0]), C.ulonglong(block.size))
+				payloads := payloader.Payload(1200, buffer[:block.size])
+				fmt.Printf("downstream index %d, upstream index %d, receive size %d\n", new_index, queue.index, len(payloads))
+
+				*index = new_index
+			}
+
+			time.Sleep(time.Microsecond * 100)
+		}
+	}(&memory.queues[C.Video0], indexes[C.Video0])
+
+	go func(queue *C.Queue, index *int) {
+		buffer := make([]byte, 32)
+		for {
+			_, err := os.Stdin.Read(buffer)
+			if err != nil {
+				return
+			}
+
+			command := buffer[0]
+			switch command {
+			// case []byte("n")[0]:
+			// 	packet := C.NV_REL_MOUSE_MOVE_PACKET{
+			// 		header: C.NV_INPUT_HEADER{
+			// 			magic: C.MOUSE_MOVE_REL_MAGIC_GEN5,
+			// 		},
+			// 		deltaX: ConvertBEEdian(10),
+			// 		deltaY: ConvertBEEdian(10),
+			// 	}
+
+			// 	Write(queue, unsafe.Pointer(&packet), int(unsafe.Sizeof(packet)))
+			// 	_ = packet // use packet here to avoid go gc clear packet var
+			// case []byte("m")[0]:
+			// 	packet := C.NV_ABS_MOUSE_MOVE_PACKET{
+			// 		header: C.NV_INPUT_HEADER{
+			// 			magic: C.MOUSE_MOVE_ABS_MAGIC,
+			// 		},
+			// 		x:      ConvertBEEdian(1920),
+			// 		y:      ConvertBEEdian(1080),
+			// 		width:  ConvertBEEdian(3840),
+			// 		height: ConvertBEEdian(2160),
+			// 	}
+
+			// 	Write(queue, unsafe.Pointer(&packet), int(unsafe.Sizeof(packet)))
+			// 	_ = packet // use packet here to avoid go gc clear packet var
+			case []byte("k")[0]:
+				C.keyboard_passthrough(queue, 0, 1, 0)
+			}
+		}
+	}(&memory.queues[C.Input], indexes[C.Input])
 
 	fmt.Printf("execute sunshine with command : ./sunshine.exe \"%s\" 0\n", byteSliceToString(buffer))
 	chann := make(chan os.Signal, 16)

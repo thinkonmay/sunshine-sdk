@@ -144,7 +144,9 @@ main(int argc, char *argv[]) {
 
   int queuetype = -1;
   std::stringstream ss; ss << argv[2]; ss >> queuetype;
-  if(queuetype != QueueType::Audio && queuetype != QueueType::Input) {
+  if(queuetype != QueueType::Audio && 
+     queuetype != QueueType::Input &&
+     queuetype != QueueType::Microphone) {
     if (video::probe_encoders()) {
       BOOST_LOG(error) << "Video failed to find working encoder"sv;
       return -1;
