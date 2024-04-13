@@ -1825,6 +1825,7 @@ namespace video {
       }
 
       if (idr_events->peek()) {
+        BOOST_LOG(info) << "idr frame"sv;
         requested_idr_frame = true;
         idr_events->pop();
       }
@@ -2064,6 +2065,7 @@ namespace video {
           }
 
           if (ctx->idr_events->peek()) {
+            BOOST_LOG(info) << "idr frame"sv;
             pos->session->request_idr_frame();
             ctx->idr_events->pop();
           }
