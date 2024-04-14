@@ -77,5 +77,6 @@ peek_event(Queue* memory, EventType type){
 Event
 pop_event(Queue* queue, EventType type){
     queue->events[type].read = true;
+    BOOST_LOG(info) << "Receive event " << type << ", value: "<< queue->events[type].value_number;
     return queue->events[type];
 }

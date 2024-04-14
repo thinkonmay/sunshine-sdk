@@ -220,8 +220,10 @@ main(int argc, char *argv[]) {
         framerate->raise(pop_event(queue,EventType::Framerate).value_number);
       if(peek_event(queue,EventType::Pointer)) 
         display_cursor = pop_event(queue,EventType::Pointer).value_number;
-      if(peek_event(queue,EventType::Idr)) 
-        idr->raise(pop_event(queue,EventType::Idr).value_number > 0);
+      if(peek_event(queue,EventType::Idr)) {
+        pop_event(queue,EventType::Idr);
+        idr->raise(1);
+      }
 
       std::this_thread::sleep_for(1ms);
     }
