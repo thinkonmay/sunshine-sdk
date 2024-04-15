@@ -1835,7 +1835,7 @@ namespace video {
       }
 
       if (!requested_idr_frame || images->peek()) {
-        if (auto img = images->pop()) {
+        if (auto img = images->pop(1ms)) {
           frame_timestamp = img->frame_timestamp;
           if (session->convert(*img)) {
             BOOST_LOG(error) << "Could not convert image"sv;
