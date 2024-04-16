@@ -27,6 +27,7 @@ extern "C" {
 #include "video.h"
 
 #ifdef _WIN32
+#include <Windows.h>
 extern "C" {
   #include <libavutil/hwcontext_d3d11va.h>
 }
@@ -398,7 +399,7 @@ namespace video {
     safe::mail_raw_t::event_t<hdr_info_t> hdr_events;
     safe::mail_raw_t::event_t<input::touch_port_t> touch_port_events;
 
-    config_t config;
+    config_t* config;
     int frame_nr;
     void *channel_data;
   };
@@ -413,7 +414,7 @@ namespace video {
 
   struct capture_ctx_t {
     img_event_t images;
-    config_t config;
+    config_t* config;
   };
 
   struct capture_thread_async_ctx_t {
@@ -940,12 +941,14 @@ namespace video {
   bool last_encoder_probe_supported_ref_frames_invalidation = false;
 
   void
-  reset_display(std::shared_ptr<platf::display_t> &disp, const platf::mem_type_e &type, const std::string &display_name, const config_t &config) {
+  reset_display(std::shared_ptr<platf::display_t> &disp, const platf::mem_type_e &type, const std::string &display_name, config_t *config) {
     // We try this twice, in case we still get an error on reinitialization
     for (int x = 0; x < 2; ++x) {
       disp.reset();
-      disp = platf::display(type, display_name, config);
+      disp = platf::display(type, display_name, *config);
       if (disp) {
+        config->width = disp->width;
+        config->height = disp->height;
         break;
       }
 
@@ -1042,10 +1045,12 @@ namespace video {
     std::vector<std::string> display_names;
     int display_p = -1;
     refresh_displays(encoder.platform_formats->dev_type, display_names, display_p);
-    auto disp = platf::display(encoder.platform_formats->dev_type, display_names[display_p], capture_ctxs.front().config);
+    auto disp = platf::display(encoder.platform_formats->dev_type, display_names[display_p], *capture_ctxs.front().config);
     if (!disp) {
       return;
     }
+    capture_ctxs.front().config->width = disp->width;
+    capture_ctxs.front().config->height = disp->height;
     display_wp = disp;
 
     constexpr auto capture_buffer_size = 12;
@@ -1162,8 +1167,8 @@ namespace video {
             capture_ctx->images->raise(img);
           }
 
-          if (capture_ctx->config.display.has_value() &&
-              capture_ctx->config.display.value() != display_names[display_p]) {
+          if (capture_ctx->config->display.has_value() &&
+              capture_ctx->config->display.value() != display_names[display_p]) {
             artificial_reinit = true;
             return false;
           }
@@ -1233,18 +1238,18 @@ namespace video {
             refresh_displays(encoder.platform_formats->dev_type, display_names, display_p);
 
             // Process any pending display switch with the new list of displays
-            if (capture_ctxs.front().config.display.has_value() && 
-                capture_ctxs.front().config.display.value() != display_names[display_p]) {
+            if (capture_ctxs.front().config->display.has_value() && 
+                capture_ctxs.front().config->display.value() != display_names[display_p]) {
               for (int i = 0; i < display_names.size();i ++) {
-                if (capture_ctxs.front().config.display.value() == display_names[i]) {
+                if (capture_ctxs.front().config->display.value() == display_names[i]) {
                   BOOST_LOG(info) << "Switched to display " << display_names[i];
                   display_p = i;
                   goto next;
                 }
               }
 
-              BOOST_LOG(info) << "Display " << capture_ctxs.front().config.display.value() << " not found";
-              capture_ctxs.front().config.display = std::nullopt;
+              BOOST_LOG(info) << "Display " << capture_ctxs.front().config->display.value() << " not found";
+              capture_ctxs.front().config->display = std::nullopt;
             }
           next:
 
@@ -1796,11 +1801,17 @@ namespace video {
       }
     }
 
+#ifdef WIN32
+    auto timer = CreateWaitableTimerEx(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+    if (!timer) 
+        timer = CreateWaitableTimerEx(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
+#endif
+    
+
     std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
     auto timestamp = std::chrono::steady_clock::now();
     auto now = std::chrono::steady_clock::now();
     auto cycle = std::chrono::nanoseconds(1s) / config->framerate;
-    auto sleep_period = 0ns;
     while (true) {
       if (shutdown_event->peek() || reinit_event.peek() || !images->running()) {
         break;
@@ -1847,9 +1858,18 @@ namespace video {
         }
       }
 
-      sleep_period = 1s / config->framerate - cycle;
-      if(sleep_period > 0s) 
-        std::this_thread::sleep_for(sleep_period);
+#ifdef WIN32
+      auto sleep_period = std::chrono::nanoseconds(1s).count() / config->framerate - cycle.count();
+      if(sleep_period > 0) {
+          LARGE_INTEGER due_time;
+          due_time.QuadPart = sleep_period / -100;
+          SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, false);
+          WaitForSingleObject(timer, INFINITE);
+      }
+#else
+      if(sleep_period > 0)
+        std::this_thread::sleep_for(sleep_period * 1ns);
+#endif
 
       if (encode(frame_nr++, *session, packets, channel_data, frame_timestamp)) {
         BOOST_LOG(error) << "Could not encode video packet"sv;
@@ -1921,13 +1941,13 @@ namespace video {
 
     encode_session.ctx = &ctx;
 
-    auto encode_device = make_encode_device(*disp, encoder, ctx.config);
+    auto encode_device = make_encode_device(*disp, encoder, *ctx.config);
     if (!encode_device) {
       return std::nullopt;
     }
 
     // absolute mouse coordinates require that the dimensions of the screen are known
-    ctx.touch_port_events->raise(make_port(disp, ctx.config));
+    ctx.touch_port_events->raise(make_port(disp, *ctx.config));
 
     // Update client with our current HDR display state
     hdr_info_t hdr_info = std::make_unique<hdr_info_raw_t>(false);
@@ -1941,7 +1961,7 @@ namespace video {
     }
     ctx.hdr_events->raise(std::move(hdr_info));
 
-    auto session = make_encode_session(disp, encoder, ctx.config, img.width, img.height, std::move(encode_device));
+    auto session = make_encode_session(disp, encoder, *ctx.config, img.width, img.height, std::move(encode_device));
     if (!session) {
       return std::nullopt;
     }
@@ -1980,17 +2000,17 @@ namespace video {
       // Refresh display names since a display removal might have caused the reinitialization
       refresh_displays(encoder.platform_formats->dev_type, display_names, display_p);
       // Process any pending display switch with the new list of displays
-      if (synced_session_ctxs.front()->config.display.has_value()  && 
-          synced_session_ctxs.front()->config.display.value() != display_names[display_p]) {
+      if (synced_session_ctxs.front()->config->display.has_value()  && 
+          synced_session_ctxs.front()->config->display.value() != display_names[display_p]) {
         for (int i = 0; i < display_names.size();i ++) {
-          if (synced_session_ctxs.front()->config.display.value() == display_names[i]) {
+          if (synced_session_ctxs.front()->config->display.value() == display_names[i]) {
             BOOST_LOG(info) << "Switched to display " << display_names[i];
             display_p = i;
             goto next;
           }
         }
-        BOOST_LOG(info) << "Display " << synced_session_ctxs.front()->config.display.value() << " not found";
-        synced_session_ctxs.front()->config.display = std::nullopt;
+        BOOST_LOG(info) << "Display " << synced_session_ctxs.front()->config->display.value() << " not found";
+        synced_session_ctxs.front()->config->display = std::nullopt;
       }
     next:
 
@@ -2058,8 +2078,8 @@ namespace video {
             continue;
           }
 
-          if (ctx->config.display.has_value() &&
-              ctx->config.display.value() != display_names[display_p]) {
+          if (ctx->config->display.has_value() &&
+              ctx->config->display.value() != display_names[display_p]) {
             ec = platf::capture_e::reinit;
             return false;
           }
@@ -2165,7 +2185,7 @@ namespace video {
       return;
     }
 
-    ref->capture_ctx_queue->raise(capture_ctx_t { images, config });
+    ref->capture_ctx_queue->raise(capture_ctx_t { images, &config });
 
     if (!ref->capture_ctx_queue->running()) {
       return;
@@ -2249,7 +2269,7 @@ namespace video {
         std::move(idr_events),
         mail->event<hdr_info_t>(mail::hdr),
         mail->event<input::touch_port_t>(mail::touch_port),
-        config,
+        &config,
         1,
         channel_data,
       });
@@ -2338,7 +2358,7 @@ namespace video {
     config_t config_autoselect { std::nullopt, 1920, 1080, 60, 1000, 1, 0, 1, 0, 0 };
 
     // If the encoder isn't supported at all (not even H.264), bail early
-    reset_display(disp, encoder.platform_formats->dev_type, config::video.output_name, config_autoselect);
+    reset_display(disp, encoder.platform_formats->dev_type, config::video.output_name, &config_autoselect);
     if (!disp) {
       return false;
     }
@@ -2468,7 +2488,7 @@ namespace video {
       av1.videoFormat = 2;
 
       // Reset the display since we're switching from SDR to HDR
-      reset_display(disp, encoder.platform_formats->dev_type, config::video.output_name, config);
+      reset_display(disp, encoder.platform_formats->dev_type, config::video.output_name, &config);
       if (!disp) {
         return false;
       }
