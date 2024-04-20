@@ -157,8 +157,10 @@ main(int argc, char *argv[]) {
   }
 
   //Get buffer local address from handle
+  BOOST_LOG(info) << "Allocating shared memory"sv;
   SharedMemory* memory = obtain_shared_memory(argv[1]);
 
+  BOOST_LOG(info) << "Allocated shared memory"sv;
   auto video_capture = [&](safe::mail_t mail, char* displayin,int codec){
     std::optional<std::string> display = std::nullopt;
     if (strlen(displayin) > 0)
