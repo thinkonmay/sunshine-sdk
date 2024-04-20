@@ -140,7 +140,6 @@ main(int argc, char *argv[]) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
   }
 
-  auto input_deinit_guard = input::init();
 
   int queuetype = -1;
   std::stringstream ss; ss << argv[2]; ss >> queuetype;
@@ -151,6 +150,10 @@ main(int argc, char *argv[]) {
       BOOST_LOG(error) << "Video failed to find working encoder"sv;
       return -1;
     }
+  }
+
+  if(queuetype == QueueType::Input) {
+    auto input_deinit_guard = input::init();
   }
 
   //Get buffer local address from handle
