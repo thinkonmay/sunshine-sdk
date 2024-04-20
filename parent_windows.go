@@ -101,7 +101,7 @@ func main() {
 	memory.queues[C.Video1].metadata.codec = C.int(0)
 	memory.queues[C.Audio].metadata.codec = C.int(3)
 
-	payloaders := map[C.int]func() codec.Payloader{
+	_ = map[C.int]func() codec.Payloader{
 		0: func() codec.Payloader { return &h264.Payloader{} },
 		1: func() codec.Payloader { return &h265.Payloader{} },
 		2: func() codec.Payloader { return &av1.Payloader{} },
@@ -116,7 +116,7 @@ func main() {
 
 	go func(queue *C.Queue, index *int) {
 		buffer := make([]byte, int(C.PACKET_SIZE))
-		payloader := payloaders[queue.metadata.codec]()
+		// payloader := payloaders[queue.metadata.codec]()
 
 		go func() {
 			for {
@@ -133,8 +133,8 @@ func main() {
 				block := queue.array[real_index]
 
 				C.memcpy(unsafe.Pointer(&buffer[0]), unsafe.Pointer(&block.data[0]), C.ulonglong(block.size))
-				payloads := payloader.Payload(1200, buffer[:block.size])
-				fmt.Printf("downstream index %d, upstream index %d, receive size %d\n", new_index, queue.index, len(payloads))
+				// payloads := payloader.Payload(1200, buffer[:block.size])
+				fmt.Printf("downstream index %d, upstream index %d, receive size %d\n", new_index, queue.index, block.size)
 
 				*index = new_index
 			}
@@ -142,46 +142,6 @@ func main() {
 			time.Sleep(time.Microsecond * 100)
 		}
 	}(&memory.queues[C.Video0], indexes[C.Video0])
-
-	go func(queue *C.Queue, index *int) {
-		buffer := make([]byte, 32)
-		for {
-			_, err := os.Stdin.Read(buffer)
-			if err != nil {
-				return
-			}
-
-			command := buffer[0]
-			switch command {
-			// case []byte("n")[0]:
-			// 	packet := C.NV_REL_MOUSE_MOVE_PACKET{
-			// 		header: C.NV_INPUT_HEADER{
-			// 			magic: C.MOUSE_MOVE_REL_MAGIC_GEN5,
-			// 		},
-			// 		deltaX: ConvertBEEdian(10),
-			// 		deltaY: ConvertBEEdian(10),
-			// 	}
-
-			// 	Write(queue, unsafe.Pointer(&packet), int(unsafe.Sizeof(packet)))
-			// 	_ = packet // use packet here to avoid go gc clear packet var
-			// case []byte("m")[0]:
-			// 	packet := C.NV_ABS_MOUSE_MOVE_PACKET{
-			// 		header: C.NV_INPUT_HEADER{
-			// 			magic: C.MOUSE_MOVE_ABS_MAGIC,
-			// 		},
-			// 		x:      ConvertBEEdian(1920),
-			// 		y:      ConvertBEEdian(1080),
-			// 		width:  ConvertBEEdian(3840),
-			// 		height: ConvertBEEdian(2160),
-			// 	}
-
-			// 	Write(queue, unsafe.Pointer(&packet), int(unsafe.Sizeof(packet)))
-			// 	_ = packet // use packet here to avoid go gc clear packet var
-			case []byte("k")[0]:
-				C.keyboard_passthrough(queue, 0, 1, 0)
-			}
-		}
-	}(&memory.queues[C.Input], indexes[C.Input])
 
 	fmt.Printf("execute sunshine with command : ./sunshine.exe \"%s\" 0\n", byteSliceToString(buffer))
 	chann := make(chan os.Signal, 16)

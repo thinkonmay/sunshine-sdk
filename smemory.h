@@ -1,5 +1,10 @@
 #define QUEUE_SIZE 32
+#ifdef _WIN32
+#define PACKET_SIZE 512 * 1024
+#else
 #define PACKET_SIZE 1024 * 1024
+#endif
+
 
 enum QueueType {
     Video0,
