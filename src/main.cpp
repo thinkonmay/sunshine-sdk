@@ -81,7 +81,7 @@ main(int argc, char *argv[]) {
   BOOST_LOG(info) << PROJECT_NAME << " version: " << PROJECT_VER;
 
 
-#ifdef WIN32
+#ifdef _WIN32
   // Modify relevant NVIDIA control panel settings if the system has corresponding gpu
   if (nvprefs_instance.load()) {
     // Restore global settings to the undo file left by improper termination of sunshine.exe
@@ -269,7 +269,7 @@ main(int argc, char *argv[]) {
   task_pool.stop();
   task_pool.join();
 
-#ifdef WIN32
+#ifdef _WIN32
   // Restore global NVIDIA control panel settings
   if (nvprefs_instance.owning_undo_file() && nvprefs_instance.load()) {
     nvprefs_instance.restore_global_profile();

@@ -99,31 +99,6 @@ namespace platf::dxgi {
 
   capture_e
   display_base_t::capture(const push_captured_image_cb_t &push_captured_image_cb, const pull_free_image_cb_t &pull_free_image_cb, bool *cursor) {
-    auto adjust_client_frame_rate = [&]() -> DXGI_RATIONAL {
-      // Adjust capture frame interval when display refresh rate is not integral but very close to requested fps.
-      if (display_refresh_rate.Denominator > 1) {
-        DXGI_RATIONAL candidate = display_refresh_rate;
-        if (client_frame_rate % display_refresh_rate_rounded == 0) {
-          candidate.Numerator *= client_frame_rate / display_refresh_rate_rounded;
-        }
-        else if (display_refresh_rate_rounded % client_frame_rate == 0) {
-          candidate.Denominator *= display_refresh_rate_rounded / client_frame_rate;
-        }
-        double candidate_rate = (double) candidate.Numerator / candidate.Denominator;
-        // Can only decrease requested fps, otherwise client may start accumulating frames and suffer increased latency.
-        if (client_frame_rate > candidate_rate && candidate_rate / client_frame_rate > 0.99) {
-          BOOST_LOG(info) << "Adjusted capture rate to " << candidate_rate << "fps to better match display";
-          return candidate;
-        }
-      }
-
-      return { (uint32_t) client_frame_rate, 1 };
-    };
-
-    DXGI_RATIONAL client_frame_rate_adjusted = adjust_client_frame_rate();
-    std::optional<std::chrono::steady_clock::time_point> frame_pacing_group_start;
-    uint32_t frame_pacing_group_frames = 0;
-
     // Keep the display awake during capture. If the display goes to sleep during
     // capture, best case is that capture stops until it powers back on. However,
     // worst case it will trigger us to reinit DD, waking the display back up in
@@ -132,8 +107,6 @@ namespace platf::dxgi {
     auto clear_display_required = util::fail_guard([]() {
       SetThreadExecutionState(ES_CONTINUOUS);
     });
-
-    stat_trackers::min_max_avg_tracker<double> sleep_overshoot_tracker;
 
     while (true) {
       // This will return false if the HDR state changes or for any number of other
@@ -147,8 +120,8 @@ namespace platf::dxgi {
       std::shared_ptr<img_t> img_out;
 
       // Start new frame pacing group if necessary, snapshot() is called with non-zero timeout
-      if (status == capture_e::timeout || (status == capture_e::ok && !frame_pacing_group_start)) {
-        status = snapshot(pull_free_image_cb, img_out, 200ms, *cursor);
+      if (status == capture_e::timeout || status == capture_e::ok) {
+        status = snapshot(pull_free_image_cb, img_out, 1000ms, *cursor);
 
         if (status == platf::capture_e::timeout) {
           // The D3D11 device is protected by an unfair lock that is held the entire time that

@@ -1801,7 +1801,7 @@ namespace video {
       }
     }
 
-#ifdef WIN32
+#ifdef _WIN32
     auto timer = CreateWaitableTimerEx(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
     if (!timer) 
         timer = CreateWaitableTimerEx(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
@@ -1860,7 +1860,7 @@ namespace video {
 
       
       auto sleep_period = std::chrono::nanoseconds(1s).count() / config->framerate - cycle.count();
-#ifdef WIN32
+#ifdef _WIN32
       if(sleep_period > 0) {
           LARGE_INTEGER due_time;
           due_time.QuadPart = sleep_period / -100;
