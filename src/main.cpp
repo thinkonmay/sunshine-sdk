@@ -183,6 +183,10 @@ main(int argc, char *argv[]) {
     auto input         = input::alloc(mail);
     auto local_shutdown= mail->event<bool>(mail::shutdown);
 
+#ifdef _WIN32 
+    platf::adjust_thread_priority(platf::thread_priority_e::critical);
+#endif
+
     queue->metadata.active = 1;
     auto current_index = queue->index;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
@@ -201,7 +205,7 @@ main(int argc, char *argv[]) {
     queue->metadata.active = 0;
   };
 
-  auto push = [process_shutdown_event](safe::mail_t mail, Queue* queue){
+  auto push = [process_shutdown_event](safe::mail_t mail, Queue* queue, QueueType queue_type){
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto bitrate       = mail->event<int>(mail::bitrate);
@@ -209,15 +213,23 @@ main(int argc, char *argv[]) {
     auto idr           = mail->event<bool>(mail::idr);
     auto local_shutdown= mail->event<bool>(mail::shutdown);
 
+#ifdef _WIN32 
+    if (queue_type == QueueType::Video0 || queue_type == QueueType::Video1)
+      platf::adjust_thread_priority(platf::thread_priority_e::critical);
+#endif
+
     queue->metadata.active = 1;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
-      while(video_packets->peek()) {
-        auto packet = video_packets->pop();
-        push_packet(queue,packet->data(),packet->data_size(),PacketMetadata{ packet->is_idr() });
-      }
-      while(audio_packets->peek()) {
-        auto packet = audio_packets->pop();
-        push_packet(queue,packet->second.begin(),packet->second.size(),PacketMetadata{ 0 });
+      if (queue_type == QueueType::Video0 || queue_type == QueueType::Video1) {
+        do {
+          auto packet = video_packets->pop();
+          push_packet(queue,packet->data(),packet->data_size(),PacketMetadata{ packet->is_idr() });
+        } while (video_packets->peek());
+      } else if (queue_type == QueueType::Audio) {
+        do {
+          auto packet = audio_packets->pop();
+          push_packet(queue,packet->second.begin(),packet->second.size(),PacketMetadata{ 0 });
+        } while (audio_packets->peek());
       }
 
       if(peek_event(queue,EventType::Bitrate))
@@ -230,8 +242,6 @@ main(int argc, char *argv[]) {
         pop_event(queue,EventType::Idr);
         idr->raise(1);
       }
-
-      std::this_thread::sleep_for(1ms);
     }
 
     if (!local_shutdown->peek())
@@ -246,12 +256,12 @@ main(int argc, char *argv[]) {
   BOOST_LOG(info) << "Starting capture on channel " << queuetype;
   if (queuetype == QueueType::Video0 || queuetype == QueueType::Video1) {
     auto capture = std::thread{video_capture,mail,queue->metadata.display,queue->metadata.codec};
-    auto forward = std::thread{push,mail,queue};
+    auto forward = std::thread{push,mail,queue,(QueueType)queuetype};
     capture.detach();
     forward.detach();
   } else if (queuetype == QueueType::Audio) {
     auto capture = std::thread{audio_capture,mail};
-    auto forward = std::thread{push,mail,queue};
+    auto forward = std::thread{push,mail,queue,(QueueType)queuetype};
     capture.detach();
     forward.detach();
   } else if (queuetype == QueueType::Input) {
