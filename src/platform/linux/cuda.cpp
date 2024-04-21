@@ -796,6 +796,8 @@ namespace cuda {
           handle.reset();
         });
 
+        sleep_overshoot_tracker.reset();
+
         while (true) {
           std::shared_ptr<platf::img_t> img_out;
           auto status = snapshot(pull_free_image_cb, img_out, 150ms, *cursor);
