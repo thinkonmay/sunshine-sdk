@@ -219,11 +219,17 @@ main(int argc, char *argv[]) {
 #endif
 
     queue->metadata.active = 1;
+    auto last_timestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video0 || queue_type == QueueType::Video1) {
         do {
           auto packet = video_packets->pop();
-          push_packet(queue,packet->data(),packet->data_size(),PacketMetadata{ packet->is_idr() });
+          auto timestamp = packet->frame_timestamp.value().time_since_epoch().count();
+          push_packet(queue,packet->data(),packet->data_size(),PacketMetadata{ 
+            packet->is_idr(),
+            timestamp - last_timestamp
+          });
+          last_timestamp = timestamp;
         } while (video_packets->peek());
       } else if (queue_type == QueueType::Audio) {
         do {

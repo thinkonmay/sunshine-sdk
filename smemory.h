@@ -27,6 +27,7 @@ typedef enum _EventType {
 
 typedef struct {
     int is_idr;
+    long long duration;
 }PacketMetadata;
 
 typedef struct {
