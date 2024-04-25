@@ -1806,12 +1806,14 @@ namespace video {
     if (!timer) 
         timer = CreateWaitableTimerEx(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
 #endif
-    
+
 
     std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
-    auto timestamp = std::chrono::steady_clock::now();
-    auto now = std::chrono::steady_clock::now();
-    auto cycle = std::chrono::nanoseconds(1s) / config->framerate;
+    auto last_frametimestamp = frame_timestamp;
+
+    auto last_encode_timestamp = std::chrono::steady_clock::now();
+    auto encode_timestamp = last_encode_timestamp;
+
     while (true) {
       if (shutdown_event->peek() || reinit_event.peek() || !images->running()) {
         break;
@@ -1858,28 +1860,35 @@ namespace video {
         }
       }
 
+      // use encode timestamp instead of frame timestamp in case 
+      // we are re using the last frame
+      if (frame_timestamp == last_frametimestamp)
+        frame_timestamp = std::chrono::steady_clock::now(); 
+      last_frametimestamp = frame_timestamp;
       
-      auto sleep_period = std::chrono::nanoseconds(1s).count() / config->framerate - cycle.count();
-#ifdef _WIN32
+      encode_timestamp = std::chrono::steady_clock::now();
+      auto sleep_period = 
+        std::chrono::nanoseconds(1s).count() / config->framerate 
+        - (encode_timestamp - last_encode_timestamp).count();
+
+      last_encode_timestamp = encode_timestamp;
+
       if(sleep_period > 0) {
-          LARGE_INTEGER due_time;
-          due_time.QuadPart = sleep_period / -100;
-          SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, false);
-          WaitForSingleObject(timer, INFINITE);
-      }
+#ifdef _WIN32
+        LARGE_INTEGER due_time;
+        due_time.QuadPart = sleep_period / -100;
+        SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, false);
+        WaitForSingleObject(timer, INFINITE);
 #else
-      if(sleep_period > 0)
         std::this_thread::sleep_for(sleep_period * 1ns);
 #endif
+      }
 
       if (encode(frame_nr++, *session, packets, channel_data, frame_timestamp)) {
         BOOST_LOG(error) << "Could not encode video packet"sv;
         return;
       }
 
-      now = std::chrono::steady_clock::now();
-      cycle = now - timestamp;
-      timestamp = now;
       session->request_normal_frame();
     }
   }
