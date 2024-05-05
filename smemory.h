@@ -34,6 +34,14 @@ typedef struct {
     int active;
     char display[64];
     int codec;
+
+    int env_width, env_height;
+    int width, height;
+    // Offset x and y coordinates of the client
+    float client_offsetX, client_offsetY;
+    float offsetX, offsetY;
+
+    float scalar_inv;
 }QueueMetadata;
 
 typedef struct {
