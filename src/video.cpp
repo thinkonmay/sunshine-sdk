@@ -33,6 +33,8 @@ extern "C" {
 }
 #endif
 
+// #define ALLOW_SW_ENCODER
+
 using namespace std::literals;
 namespace video {
 
@@ -924,15 +926,18 @@ namespace video {
 #endif
 #ifdef _WIN32
     &quicksync,
-    &amdvce,
+    &amdvce
 #endif
 #ifdef __linux__
-    &vaapi,
+    &vaapi
 #endif
 #ifdef __APPLE__
-    &videotoolbox,
+    &videotoolbox
 #endif
-    &software
+
+#ifdef ALLOW_SW_ENCODER
+    ,&software
+#endif
   };
 
   static encoder_t *chosen_encoder;
