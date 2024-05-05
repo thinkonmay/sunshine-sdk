@@ -212,6 +212,7 @@ main(int argc, char *argv[]) {
     auto framerate     = mail->event<int>(mail::framerate);
     auto idr           = mail->event<bool>(mail::idr);
     auto local_shutdown= mail->event<bool>(mail::shutdown);
+    auto touch_port    = mail->event<input::touch_port_t>(mail::touch_port);
 
 #ifdef _WIN32 
     if (queue_type == QueueType::Video0 || queue_type == QueueType::Video1)
@@ -247,6 +248,21 @@ main(int argc, char *argv[]) {
       if(peek_event(queue,EventType::Idr)) {
         pop_event(queue,EventType::Idr);
         idr->raise(1);
+      } 
+      if(touch_port->peek()) {
+        auto touch = touch_port->pop();
+        if (touch.has_value()) {
+          auto value = touch.value();
+          queue->metadata.client_offsetX = value.client_offsetX;
+          queue->metadata.client_offsetY = value.client_offsetY;
+          queue->metadata.offsetX= value.offset_x;
+          queue->metadata.offsetY = value.offset_y;
+          queue->metadata.env_height = value.env_height;
+          queue->metadata.env_width = value.env_width;
+          queue->metadata.height = value.height;
+          queue->metadata.width = value.width;
+          queue->metadata.scalar_inv = value.scalar_inv;
+        }
       }
     }
 
