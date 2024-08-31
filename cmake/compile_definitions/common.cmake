@@ -6,12 +6,19 @@ list(APPEND SUNSHINE_COMPILE_OPTIONS -Wall -Wno-sign-compare)
 # Werror - treat warnings as errors
 # Wno-maybe-uninitialized/Wno-uninitialized - disable warnings for maybe uninitialized variables
 # Wno-sign-compare - disable warnings for signed/unsigned comparisons
+# Wno-restrict - disable warnings for memory overlap
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # GCC specific compile options
 
     # GCC 12 and higher will complain about maybe-uninitialized
     if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 12)
         list(APPEND SUNSHINE_COMPILE_OPTIONS -Wno-maybe-uninitialized)
+
+        # Disable the bogus warning that may prevent compilation (only for GCC 12).
+        # See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=105651.
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13)
+            list(APPEND SUNSHINE_COMPILE_OPTIONS -Wno-restrict)
+        endif()
     endif()
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # Clang specific compile options
@@ -81,6 +88,8 @@ set(SUNSHINE_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/round_robin.h"
         "${CMAKE_SOURCE_DIR}/src/stat_trackers.h"
         "${CMAKE_SOURCE_DIR}/src/stat_trackers.cpp"
+        "${CMAKE_SOURCE_DIR}/src/rswrapper.h"
+        "${CMAKE_SOURCE_DIR}/src/rswrapper.c"
         ${PLATFORM_TARGET_FILES})
 
 if(NOT SUNSHINE_ASSETS_DIR_DEF)
@@ -90,13 +99,18 @@ list(APPEND SUNSHINE_DEFINITIONS SUNSHINE_ASSETS_DIR="${SUNSHINE_ASSETS_DIR_DEF}
 
 list(APPEND SUNSHINE_DEFINITIONS SUNSHINE_TRAY=${SUNSHINE_TRAY})
 
+# Publisher metadata
+list(APPEND SUNSHINE_DEFINITIONS SUNSHINE_PUBLISHER_NAME="${SUNSHINE_PUBLISHER_NAME}")
+list(APPEND SUNSHINE_DEFINITIONS SUNSHINE_PUBLISHER_WEBSITE="${SUNSHINE_PUBLISHER_WEBSITE}")
+list(APPEND SUNSHINE_DEFINITIONS SUNSHINE_PUBLISHER_ISSUE_URL="${SUNSHINE_PUBLISHER_ISSUE_URL}")
+
 include_directories("${CMAKE_SOURCE_DIR}")
 
 include_directories(
         SYSTEM
         "${CMAKE_SOURCE_DIR}/third-party"
         ${FFMPEG_INCLUDE_DIRS}
-        ${PLATFORM_INCLUDE_DIRS}
+        ${Boost_INCLUDE_DIRS}  # has to be the last, or we get runtime error on macOS ffmpeg encoder
 )
 
 list(APPEND SUNSHINE_EXTERNAL_LIBRARIES
@@ -106,5 +120,4 @@ list(APPEND SUNSHINE_EXTERNAL_LIBRARIES
         ${FFMPEG_LIBRARIES}
         ${Boost_LIBRARIES}
         ${OPENSSL_LIBRARIES}
-        ${CURL_LIBRARIES}
         ${PLATFORM_LIBRARIES})

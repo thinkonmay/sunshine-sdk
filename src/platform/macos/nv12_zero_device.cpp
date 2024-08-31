@@ -1,9 +1,10 @@
 /**
  * @file src/platform/macos/nv12_zero_device.cpp
- * @brief todo
+ * @brief Definitions for NV12 zero copy device on macOS.
  */
 #include <utility>
 
+#include "src/platform/macos/av_img_t.h"
 #include "src/platform/macos/nv12_zero_device.h"
 
 #include "src/video.h"
@@ -23,6 +24,8 @@ namespace platf {
   free_buffer(void *opaque, uint8_t *data) {
     CVPixelBufferRelease((CVPixelBufferRef) data);
   }
+
+  util::safe_ptr<AVFrame, free_frame> av_frame;
 
   int
   nv12_zero_device::convert(platf::img_t &img) {

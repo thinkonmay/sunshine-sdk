@@ -1,6 +1,6 @@
 /**
  * @file src/platform/macos/misc.mm
- * @brief todo
+ * @brief Miscellaneous definitions for macOS platform.
  */
 
 // Required for IPV6_PKTINFO with Darwin headers
@@ -243,11 +243,16 @@ namespace platf {
   restart() {
   }
 
-  /**
-   * @brief Attempt to gracefully terminate a process group.
-   * @param native_handle The process group ID.
-   * @return true if termination was successfully requested.
-   */
+  int
+  set_env(const std::string &name, const std::string &value) {
+    return setenv(name.c_str(), value.c_str(), 1);
+  }
+
+  int
+  unset_env(const std::string &name) {
+    return unsetenv(name.c_str());
+  }
+
   bool
   request_process_group_exit(std::uintptr_t native_handle) {
     if (killpg((pid_t) native_handle, SIGTERM) == 0 || errno == ESRCH) {
@@ -260,11 +265,6 @@ namespace platf {
     }
   }
 
-  /**
-   * @brief Checks if a process group still has running children.
-   * @param native_handle The process group ID.
-   * @return true if processes are still running.
-   */
   bool
   process_group_running(std::uintptr_t native_handle) {
     return waitpid(-((pid_t) native_handle), nullptr, WNOHANG) >= 0;
@@ -363,12 +363,19 @@ namespace platf {
       memcpy(CMSG_DATA(pktinfo_cm), &pktInfo, sizeof(pktInfo));
     }
 
-    struct iovec iov = {};
-    iov.iov_base = (void *) send_info.buffer;
-    iov.iov_len = send_info.size;
+    struct iovec iovs[2] = {};
+    int iovlen = 0;
+    if (send_info.header) {
+      iovs[iovlen].iov_base = (void *) send_info.header;
+      iovs[iovlen].iov_len = send_info.header_size;
+      iovlen++;
+    }
+    iovs[iovlen].iov_base = (void *) send_info.payload;
+    iovs[iovlen].iov_len = send_info.payload_size;
+    iovlen++;
 
-    msg.msg_iov = &iov;
-    msg.msg_iovlen = 1;
+    msg.msg_iov = iovs;
+    msg.msg_iovlen = iovlen;
 
     msg.msg_controllen = cmbuflen;
 
@@ -507,6 +514,22 @@ namespace platf {
     return std::make_unique<qos_t>(sockfd, reset_options);
   }
 
+  class macos_high_precision_timer: public high_precision_timer {
+  public:
+    void
+    sleep_for(const std::chrono::nanoseconds &duration) override {
+      std::this_thread::sleep_for(duration);
+    }
+
+    operator bool() override {
+      return true;
+    }
+  };
+
+  std::unique_ptr<high_precision_timer>
+  create_high_precision_timer() {
+    return std::make_unique<macos_high_precision_timer>();
+  }
 }  // namespace platf
 
 namespace dyn {

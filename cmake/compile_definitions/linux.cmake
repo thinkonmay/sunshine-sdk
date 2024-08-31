@@ -24,57 +24,42 @@ if(${SUNSHINE_ENABLE_CUDA})
         # https://tech.amikelive.com/node-930/cuda-compatibility-of-nvidia-display-gpu-drivers/
         if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 6.5)
             list(APPEND CMAKE_CUDA_ARCHITECTURES 10)
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_10,code=sm_10")
         elseif(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 6.5)
             list(APPEND CMAKE_CUDA_ARCHITECTURES 50 52)
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_50,code=sm_50")
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_52,code=sm_52")
         endif()
 
         if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 7.0)
             list(APPEND CMAKE_CUDA_ARCHITECTURES 11)
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_11,code=sm_11")
         elseif(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER 7.6)
             list(APPEND CMAKE_CUDA_ARCHITECTURES 60 61 62)
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_60,code=sm_60")
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_61,code=sm_61")
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_62,code=sm_62")
         endif()
 
+        # https://docs.nvidia.com/cuda/archive/9.2/cuda-compiler-driver-nvcc/index.html
         if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 9.0)
             list(APPEND CMAKE_CUDA_ARCHITECTURES 20)
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_20,code=sm_20")
         elseif(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 9.0)
             list(APPEND CMAKE_CUDA_ARCHITECTURES 70)
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_70,code=sm_70")
         endif()
 
+        # https://docs.nvidia.com/cuda/archive/10.0/cuda-compiler-driver-nvcc/index.html
         if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 10.0)
-            list(APPEND CMAKE_CUDA_ARCHITECTURES 75)
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_75,code=sm_75")
+            list(APPEND CMAKE_CUDA_ARCHITECTURES 72 75)
         endif()
 
+        # https://docs.nvidia.com/cuda/archive/11.0/cuda-compiler-driver-nvcc/index.html
         if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 11.0)
             list(APPEND CMAKE_CUDA_ARCHITECTURES 30)
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_30,code=sm_30")
         elseif(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.0)
             list(APPEND CMAKE_CUDA_ARCHITECTURES 80)
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_80,code=sm_80")
         endif()
 
-        if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.1)
-            list(APPEND CMAKE_CUDA_ARCHITECTURES 86)
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_86,code=sm_86")
-        endif()
-
+        # https://docs.nvidia.com/cuda/archive/11.8.0/cuda-compiler-driver-nvcc/index.html
         if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.8)
-            list(APPEND CMAKE_CUDA_ARCHITECTURES 90)
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_90,code=sm_90")
+            list(APPEND CMAKE_CUDA_ARCHITECTURES 86 87 89 90)
         endif()
 
         if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 12.0)
             list(APPEND CMAKE_CUDA_ARCHITECTURES 35)
-            # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_35,code=sm_35")
         endif()
 
         # sort the architectures
@@ -117,15 +102,7 @@ elseif(NOT LIBDRM_FOUND)
 endif()
 
 # evdev
-pkg_check_modules(PC_EVDEV libevdev REQUIRED)
-find_path(EVDEV_INCLUDE_DIR libevdev/libevdev.h
-        HINTS ${PC_EVDEV_INCLUDE_DIRS} ${PC_EVDEV_INCLUDEDIR})
-find_library(EVDEV_LIBRARY
-        NAMES evdev libevdev)
-if(EVDEV_INCLUDE_DIR AND EVDEV_LIBRARY)
-    include_directories(SYSTEM ${EVDEV_INCLUDE_DIR})
-    list(APPEND PLATFORM_LIBRARIES ${EVDEV_LIBRARY})
-endif()
+include(dependencies/libevdev_Sunshine)
 
 # vaapi
 if(${SUNSHINE_ENABLE_VAAPI})
@@ -203,7 +180,6 @@ list(APPEND PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/platform/linux/misc.h"
         "${CMAKE_SOURCE_DIR}/src/platform/linux/misc.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/linux/audio.cpp"
-        "${CMAKE_SOURCE_DIR}/src/platform/linux/input.cpp"
         "${CMAKE_SOURCE_DIR}/third-party/glad/src/egl.c"
         "${CMAKE_SOURCE_DIR}/third-party/glad/src/gl.c"
         "${CMAKE_SOURCE_DIR}/third-party/glad/include/EGL/eglplatform.h"
@@ -212,13 +188,10 @@ list(APPEND PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/third-party/glad/include/glad/egl.h")
 
 list(APPEND PLATFORM_LIBRARIES
-        Boost::dynamic_linking
         dl
-        numa
         pulse
         pulse-simple)
 
 include_directories(
         SYSTEM
-        "${CMAKE_SOURCE_DIR}/third-party/nv-codec-headers/include"
         "${CMAKE_SOURCE_DIR}/third-party/glad/include")

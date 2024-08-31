@@ -2,9 +2,15 @@
 
 install(DIRECTORY "${SUNSHINE_SOURCE_ASSETS_DIR}/linux/assets/"
         DESTINATION "${SUNSHINE_ASSETS_DIR}")
-# copy assets to build directory, for running without install
+
+# copy assets (excluding shaders) to build directory, for running without install
 file(COPY "${SUNSHINE_SOURCE_ASSETS_DIR}/linux/assets/"
-        DESTINATION "${CMAKE_BINARY_DIR}/assets")
+        DESTINATION "${CMAKE_BINARY_DIR}/assets"
+        PATTERN "shaders" EXCLUDE)
+# use symbolic link for shaders directory
+file(CREATE_LINK "${SUNSHINE_SOURCE_ASSETS_DIR}/linux/assets/shaders"
+        "${CMAKE_BINARY_DIR}/assets/shaders" COPY_ON_ERROR SYMBOLIC)
+
 if(${SUNSHINE_BUILD_APPIMAGE} OR ${SUNSHINE_BUILD_FLATPAK})
     install(FILES "${SUNSHINE_SOURCE_ASSETS_DIR}/linux/misc/60-sunshine.rules"
             DESTINATION "${SUNSHINE_ASSETS_DIR}/udev/rules.d")
@@ -14,24 +20,28 @@ else()
     find_package(Systemd)
     find_package(Udev)
 
-    install(FILES "${SUNSHINE_SOURCE_ASSETS_DIR}/linux/misc/60-sunshine.rules"
-            DESTINATION "${UDEV_RULES_INSTALL_DIR}")
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/sunshine.service"
-            DESTINATION "${SYSTEMD_USER_UNIT_INSTALL_DIR}")
+    if(UDEV_FOUND)
+        install(FILES "${SUNSHINE_SOURCE_ASSETS_DIR}/linux/misc/60-sunshine.rules"
+                DESTINATION "${UDEV_RULES_INSTALL_DIR}")
+    endif()
+    if(SYSTEMD_FOUND)
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/sunshine.service"
+                DESTINATION "${SYSTEMD_USER_UNIT_INSTALL_DIR}")
+    endif()
 endif()
 
 # Post install
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${SUNSHINE_SOURCE_ASSETS_DIR}/linux/misc/postinst")
 set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${SUNSHINE_SOURCE_ASSETS_DIR}/linux/misc/postinst")
 
+# Apply setcap for RPM
+# https://github.com/coreos/rpm-ostree/discussions/5036#discussioncomment-10291071
+set(CPACK_RPM_USER_FILELIST "%caps(cap_sys_admin+p) ${SUNSHINE_EXECUTABLE_PATH}")
+
 # Dependencies
 set(CPACK_DEB_COMPONENT_INSTALL ON)
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "\
             ${CPACK_DEB_PLATFORM_PACKAGE_DEPENDS} \
-            libboost-filesystem${Boost_VERSION}, \
-            libboost-locale${Boost_VERSION}, \
-            libboost-log${Boost_VERSION}, \
-            libboost-program-options${Boost_VERSION}, \
             libcap2, \
             libcurl4, \
             libdrm2, \
@@ -48,10 +58,6 @@ set(CPACK_DEBIAN_PACKAGE_DEPENDS "\
             openssl | libssl3")
 set(CPACK_RPM_PACKAGE_REQUIRES "\
             ${CPACK_RPM_PLATFORM_PACKAGE_REQUIRES} \
-            boost-filesystem >= ${Boost_VERSION}, \
-            boost-locale >= ${Boost_VERSION}, \
-            boost-log >= ${Boost_VERSION}, \
-            boost-program-options >= ${Boost_VERSION}, \
             libcap >= 2.22, \
             libcurl >= 7.0, \
             libdrm >= 2.4.97, \
@@ -65,6 +71,21 @@ set(CPACK_RPM_PACKAGE_REQUIRES "\
             numactl-libs >= 2.0.14, \
             openssl >= 3.0.2, \
             pulseaudio-libs >= 10.0")
+
+if(NOT BOOST_USE_STATIC)
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "\
+                ${CPACK_DEBIAN_PACKAGE_DEPENDS}, \
+                libboost-filesystem${Boost_VERSION}, \
+                libboost-locale${Boost_VERSION}, \
+                libboost-log${Boost_VERSION}, \
+                libboost-program-options${Boost_VERSION}")
+    set(CPACK_RPM_PACKAGE_REQUIRES "\
+                ${CPACK_RPM_PACKAGE_REQUIRES}, \
+                boost-filesystem >= ${Boost_VERSION}, \
+                boost-locale >= ${Boost_VERSION}, \
+                boost-log >= ${Boost_VERSION}, \
+                boost-program-options >= ${Boost_VERSION}")
+endif()
 
 # This should automatically figure out dependencies, doesn't work with the current config
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)

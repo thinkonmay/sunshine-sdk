@@ -1,3 +1,7 @@
+/**
+ * @file src/nvenc/nvenc_utils.cpp
+ * @brief Definitions for NVENC utilities.
+ */
 #include <cassert>
 
 #include "nvenc_utils.h"
@@ -14,6 +18,12 @@ namespace nvenc {
       case NV_ENC_BUFFER_FORMAT_NV12:
         return DXGI_FORMAT_NV12;
 
+      case NV_ENC_BUFFER_FORMAT_AYUV:
+        return DXGI_FORMAT_AYUV;
+
+      case NV_ENC_BUFFER_FORMAT_YUV444_10BIT:
+        return DXGI_FORMAT_R16_UINT;
+
       default:
         return DXGI_FORMAT_UNKNOWN;
     }
@@ -28,6 +38,12 @@ namespace nvenc {
 
       case platf::pix_fmt_e::p010:
         return NV_ENC_BUFFER_FORMAT_YUV420_10BIT;
+
+      case platf::pix_fmt_e::ayuv:
+        return NV_ENC_BUFFER_FORMAT_AYUV;
+
+      case platf::pix_fmt_e::yuv444p16:
+        return NV_ENC_BUFFER_FORMAT_YUV444_10BIT;
 
       default:
         return NV_ENC_BUFFER_FORMAT_UNDEFINED;

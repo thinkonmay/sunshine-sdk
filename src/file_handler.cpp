@@ -1,6 +1,6 @@
 /**
  * @file file_handler.cpp
- * @brief File handling functions.
+ * @brief Definitions for file handling functions.
  */
 
 // standard includes
@@ -12,17 +12,28 @@
 #include "logging.h"
 
 namespace file_handler {
+  std::string
+  get_parent_directory(const std::string &path) {
+    // remove any trailing path separators
+    std::string trimmed_path = path;
+    while (!trimmed_path.empty() && trimmed_path.back() == '/') {
+      trimmed_path.pop_back();
+    }
 
-  /**
-   * @brief Read a file to string.
-   * @param path The path of the file.
-   * @return `std::string` : The contents of the file.
-   *
-   * EXAMPLES:
-   * ```cpp
-   * std::string contents = read_file("path/to/file");
-   * ```
-   */
+    std::filesystem::path p(trimmed_path);
+    return p.parent_path().string();
+  }
+
+  bool
+  make_directory(const std::string &path) {
+    // first, check if the directory already exists
+    if (std::filesystem::exists(path)) {
+      return true;
+    }
+
+    return std::filesystem::create_directories(path);
+  }
+
   std::string
   read_file(const char *path) {
     if (!std::filesystem::exists(path)) {
@@ -31,29 +42,9 @@ namespace file_handler {
     }
 
     std::ifstream in(path);
-
-    std::string input;
-    std::string base64_cert;
-
-    while (!in.eof()) {
-      std::getline(in, input);
-      base64_cert += input + '\n';
-    }
-
-    return base64_cert;
+    return std::string { (std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>() };
   }
 
-  /**
-   * @brief Writes a file.
-   * @param path The path of the file.
-   * @param contents The contents to write.
-   * @return `int` : `0` on success, `-1` on failure.
-   *
-   * EXAMPLES:
-   * ```cpp
-   * int write_status = write_file("path/to/file", "file contents");
-   * ```
-   */
   int
   write_file(const char *path, const std::string_view &contents) {
     std::ofstream out(path);

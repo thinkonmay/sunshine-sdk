@@ -8,7 +8,11 @@ project(Sunshine VERSION 0.23.1
         DESCRIPTION "Self-hosted game stream host for Moonlight"
         HOMEPAGE_URL "https://app.lizardbyte.dev/Sunshine")
 
-set(PROJECT_LICENSE "GPL-3.0")
+set(PROJECT_LICENSE "GPL-3.0-only")
+
+set(PROJECT_FQDN "dev.lizardbyte.app.Sunshine")
+
+set(PROJECT_BRIEF_DESCRIPTION "GameStream host for Moonlight")  # must be <= 35 characters
 
 set(PROJECT_LONG_DESCRIPTION "Offering low latency, cloud gaming server capabilities with support for AMD, Intel, \
 and Nvidia GPUs for hardware encoding. Software encoding is also available. You can connect to Sunshine from any \
@@ -28,6 +32,9 @@ include(${CMAKE_MODULE_PATH}/prep/build_version.cmake)
 
 # cmake build flags
 include(${CMAKE_MODULE_PATH}/prep/options.cmake)
+
+# initial prep
+include(${CMAKE_MODULE_PATH}/prep/init.cmake)
 
 # configure special package files, such as sunshine.desktop, Flatpak manifest, Portfile , etc.
 include(${CMAKE_MODULE_PATH}/prep/special_package_configuration.cmake)

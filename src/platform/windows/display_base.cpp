@@ -1,6 +1,6 @@
 /**
  * @file src/platform/windows/display_base.cpp
- * @brief todo
+ * @brief Definitions for the Windows display base code.
  */
 #include <cmath>
 #include <initguid.h>
@@ -17,7 +17,6 @@ typedef long NTSTATUS;
 #include "src/config.h"
 #include "src/logging.h"
 #include "src/platform/common.h"
-#include "src/stat_trackers.h"
 #include "src/video.h"
 
 namespace platf {
@@ -25,6 +24,91 @@ namespace platf {
 }
 namespace platf::dxgi {
   namespace bp = boost::process;
+
+  /**
+   * DDAPI-specific initialization goes here.
+   */
+  int
+  duplication_t::init(display_base_t *display, const ::video::config_t &config) {
+    HRESULT status;
+
+    // Capture format will be determined from the first call to AcquireNextFrame()
+    display->capture_format = DXGI_FORMAT_UNKNOWN;
+
+    // FIXME: Duplicate output on RX580 in combination with DOOM (2016) --> BSOD
+    {
+      // IDXGIOutput5 is optional, but can provide improved performance and wide color support
+      dxgi::output5_t output5 {};
+      status = display->output->QueryInterface(IID_IDXGIOutput5, (void **) &output5);
+      if (SUCCEEDED(status)) {
+        // Ask the display implementation which formats it supports
+        auto supported_formats = display->get_supported_capture_formats();
+        if (supported_formats.empty()) {
+          BOOST_LOG(warning) << "No compatible capture formats for this encoder"sv;
+          return -1;
+        }
+
+        // We try this twice, in case we still get an error on reinitialization
+        for (int x = 0; x < 2; ++x) {
+          // Ensure we can duplicate the current display
+          syncThreadDesktop();
+
+          status = output5->DuplicateOutput1((IUnknown *) display->device.get(), 0, supported_formats.size(), supported_formats.data(), &dup);
+          if (SUCCEEDED(status)) {
+            break;
+          }
+          std::this_thread::sleep_for(200ms);
+        }
+
+        // We don't retry with DuplicateOutput() because we can hit this codepath when we're racing
+        // with mode changes and we don't want to accidentally fall back to suboptimal capture if
+        // we get unlucky and succeed below.
+        if (FAILED(status)) {
+          BOOST_LOG(warning) << "DuplicateOutput1 Failed [0x"sv << util::hex(status).to_string_view() << ']';
+          return -1;
+        }
+      }
+      else {
+        BOOST_LOG(warning) << "IDXGIOutput5 is not supported by your OS. Capture performance may be reduced."sv;
+
+        dxgi::output1_t output1 {};
+        status = display->output->QueryInterface(IID_IDXGIOutput1, (void **) &output1);
+        if (FAILED(status)) {
+          BOOST_LOG(error) << "Failed to query IDXGIOutput1 from the output"sv;
+          return -1;
+        }
+
+        for (int x = 0; x < 2; ++x) {
+          // Ensure we can duplicate the current display
+          syncThreadDesktop();
+
+          status = output1->DuplicateOutput((IUnknown *) display->device.get(), &dup);
+          if (SUCCEEDED(status)) {
+            break;
+          }
+          std::this_thread::sleep_for(200ms);
+        }
+
+        if (FAILED(status)) {
+          BOOST_LOG(error) << "DuplicateOutput Failed [0x"sv << util::hex(status).to_string_view() << ']';
+          return -1;
+        }
+      }
+    }
+
+    DXGI_OUTDUPL_DESC dup_desc;
+    dup->GetDesc(&dup_desc);
+
+    BOOST_LOG(info) << "Desktop resolution ["sv << dup_desc.ModeDesc.Width << 'x' << dup_desc.ModeDesc.Height << ']';
+    BOOST_LOG(info) << "Desktop format ["sv << display->dxgi_format_to_string(dup_desc.ModeDesc.Format) << ']';
+
+    display->display_refresh_rate = dup_desc.ModeDesc.RefreshRate;
+    double display_refresh_rate_decimal = (double) display->display_refresh_rate.Numerator / display->display_refresh_rate.Denominator;
+    BOOST_LOG(info) << "Display refresh rate [" << display_refresh_rate_decimal << "Hz]";
+    BOOST_LOG(info) << "Requested frame rate [" << display->client_frame_rate << "fps]";
+    display->display_refresh_rate_rounded = lround(display_refresh_rate_decimal);
+    return 0;
+  }
 
   capture_e
   duplication_t::next_frame(DXGI_OUTDUPL_FRAME_INFO &frame_info, std::chrono::milliseconds timeout, resource_t::pointer *res_p) {
@@ -165,7 +249,7 @@ namespace platf::dxgi {
           return status;
       }
 
-      status = dup.release_frame();
+      status = release_snapshot();
       if (status != platf::capture_e::ok) {
         return status;
       }
@@ -416,6 +500,8 @@ namespace platf::dxgi {
             // Ensure offset starts at 0x0
             offset_x -= GetSystemMetrics(SM_XVIRTUALSCREEN);
             offset_y -= GetSystemMetrics(SM_YVIRTUALSCREEN);
+
+            break;
           }
         }
 
@@ -604,81 +690,7 @@ namespace platf::dxgi {
       }
     }
 
-    // FIXME: Duplicate output on RX580 in combination with DOOM (2016) --> BSOD
-    {
-      // IDXGIOutput5 is optional, but can provide improved performance and wide color support
-      dxgi::output5_t output5 {};
-      status = output->QueryInterface(IID_IDXGIOutput5, (void **) &output5);
-      if (SUCCEEDED(status)) {
-        // Ask the display implementation which formats it supports
-        auto supported_formats = get_supported_capture_formats();
-        if (supported_formats.empty()) {
-          BOOST_LOG(warning) << "No compatible capture formats for this encoder"sv;
-          return -1;
-        }
-
-        // We try this twice, in case we still get an error on reinitialization
-        for (int x = 0; x < 2; ++x) {
-          // Ensure we can duplicate the current display
-          syncThreadDesktop();
-
-          status = output5->DuplicateOutput1((IUnknown *) device.get(), 0, supported_formats.size(), supported_formats.data(), &dup.dup);
-          if (SUCCEEDED(status)) {
-            break;
-          }
-          std::this_thread::sleep_for(200ms);
-        }
-
-        // We don't retry with DuplicateOutput() because we can hit this codepath when we're racing
-        // with mode changes and we don't want to accidentally fall back to suboptimal capture if
-        // we get unlucky and succeed below.
-        if (FAILED(status)) {
-          BOOST_LOG(warning) << "DuplicateOutput1 Failed [0x"sv << util::hex(status).to_string_view() << ']';
-          return -1;
-        }
-      }
-      else {
-        BOOST_LOG(warning) << "IDXGIOutput5 is not supported by your OS. Capture performance may be reduced."sv;
-
-        dxgi::output1_t output1 {};
-        status = output->QueryInterface(IID_IDXGIOutput1, (void **) &output1);
-        if (FAILED(status)) {
-          BOOST_LOG(error) << "Failed to query IDXGIOutput1 from the output"sv;
-          return -1;
-        }
-
-        for (int x = 0; x < 2; ++x) {
-          // Ensure we can duplicate the current display
-          syncThreadDesktop();
-
-          status = output1->DuplicateOutput((IUnknown *) device.get(), &dup.dup);
-          if (SUCCEEDED(status)) {
-            break;
-          }
-          std::this_thread::sleep_for(200ms);
-        }
-
-        if (FAILED(status)) {
-          BOOST_LOG(error) << "DuplicateOutput Failed [0x"sv << util::hex(status).to_string_view() << ']';
-          return -1;
-        }
-      }
-    }
-
-    DXGI_OUTDUPL_DESC dup_desc;
-    dup.dup->GetDesc(&dup_desc);
-
-    BOOST_LOG(info) << "Desktop resolution ["sv << dup_desc.ModeDesc.Width << 'x' << dup_desc.ModeDesc.Height << ']';
-    BOOST_LOG(info) << "Desktop format ["sv << dxgi_format_to_string(dup_desc.ModeDesc.Format) << ']';
-
-    display_refresh_rate = dup_desc.ModeDesc.RefreshRate;
-    double display_refresh_rate_decimal = (double) display_refresh_rate.Numerator / display_refresh_rate.Denominator;
-    BOOST_LOG(info) << "Display refresh rate [" << display_refresh_rate_decimal << "Hz]";
-    display_refresh_rate_rounded = lround(display_refresh_rate_decimal);
-
     client_frame_rate = config.framerate;
-    BOOST_LOG(info) << "Requested frame rate [" << client_frame_rate << "fps]";
-
     dxgi::output6_t output6 {};
     status = output->QueryInterface(IID_IDXGIOutput6, (void **) &output6);
     if (SUCCEEDED(status)) {
@@ -945,23 +957,47 @@ namespace platf::dxgi {
 }  // namespace platf::dxgi
 
 namespace platf {
+  /**
+   * Pick a display adapter and capture method.
+   * @param hwdevice_type enables possible use of hardware encoder
+   */
   std::shared_ptr<display_t>
   display(mem_type_e hwdevice_type, const std::string &display_name, const video::config_t &config) {
-    if (hwdevice_type == mem_type_e::dxgi) {
-      auto disp = std::make_shared<dxgi::display_vram_t>();
+    if (config::video.capture == "ddx" || config::video.capture.empty()) {
+      if (hwdevice_type == mem_type_e::dxgi) {
+        auto disp = std::make_shared<dxgi::display_ddup_vram_t>();
 
-      if (!disp->init(config, display_name)) {
-        return disp;
+        if (!disp->init(config, display_name)) {
+          return disp;
+        }
+      }
+      else if (hwdevice_type == mem_type_e::system) {
+        auto disp = std::make_shared<dxgi::display_ddup_ram_t>();
+
+        if (!disp->init(config, display_name)) {
+          return disp;
+        }
       }
     }
-    else if (hwdevice_type == mem_type_e::system) {
-      auto disp = std::make_shared<dxgi::display_ram_t>();
 
-      if (!disp->init(config, display_name)) {
-        return disp;
+    if (config::video.capture == "wgc" || config::video.capture.empty()) {
+      if (hwdevice_type == mem_type_e::dxgi) {
+        auto disp = std::make_shared<dxgi::display_wgc_vram_t>();
+
+        if (!disp->init(config, display_name)) {
+          return disp;
+        }
+      }
+      else if (hwdevice_type == mem_type_e::system) {
+        auto disp = std::make_shared<dxgi::display_wgc_ram_t>();
+
+        if (!disp->init(config, display_name)) {
+          return disp;
+        }
       }
     }
 
+    // ddx and wgc failed
     return nullptr;
   }
 

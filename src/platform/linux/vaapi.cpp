@@ -1,6 +1,6 @@
 /**
  * @file src/platform/linux/vaapi.cpp
- * @brief todo
+ * @brief Definitions for VA-API hardware accelerated capture.
  */
 #include <sstream>
 #include <string>
@@ -127,6 +127,16 @@ namespace va {
       height = in_height;
 
       return 0;
+    }
+
+    void
+    init_codec_options(AVCodecContext *ctx, AVDictionary *options) override {
+      // Don't set the RC buffer size when using H.264 on Intel GPUs. It causes
+      // major encoding quality degradation.
+      auto vendor = vaQueryVendorString(va_display);
+      if (ctx->codec_id != AV_CODEC_ID_H264 || (vendor && !strstr(vendor, "Intel"))) {
+        ctx->rc_buffer_size = ctx->bit_rate * ctx->framerate.den / ctx->framerate.num;
+      }
     }
 
     int
@@ -371,7 +381,7 @@ namespace va {
       return -1;
     }
 
-    BOOST_LOG(debug) << "vaapi vendor: "sv << vaQueryVendorString(display.get());
+    BOOST_LOG(info) << "vaapi vendor: "sv << vaQueryVendorString(display.get());
 
     *hw_device_buf = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VAAPI);
     auto ctx = (AVHWDeviceContext *) (*hw_device_buf)->data;

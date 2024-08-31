@@ -1,6 +1,6 @@
 /**
  * @file src/config.cpp
- * @brief todo
+ * @brief Definitions for the configuration of Sunshine.
  */
 #include <algorithm>
 #include <filesystem>
@@ -9,6 +9,7 @@
 #include <iostream>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
@@ -103,72 +104,72 @@ namespace config {
 #endif
 
     enum class quality_av1_e : int {
-      speed = AMF_VIDEO_ENCODER_AV1_QUALITY_PRESET_SPEED,
-      quality = AMF_VIDEO_ENCODER_AV1_QUALITY_PRESET_QUALITY,
-      balanced = AMF_VIDEO_ENCODER_AV1_QUALITY_PRESET_BALANCED
+      speed = AMF_VIDEO_ENCODER_AV1_QUALITY_PRESET_SPEED,  ///< Speed preset
+      quality = AMF_VIDEO_ENCODER_AV1_QUALITY_PRESET_QUALITY,  ///< Quality preset
+      balanced = AMF_VIDEO_ENCODER_AV1_QUALITY_PRESET_BALANCED  ///< Balanced preset
     };
 
     enum class quality_hevc_e : int {
-      speed = AMF_VIDEO_ENCODER_HEVC_QUALITY_PRESET_SPEED,
-      quality = AMF_VIDEO_ENCODER_HEVC_QUALITY_PRESET_QUALITY,
-      balanced = AMF_VIDEO_ENCODER_HEVC_QUALITY_PRESET_BALANCED
+      speed = AMF_VIDEO_ENCODER_HEVC_QUALITY_PRESET_SPEED,  ///< Speed preset
+      quality = AMF_VIDEO_ENCODER_HEVC_QUALITY_PRESET_QUALITY,  ///< Quality preset
+      balanced = AMF_VIDEO_ENCODER_HEVC_QUALITY_PRESET_BALANCED  ///< Balanced preset
     };
 
     enum class quality_h264_e : int {
-      speed = AMF_VIDEO_ENCODER_QUALITY_PRESET_SPEED,
-      quality = AMF_VIDEO_ENCODER_QUALITY_PRESET_QUALITY,
-      balanced = AMF_VIDEO_ENCODER_QUALITY_PRESET_BALANCED
+      speed = AMF_VIDEO_ENCODER_QUALITY_PRESET_SPEED,  ///< Speed preset
+      quality = AMF_VIDEO_ENCODER_QUALITY_PRESET_QUALITY,  ///< Quality preset
+      balanced = AMF_VIDEO_ENCODER_QUALITY_PRESET_BALANCED  ///< Balanced preset
     };
 
     enum class rc_av1_e : int {
-      cbr = AMF_VIDEO_ENCODER_AV1_RATE_CONTROL_METHOD_CBR,
-      cqp = AMF_VIDEO_ENCODER_AV1_RATE_CONTROL_METHOD_CONSTANT_QP,
-      vbr_latency = AMF_VIDEO_ENCODER_AV1_RATE_CONTROL_METHOD_LATENCY_CONSTRAINED_VBR,
-      vbr_peak = AMF_VIDEO_ENCODER_AV1_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR
+      cbr = AMF_VIDEO_ENCODER_AV1_RATE_CONTROL_METHOD_CBR,  ///< CBR
+      cqp = AMF_VIDEO_ENCODER_AV1_RATE_CONTROL_METHOD_CONSTANT_QP,  ///< CQP
+      vbr_latency = AMF_VIDEO_ENCODER_AV1_RATE_CONTROL_METHOD_LATENCY_CONSTRAINED_VBR,  ///< VBR with latency constraints
+      vbr_peak = AMF_VIDEO_ENCODER_AV1_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR  ///< VBR with peak constraints
     };
 
     enum class rc_hevc_e : int {
-      cbr = AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_CBR,
-      cqp = AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_CONSTANT_QP,
-      vbr_latency = AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_LATENCY_CONSTRAINED_VBR,
-      vbr_peak = AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR
+      cbr = AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_CBR,  ///< CBR
+      cqp = AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_CONSTANT_QP,  ///< CQP
+      vbr_latency = AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_LATENCY_CONSTRAINED_VBR,  ///< VBR with latency constraints
+      vbr_peak = AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR  ///< VBR with peak constraints
     };
 
     enum class rc_h264_e : int {
-      cbr = AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_CBR,
-      cqp = AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_CONSTANT_QP,
-      vbr_latency = AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_LATENCY_CONSTRAINED_VBR,
-      vbr_peak = AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR
+      cbr = AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_CBR,  ///< CBR
+      cqp = AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_CONSTANT_QP,  ///< CQP
+      vbr_latency = AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_LATENCY_CONSTRAINED_VBR,  ///< VBR with latency constraints
+      vbr_peak = AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR  ///< VBR with peak constraints
     };
 
     enum class usage_av1_e : int {
-      transcoding = AMF_VIDEO_ENCODER_AV1_USAGE_TRANSCODING,
-      webcam = AMF_VIDEO_ENCODER_AV1_USAGE_WEBCAM,
-      lowlatency_high_quality = AMF_VIDEO_ENCODER_AV1_USAGE_LOW_LATENCY_HIGH_QUALITY,
-      lowlatency = AMF_VIDEO_ENCODER_AV1_USAGE_LOW_LATENCY,
-      ultralowlatency = AMF_VIDEO_ENCODER_AV1_USAGE_ULTRA_LOW_LATENCY
+      transcoding = AMF_VIDEO_ENCODER_AV1_USAGE_TRANSCODING,  ///< Transcoding preset
+      webcam = AMF_VIDEO_ENCODER_AV1_USAGE_WEBCAM,  ///< Webcam preset
+      lowlatency_high_quality = AMF_VIDEO_ENCODER_AV1_USAGE_LOW_LATENCY_HIGH_QUALITY,  ///< Low latency high quality preset
+      lowlatency = AMF_VIDEO_ENCODER_AV1_USAGE_LOW_LATENCY,  ///< Low latency preset
+      ultralowlatency = AMF_VIDEO_ENCODER_AV1_USAGE_ULTRA_LOW_LATENCY  ///< Ultra low latency preset
     };
 
     enum class usage_hevc_e : int {
-      transcoding = AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCODING,
-      webcam = AMF_VIDEO_ENCODER_HEVC_USAGE_WEBCAM,
-      lowlatency_high_quality = AMF_VIDEO_ENCODER_HEVC_USAGE_LOW_LATENCY_HIGH_QUALITY,
-      lowlatency = AMF_VIDEO_ENCODER_HEVC_USAGE_LOW_LATENCY,
-      ultralowlatency = AMF_VIDEO_ENCODER_HEVC_USAGE_ULTRA_LOW_LATENCY
+      transcoding = AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCODING,  ///< Transcoding preset
+      webcam = AMF_VIDEO_ENCODER_HEVC_USAGE_WEBCAM,  ///< Webcam preset
+      lowlatency_high_quality = AMF_VIDEO_ENCODER_HEVC_USAGE_LOW_LATENCY_HIGH_QUALITY,  ///< Low latency high quality preset
+      lowlatency = AMF_VIDEO_ENCODER_HEVC_USAGE_LOW_LATENCY,  ///< Low latency preset
+      ultralowlatency = AMF_VIDEO_ENCODER_HEVC_USAGE_ULTRA_LOW_LATENCY  ///< Ultra low latency preset
     };
 
     enum class usage_h264_e : int {
-      transcoding = AMF_VIDEO_ENCODER_USAGE_TRANSCODING,
-      webcam = AMF_VIDEO_ENCODER_USAGE_WEBCAM,
-      lowlatency_high_quality = AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY_HIGH_QUALITY,
-      lowlatency = AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY,
-      ultralowlatency = AMF_VIDEO_ENCODER_USAGE_ULTRA_LOW_LATENCY
+      transcoding = AMF_VIDEO_ENCODER_USAGE_TRANSCODING,  ///< Transcoding preset
+      webcam = AMF_VIDEO_ENCODER_USAGE_WEBCAM,  ///< Webcam preset
+      lowlatency_high_quality = AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY_HIGH_QUALITY,  ///< Low latency high quality preset
+      lowlatency = AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY,  ///< Low latency preset
+      ultralowlatency = AMF_VIDEO_ENCODER_USAGE_ULTRA_LOW_LATENCY  ///< Ultra low latency preset
     };
 
     enum coder_e : int {
-      _auto = AMF_VIDEO_ENCODER_UNDEFINED,
-      cabac = AMF_VIDEO_ENCODER_CABAC,
-      cavlc = AMF_VIDEO_ENCODER_CALV
+      _auto = AMF_VIDEO_ENCODER_UNDEFINED,  ///< Auto
+      cabac = AMF_VIDEO_ENCODER_CABAC,  ///< CABAC
+      cavlc = AMF_VIDEO_ENCODER_CALV  ///< CAVLC
     };
 
     template <class T>
@@ -222,19 +223,19 @@ namespace config {
 
   namespace qsv {
     enum preset_e : int {
-      veryslow = 1,
-      slower = 2,
-      slow = 3,
-      medium = 4,
-      fast = 5,
-      faster = 6,
-      veryfast = 7
+      veryslow = 1,  ///< veryslow preset
+      slower = 2,  ///< slower preset
+      slow = 3,  ///< slow preset
+      medium = 4,  ///< medium preset
+      fast = 5,  ///< fast preset
+      faster = 6,  ///< faster preset
+      veryfast = 7  ///< veryfast preset
     };
 
     enum cavlc_e : int {
-      _auto = false,
-      enabled = true,
-      disabled = false
+      _auto = false,  ///< Auto
+      enabled = true,  ///< Enabled
+      disabled = false  ///< Disabled
     };
 
     std::optional<int>
@@ -265,9 +266,9 @@ namespace config {
   namespace vt {
 
     enum coder_e : int {
-      _auto = 0,
-      cabac,
-      cavlc
+      _auto = 0,  ///< Auto
+      cabac,  ///< CABAC
+      cavlc  ///< CAVLC
     };
 
     int
@@ -327,6 +328,7 @@ namespace config {
     0,  // hevc_mode
     0,  // av1_mode
 
+    1,  // min_fps_factor
     2,  // min_threads
     {
       "superfast"s,  // preset
@@ -402,21 +404,6 @@ namespace config {
     boost::asio::ip::host_name(),  // sunshine_name,
     "sunshine_state.json"s,  // file_state
     {},  // external_ip
-    {
-      "352x240"s,
-      "480x360"s,
-      "858x480"s,
-      "1280x720"s,
-      "1920x1080"s,
-      "2560x1080"s,
-      "2560x1440"s,
-      "3440x1440"s,
-      "1920x1200"s,
-      "3840x2160"s,
-      "3840x1600"s,
-    },  // supported resolutions
-
-    { 10, 30, 60, 90, 120 },  // supported fps
   };
 
   input_t input {
@@ -430,8 +417,8 @@ namespace config {
     std::chrono::duration<double> { 1 / 24.9 },  // key_repeat_period
 
     {
-      platf::supported_gamepads().front().data(),
-      platf::supported_gamepads().front().size(),
+      platf::supported_gamepads(nullptr).front().name.data(),
+      platf::supported_gamepads(nullptr).front().name.size(),
     },  // Default gamepad
     true,  // back as touchpad click enabled (manual DS4 only)
     true,  // client gamepads with motion events are emulated as DS4
@@ -458,6 +445,7 @@ namespace config {
     47989,  // Base port number
     "ipv4",  // Address family
     platf::appdata().string() + "/sunshine.log",  // log file
+    false,  // notify_pre_releases
     {},  // prep commands
   };
 }  // namespace config

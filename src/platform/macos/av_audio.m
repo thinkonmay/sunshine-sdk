@@ -1,6 +1,6 @@
 /**
  * @file src/platform/macos/av_audio.m
- * @brief todo
+ * @brief Definitions for audio capture on macOS.
  */
 #import "av_audio.h"
 
@@ -87,8 +87,8 @@
     (NSString *) AVFormatIDKey: [NSNumber numberWithUnsignedInt:kAudioFormatLinearPCM],
     (NSString *) AVSampleRateKey: [NSNumber numberWithUnsignedInt:sampleRate],
     (NSString *) AVNumberOfChannelsKey: [NSNumber numberWithUnsignedInt:channels],
-    (NSString *) AVLinearPCMBitDepthKey: [NSNumber numberWithUnsignedInt:16],
-    (NSString *) AVLinearPCMIsFloatKey: @NO,
+    (NSString *) AVLinearPCMBitDepthKey: [NSNumber numberWithUnsignedInt:32],
+    (NSString *) AVLinearPCMIsFloatKey: @YES,
     (NSString *) AVLinearPCMIsNonInterleaved: @NO
   }];
 

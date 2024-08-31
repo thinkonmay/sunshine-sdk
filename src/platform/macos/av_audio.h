@@ -1,6 +1,6 @@
 /**
  * @file src/platform/macos/av_audio.h
- * @brief todo
+ * @brief Declarations for audio capture on macOS.
  */
 #pragma once
 
@@ -8,7 +8,7 @@
 
 #include "third-party/TPCircularBuffer/TPCircularBuffer.h"
 
-#define kBufferLength 2048
+#define kBufferLength 4096
 
 @interface AVAudio: NSObject <AVCaptureAudioDataOutputSampleBufferDelegate> {
 @public

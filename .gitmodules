@@ -14,17 +14,13 @@
 	path = third-party/TPCircularBuffer
 	url = https://github.com/michaeltyson/TPCircularBuffer
 	branch = master
-[submodule "third-party/ViGEmClient"]
-	path = third-party/ViGEmClient
-	url = https://github.com/LizardByte/Virtual-Gamepad-Emulation-Client.git
-	branch = master
 [submodule "third-party/wayland-protocols"]
 	path = third-party/wayland-protocols
-	url = https://gitlab.freedesktop.org/wayland/wayland-protocols
+	url = https://gitlab.freedesktop.org/wayland/wayland-protocols.git
 	branch = main
 [submodule "third-party/wlr-protocols"]
 	path = third-party/wlr-protocols
-	url = https://gitlab.freedesktop.org/wlroots/wlr-protocols
+	url = https://gitlab.freedesktop.org/wlroots/wlr-protocols.git
 	branch = master
 [submodule "third-party/moonlight-common-c"]
 	path = third-party/moonlight-common-c

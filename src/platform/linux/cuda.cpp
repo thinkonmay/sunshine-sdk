@@ -1,6 +1,6 @@
 /**
  * @file src/platform/linux/cuda.cpp
- * @brief todo
+ * @brief Definitions for CUDA encoding.
  */
 #include <bitset>
 #include <fcntl.h>
@@ -262,7 +262,7 @@ namespace cuda {
       fs::path sysfs_dir { sysfs_path };
       for (auto &entry : fs::directory_iterator { sysfs_dir }) {
         auto file = entry.path().filename();
-        auto filestring = file.generic_u8string();
+        auto filestring = file.generic_string();
         if (std::string_view { filestring }.substr(0, 4) != "card"sv) {
           continue;
         }
@@ -498,8 +498,8 @@ namespace cuda {
 
   /**
    * @brief Create a GL->CUDA encoding device for consuming captured dmabufs.
-   * @param in_width Width of captured frames.
-   * @param in_height Height of captured frames.
+   * @param width Width of captured frames.
+   * @param height Height of captured frames.
    * @param offset_x Offset of content in captured frame.
    * @param offset_y Offset of content in captured frame.
    * @return FFmpeg encoding device context.
@@ -614,6 +614,12 @@ namespace cuda {
       make() {
         NVFBC_CREATE_HANDLE_PARAMS params { NVFBC_CREATE_HANDLE_PARAMS_VER };
 
+        // Set privateData to allow NvFBC on consumer NVIDIA GPUs.
+        // Based on https://github.com/keylase/nvidia-patch/blob/3193b4b1cea91527bf09ea9b8db5aade6a3f3c0a/win/nvfbcwrp/nvfbcwrp_main.cpp#L23-L25 .
+        const unsigned int MAGIC_PRIVATE_DATA[4] = { 0xAEF57AC5, 0x401D1A39, 0x1B856BBE, 0x9ED0CEBA };
+        params.privateData = MAGIC_PRIVATE_DATA;
+        params.privateDataSize = sizeof(MAGIC_PRIVATE_DATA);
+
         handle_t handle;
         auto status = func.nvFBCCreateHandle(&handle.handle, &params);
         if (status) {
@@ -696,6 +702,7 @@ namespace cuda {
 
         NVFBC_DESTROY_HANDLE_PARAMS params { NVFBC_DESTROY_HANDLE_PARAMS_VER };
 
+        ctx_t ctx { handle };
         if (func.nvFBCDestroyHandle(handle, &params)) {
           BOOST_LOG(error) << "Couldn't destroy session handle: "sv << func.nvFBCGetLastErrorStr(handle);
         }

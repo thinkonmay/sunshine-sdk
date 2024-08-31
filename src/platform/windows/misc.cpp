@@ -1,6 +1,6 @@
 /**
  * @file src/platform/windows/misc.cpp
- * @brief todo
+ * @brief Miscellaneous definitions for Windows.
  */
 #include <csignal>
 #include <filesystem>
@@ -59,6 +59,38 @@
 #ifndef WLAN_API_MAKE_VERSION
   #define WLAN_API_MAKE_VERSION(_major, _minor) (((DWORD) (_minor)) << 16 | (_major))
 #endif
+
+#include <winternl.h>
+extern "C" {
+NTSTATUS NTAPI
+NtSetTimerResolution(ULONG DesiredResolution, BOOLEAN SetResolution, PULONG CurrentResolution);
+}
+
+namespace {
+
+  std::atomic<bool> used_nt_set_timer_resolution = false;
+
+  bool
+  nt_set_timer_resolution_max() {
+    ULONG minimum, maximum, current;
+    if (!NT_SUCCESS(NtQueryTimerResolution(&minimum, &maximum, &current)) ||
+        !NT_SUCCESS(NtSetTimerResolution(maximum, TRUE, &current))) {
+      return false;
+    }
+    return true;
+  }
+
+  bool
+  nt_set_timer_resolution_min() {
+    ULONG minimum, maximum, current;
+    if (!NT_SUCCESS(NtQueryTimerResolution(&minimum, &maximum, &current)) ||
+        !NT_SUCCESS(NtSetTimerResolution(minimum, TRUE, &current))) {
+      return false;
+    }
+    return true;
+  }
+
+}  // namespace
 
 namespace bp = boost::process;
 
@@ -461,7 +493,7 @@ namespace platf {
    * @brief Impersonate the current user and invoke the callback function.
    * @param user_token A handle to the user's token that was obtained from the shell.
    * @param callback A function that will be executed while impersonating the user.
-   * @return An `std::error_code` object that will store any error that occurred during the impersonation
+   * @return Object that will store any error that occurred during the impersonation
    */
   std::error_code
   impersonate_current_user(HANDLE user_token, std::function<void()> callback) {
@@ -495,11 +527,11 @@ namespace platf {
   }
 
   /**
-   * @brief A function to create a `STARTUPINFOEXW` structure for launching a process.
+   * @brief Create a `STARTUPINFOEXW` structure for launching a process.
    * @param file A pointer to a `FILE` object that will be used as the standard output and error for the new process, or null if not needed.
    * @param job A job object handle to insert the new process into. This pointer must remain valid for the life of this startup info!
    * @param ec A reference to a `std::error_code` object that will store any error that occurred during the creation of the structure.
-   * @return A `STARTUPINFOEXW` structure that contains information about how to launch the new process.
+   * @return A structure that contains information about how to launch the new process.
    */
   STARTUPINFOEXW
   create_startup_info(FILE *file, HANDLE *job, std::error_code &ec) {
@@ -614,7 +646,7 @@ namespace platf {
   }
 
   /**
-   * @brief This function quotes/escapes an argument according to the Windows parsing convention.
+   * @brief Quote/escape an argument according to the Windows parsing convention.
    * @param argument The raw argument to process.
    * @return An argument string suitable for use by CreateProcess().
    */
@@ -654,7 +686,7 @@ namespace platf {
   }
 
   /**
-   * @brief This function escapes an argument according to cmd's parsing convention.
+   * @brief Escape an argument according to cmd's parsing convention.
    * @param argument An argument already escaped by `escape_argument()`.
    * @return An argument string suitable for use by cmd.exe.
    */
@@ -675,7 +707,7 @@ namespace platf {
   }
 
   /**
-   * @brief This function resolves the given raw command into a proper command string for CreateProcess().
+   * @brief Resolve the given raw command into a proper command string for CreateProcess().
    * @details This converts URLs and non-executable file paths into a runnable command like ShellExecute().
    * @param raw_cmd The raw command provided by the user.
    * @param working_dir The working directory for the new process.
@@ -1114,8 +1146,15 @@ namespace platf {
     // Enable MMCSS scheduling for DWM
     DwmEnableMMCSS(true);
 
-    // Reduce timer period to 1ms
-    timeBeginPeriod(1);
+    // Reduce timer period to 0.5ms
+    if (nt_set_timer_resolution_max()) {
+      used_nt_set_timer_resolution = true;
+    }
+    else {
+      BOOST_LOG(error) << "NtSetTimerResolution() failed, falling back to timeBeginPeriod()";
+      timeBeginPeriod(1);
+      used_nt_set_timer_resolution = false;
+    }
 
     // Promote ourselves to high priority class
     SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
@@ -1198,8 +1237,16 @@ namespace platf {
     // Demote ourselves back to normal priority class
     SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
 
-    // End our 1ms timer request
-    timeEndPeriod(1);
+    // End our 0.5ms timer request
+    if (used_nt_set_timer_resolution) {
+      used_nt_set_timer_resolution = false;
+      if (!nt_set_timer_resolution_min()) {
+        BOOST_LOG(error) << "nt_set_timer_resolution_min() failed even though nt_set_timer_resolution_max() succeeded";
+      }
+    }
+    else {
+      timeEndPeriod(1);
+    }
 
     // Disable MMCSS scheduling for DWM
     DwmEnableMMCSS(false);
@@ -1256,6 +1303,16 @@ namespace platf {
   restart() {
   }
 
+  int
+  set_env(const std::string &name, const std::string &value) {
+    return _putenv_s(name.c_str(), value.c_str());
+  }
+
+  int
+  unset_env(const std::string &name) {
+    return _putenv_s(name.c_str(), "");
+  }
+
   struct enum_wnd_context_t {
     std::set<DWORD> process_ids;
     bool requested_exit;
@@ -1289,11 +1346,6 @@ namespace platf {
     return TRUE;
   }
 
-  /**
-   * @brief Attempt to gracefully terminate a process group.
-   * @param native_handle The job object handle.
-   * @return true if termination was successfully requested.
-   */
   bool
   request_process_group_exit(std::uintptr_t native_handle) {
     auto job_handle = (HANDLE) native_handle;
@@ -1338,11 +1390,6 @@ namespace platf {
     return enum_ctx.requested_exit;
   }
 
-  /**
-   * @brief Checks if a process group still has running children.
-   * @param native_handle The job object handle.
-   * @return true if processes are still running.
-   */
   bool
   process_group_running(std::uintptr_t native_handle) {
     JOBOBJECT_BASIC_ACCOUNTING_INFORMATION accounting_info;
@@ -1405,12 +1452,37 @@ namespace platf {
       msg.namelen = sizeof(taddr_v4);
     }
 
-    WSABUF buf;
-    buf.buf = (char *) send_info.buffer;
-    buf.len = send_info.block_size * send_info.block_count;
+    auto const max_bufs_per_msg = send_info.payload_buffers.size() + (send_info.headers ? 1 : 0);
 
-    msg.lpBuffers = &buf;
-    msg.dwBufferCount = 1;
+    WSABUF bufs[(send_info.headers ? send_info.block_count : 1) * max_bufs_per_msg];
+    DWORD bufcount = 0;
+    if (send_info.headers) {
+      // Interleave buffers for headers and payloads
+      for (auto i = 0; i < send_info.block_count; i++) {
+        bufs[bufcount].buf = (char *) &send_info.headers[(send_info.block_offset + i) * send_info.header_size];
+        bufs[bufcount].len = send_info.header_size;
+        bufcount++;
+        auto payload_desc = send_info.buffer_for_payload_offset((send_info.block_offset + i) * send_info.payload_size);
+        bufs[bufcount].buf = (char *) payload_desc.buffer;
+        bufs[bufcount].len = send_info.payload_size;
+        bufcount++;
+      }
+    }
+    else {
+      // Translate buffer descriptors into WSABUFs
+      auto payload_offset = send_info.block_offset * send_info.payload_size;
+      auto payload_length = payload_offset + (send_info.block_count * send_info.payload_size);
+      while (payload_offset < payload_length) {
+        auto payload_desc = send_info.buffer_for_payload_offset(payload_offset);
+        bufs[bufcount].buf = (char *) payload_desc.buffer;
+        bufs[bufcount].len = std::min(payload_desc.size, payload_length - payload_offset);
+        payload_offset += bufs[bufcount].len;
+        bufcount++;
+      }
+    }
+
+    msg.lpBuffers = bufs;
+    msg.dwBufferCount = bufcount;
     msg.dwFlags = 0;
 
     // At most, one DWORD option and one PKTINFO option
@@ -1458,14 +1530,14 @@ namespace platf {
       cm->cmsg_level = IPPROTO_UDP;
       cm->cmsg_type = UDP_SEND_MSG_SIZE;
       cm->cmsg_len = WSA_CMSG_LEN(sizeof(DWORD));
-      *((DWORD *) WSA_CMSG_DATA(cm)) = send_info.block_size;
+      *((DWORD *) WSA_CMSG_DATA(cm)) = send_info.header_size + send_info.payload_size;
     }
 
     msg.Control.len = cmbuflen;
 
     // If USO is not supported, this will fail and the caller will fall back to unbatched sends.
     DWORD bytes_sent;
-    return WSASendMsg((SOCKET) send_info.native_socket, &msg, 1, &bytes_sent, nullptr, nullptr) != SOCKET_ERROR;
+    return WSASendMsg((SOCKET) send_info.native_socket, &msg, 0, &bytes_sent, nullptr, nullptr) != SOCKET_ERROR;
   }
 
   bool
@@ -1488,12 +1560,19 @@ namespace platf {
       msg.namelen = sizeof(taddr_v4);
     }
 
-    WSABUF buf;
-    buf.buf = (char *) send_info.buffer;
-    buf.len = send_info.size;
+    WSABUF bufs[2];
+    DWORD bufcount = 0;
+    if (send_info.header) {
+      bufs[bufcount].buf = (char *) send_info.header;
+      bufs[bufcount].len = send_info.header_size;
+      bufcount++;
+    }
+    bufs[bufcount].buf = (char *) send_info.payload;
+    bufs[bufcount].len = send_info.payload_size;
+    bufcount++;
 
-    msg.lpBuffers = &buf;
-    msg.dwBufferCount = 1;
+    msg.lpBuffers = bufs;
+    msg.dwBufferCount = bufcount;
     msg.dwFlags = 0;
 
     char cmbuf[std::max(WSA_CMSG_SPACE(sizeof(IN6_PKTINFO)), WSA_CMSG_SPACE(sizeof(IN_PKTINFO)))] = {};
@@ -1535,7 +1614,7 @@ namespace platf {
     msg.Control.len = cmbuflen;
 
     DWORD bytes_sent;
-    if (WSASendMsg((SOCKET) send_info.native_socket, &msg, 1, &bytes_sent, nullptr, nullptr) == SOCKET_ERROR) {
+    if (WSASendMsg((SOCKET) send_info.native_socket, &msg, 0, &bytes_sent, nullptr, nullptr) == SOCKET_ERROR) {
       auto winerr = WSAGetLastError();
       BOOST_LOG(warning) << "WSASendMsg() failed: "sv << winerr;
       return false;
@@ -1681,8 +1760,8 @@ namespace platf {
   }
   int64_t
   qpc_counter() {
-    LARGE_INTEGER performace_counter;
-    if (QueryPerformanceCounter(&performace_counter)) return performace_counter.QuadPart;
+    LARGE_INTEGER performance_counter;
+    if (QueryPerformanceCounter(&performance_counter)) return performance_counter.QuadPart;
     return 0;
   }
 
@@ -1701,11 +1780,6 @@ namespace platf {
     return {};
   }
 
-  /**
-   * @brief Converts a UTF-8 string into a UTF-16 wide string.
-   * @param string The UTF-8 string.
-   * @return The converted UTF-16 wide string.
-   */
   std::wstring
   from_utf8(const std::string &string) {
     // No conversion needed if the string is empty
@@ -1733,11 +1807,6 @@ namespace platf {
     return output;
   }
 
-  /**
-   * @brief Converts a UTF-16 wide string into a UTF-8 string.
-   * @param string The UTF-16 wide string.
-   * @return The converted UTF-8 string.
-   */
   std::string
   to_utf8(const std::wstring &string) {
     // No conversion needed if the string is empty
@@ -1765,5 +1834,56 @@ namespace platf {
     }
 
     return output;
+  }
+
+  class win32_high_precision_timer: public high_precision_timer {
+  public:
+    win32_high_precision_timer() {
+      // Use CREATE_WAITABLE_TIMER_HIGH_RESOLUTION if supported (Windows 10 1809+)
+      timer = CreateWaitableTimerEx(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+      if (!timer) {
+        timer = CreateWaitableTimerEx(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
+        if (!timer) {
+          BOOST_LOG(error) << "Unable to create high_precision_timer, CreateWaitableTimerEx() failed: " << GetLastError();
+        }
+      }
+    }
+
+    ~win32_high_precision_timer() {
+      if (timer) CloseHandle(timer);
+    }
+
+    void
+    sleep_for(const std::chrono::nanoseconds &duration) override {
+      if (!timer) {
+        BOOST_LOG(error) << "Attempting high_precision_timer::sleep_for() with uninitialized timer";
+        return;
+      }
+      if (duration < 0s) {
+        BOOST_LOG(error) << "Attempting high_precision_timer::sleep_for() with negative duration";
+        return;
+      }
+      if (duration > 5s) {
+        BOOST_LOG(error) << "Attempting high_precision_timer::sleep_for() with unexpectedly large duration (>5s)";
+        return;
+      }
+
+      LARGE_INTEGER due_time;
+      due_time.QuadPart = duration.count() / -100;
+      SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, false);
+      WaitForSingleObject(timer, INFINITE);
+    }
+
+    operator bool() override {
+      return timer != NULL;
+    }
+
+  private:
+    HANDLE timer = NULL;
+  };
+
+  std::unique_ptr<high_precision_timer>
+  create_high_precision_timer() {
+    return std::make_unique<win32_high_precision_timer>();
   }
 }  // namespace platf

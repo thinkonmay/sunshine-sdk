@@ -1,6 +1,6 @@
 /**
  * @file src/platform/windows/display_ram.cpp
- * @brief todo
+ * @brief Definitions for handling ram.
  */
 #include "display.h"
 
@@ -177,9 +177,8 @@ namespace platf::dxgi {
   }
 
   capture_e
-  display_ram_t::snapshot(const pull_free_image_cb_t &pull_free_image_cb, std::shared_ptr<platf::img_t> &img_out, std::chrono::milliseconds timeout, bool cursor_visible) {
+  display_ddup_ram_t::snapshot(const pull_free_image_cb_t &pull_free_image_cb, std::shared_ptr<platf::img_t> &img_out, std::chrono::milliseconds timeout, bool cursor_visible) {
     HRESULT status;
-
     DXGI_OUTDUPL_FRAME_INFO frame_info;
 
     resource_t::pointer res_p {};
@@ -326,6 +325,11 @@ namespace platf::dxgi {
     return capture_e::ok;
   }
 
+  capture_e
+  display_ddup_ram_t::release_snapshot() {
+    return dup.release_frame();
+  }
+
   std::shared_ptr<platf::img_t>
   display_ram_t::alloc_img() {
     auto img = std::make_shared<img_t>();
@@ -366,6 +370,9 @@ namespace platf::dxgi {
     return 0;
   }
 
+  /**
+   * @memberof platf::dxgi::display_ram_t
+   */
   int
   display_ram_t::dummy_img(platf::img_t *img) {
     if (complete_img(img, true)) {
@@ -382,8 +389,8 @@ namespace platf::dxgi {
   }
 
   int
-  display_ram_t::init(const ::video::config_t &config, const std::string &display_name) {
-    if (display_base_t::init(config, display_name)) {
+  display_ddup_ram_t::init(const ::video::config_t &config, const std::string &display_name) {
+    if (display_base_t::init(config, display_name) || dup.init(this, config)) {
       return -1;
     }
 

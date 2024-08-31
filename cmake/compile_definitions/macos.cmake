@@ -2,21 +2,29 @@
 
 add_compile_definitions(SUNSHINE_PLATFORM="macos")
 
-link_directories(/opt/local/lib)
-link_directories(/usr/local/lib)
-link_directories(/opt/homebrew/lib)
-ADD_DEFINITIONS(-DBOOST_LOG_DYN_LINK)
+set(MACOS_LINK_DIRECTORIES
+        /opt/homebrew/lib
+        /opt/local/lib
+        /usr/local/lib)
+
+foreach(dir ${MACOS_LINK_DIRECTORIES})
+    if(EXISTS ${dir})
+        link_directories(${dir})
+    endif()
+endforeach()
+
+if(NOT BOOST_USE_STATIC AND NOT FETCH_CONTENT_BOOST_USED)
+    ADD_DEFINITIONS(-DBOOST_LOG_DYN_LINK)
+endif()
 
 list(APPEND SUNSHINE_EXTERNAL_LIBRARIES
+        ${APP_KIT_LIBRARY}
         ${APP_SERVICES_LIBRARY}
         ${AV_FOUNDATION_LIBRARY}
         ${CORE_MEDIA_LIBRARY}
         ${CORE_VIDEO_LIBRARY}
-        ${VIDEO_TOOLBOX_LIBRARY}
-        ${FOUNDATION_LIBRARY})
-
-set(PLATFORM_INCLUDE_DIRS
-        ${Boost_INCLUDE_DIR})
+        ${FOUNDATION_LIBRARY}
+        ${VIDEO_TOOLBOX_LIBRARY})
 
 set(APPLE_PLIST_FILE "${SUNSHINE_SOURCE_ASSETS_DIR}/macos/assets/Info.plist")
 

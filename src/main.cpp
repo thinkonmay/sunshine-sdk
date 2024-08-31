@@ -1,8 +1,7 @@
 /**
  * @file src/main.cpp
- * @brief Main entry point for Sunshine.
+ * @brief Definitions for the main entry point for Sunshine.
  */
-
 // standard includes
 #include <codecvt>
 #include <csignal>
@@ -43,24 +42,13 @@ on_signal(int sig, FN &&fn) {
 }
 
 
-/**
- * @brief Main application entry point.
- * @param argc The number of arguments.
- * @param argv The arguments.
- *
- * EXAMPLES:
- * ```cpp
- * main(1, const char* args[] = {"sunshine", nullptr});
- * ```
- */
 int
 main(int argc, char *argv[]) {
 
   task_pool_util::TaskPool::task_id_t force_shutdown = nullptr;
 
 #ifdef _WIN32
-  // Switch default C standard library locale to UTF-8 on Windows 10 1803+
-  setlocale(LC_ALL, ".UTF-8");
+  setlocale(LC_ALL, "C");
 #endif
 
 #pragma GCC diagnostic push

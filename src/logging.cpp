@@ -1,14 +1,15 @@
 /**
  * @file src/logging.cpp
- * @brief Logging implementation file for the Sunshine application.
+ * @brief Definitions for logging related functions.
  */
-
 // standard includes
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 
 // lib includes
 #include <boost/core/null_deleter.hpp>
+#include <boost/format.hpp>
 #include <boost/log/attributes/clock.hpp>
 #include <boost/log/common.hpp>
 #include <boost/log/expressions.hpp>
@@ -34,25 +35,17 @@ bl::sources::severity_logger<int> info(2);  // Should be informed about
 bl::sources::severity_logger<int> warning(3);  // Strange events
 bl::sources::severity_logger<int> error(4);  // Recoverable errors
 bl::sources::severity_logger<int> fatal(5);  // Unrecoverable errors
+#ifdef SUNSHINE_TESTS
+bl::sources::severity_logger<int> tests(10);  // Automatic tests output
+#endif
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", int)
 
 namespace logging {
-  /**
-   * @brief A destructor that restores the initial state.
-   */
   deinit_t::~deinit_t() {
     deinit();
   }
 
-  /**
-   * @brief Deinitialize the logging system.
-   *
-   * EXAMPLES:
-   * ```cpp
-   * deinit();
-   * ```
-   */
   void
   deinit() {
     log_flush();
@@ -60,17 +53,51 @@ namespace logging {
     sink.reset();
   }
 
-  /**
-   * @brief Initialize the logging system.
-   * @param min_log_level The minimum log level to output.
-   * @param log_file The log file to write to.
-   * @returns A deinit_t object that will deinitialize the logging system when it goes out of scope.
-   *
-   * EXAMPLES:
-   * ```cpp
-   * log_init(2, "sunshine.log");
-   * ```
-   */
+  void
+  formatter(const boost::log::record_view &view, boost::log::formatting_ostream &os) {
+    constexpr const char *message = "Message";
+    constexpr const char *severity = "Severity";
+
+    auto log_level = view.attribute_values()[severity].extract<int>().get();
+
+    std::string_view log_type;
+    switch (log_level) {
+      case 0:
+        log_type = "Verbose: "sv;
+        break;
+      case 1:
+        log_type = "Debug: "sv;
+        break;
+      case 2:
+        log_type = "Info: "sv;
+        break;
+      case 3:
+        log_type = "Warning: "sv;
+        break;
+      case 4:
+        log_type = "Error: "sv;
+        break;
+      case 5:
+        log_type = "Fatal: "sv;
+        break;
+#ifdef SUNSHINE_TESTS
+      case 10:
+        log_type = "Tests: "sv;
+        break;
+#endif
+    };
+
+    auto now = std::chrono::system_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+      now - std::chrono::time_point_cast<std::chrono::seconds>(now));
+
+    auto t = std::chrono::system_clock::to_time_t(now);
+    auto lt = *std::localtime(&t);
+
+    os << "["sv << std::put_time(&lt, "%Y-%m-%d %H:%M:%S.") << boost::format("%03u") % ms.count() << "]: "sv
+       << log_type << view.attribute_values()[message].extract<std::string>();
+  }
+
   [[nodiscard]] std::unique_ptr<deinit_t>
   init(int min_log_level, const std::string &log_file) {
     if (sink) {
@@ -82,46 +109,13 @@ namespace logging {
 
     sink = boost::make_shared<text_sink>();
 
+#ifndef SUNSHINE_TESTS
     boost::shared_ptr<std::ostream> stream { &std::cout, boost::null_deleter() };
     sink->locked_backend()->add_stream(stream);
+#endif
     sink->locked_backend()->add_stream(boost::make_shared<std::ofstream>(log_file));
     sink->set_filter(severity >= min_log_level);
-
-    sink->set_formatter([](const bl::record_view &view, bl::formatting_ostream &os) {
-      constexpr const char *message = "Message";
-      constexpr const char *severity = "Severity";
-      constexpr int DATE_BUFFER_SIZE = 21 + 2 + 1;  // Full string plus ": \0"
-
-      auto log_level = view.attribute_values()[severity].extract<int>().get();
-
-      std::string_view log_type;
-      switch (log_level) {
-        case 0:
-          log_type = "Verbose: "sv;
-          break;
-        case 1:
-          log_type = "Debug: "sv;
-          break;
-        case 2:
-          log_type = "Info: "sv;
-          break;
-        case 3:
-          log_type = "Warning: "sv;
-          break;
-        case 4:
-          log_type = "Error: "sv;
-          break;
-        case 5:
-          log_type = "Fatal: "sv;
-          break;
-      };
-
-      char _date[DATE_BUFFER_SIZE];
-      std::time_t t = std::time(nullptr);
-      strftime(_date, DATE_BUFFER_SIZE, "[%Y:%m:%d:%H:%M:%S]: ", std::localtime(&t));
-
-      os << _date << log_type << view.attribute_values()[message].extract<std::string>();
-    });
+    sink->set_formatter(&formatter);
 
     // Flush after each log record to ensure log file contents on disk isn't stale.
     // This is particularly important when running from a Windows service.
@@ -131,10 +125,6 @@ namespace logging {
     return std::make_unique<deinit_t>();
   }
 
-  /**
-   * @brief Setup AV logging.
-   * @param min_log_level The log level.
-   */
   void
   setup_av_logging(int min_log_level) {
     if (min_log_level >= 1) {
@@ -169,14 +159,6 @@ namespace logging {
     });
   }
 
-  /**
-   * @brief Flush the log.
-   *
-   * EXAMPLES:
-   * ```cpp
-   * log_flush();
-   * ```
-   */
   void
   log_flush() {
     if (sink) {
@@ -184,15 +166,6 @@ namespace logging {
     }
   }
 
-  /**
-   * @brief Print help to stdout.
-   * @param name The name of the program.
-   *
-   * EXAMPLES:
-   * ```cpp
-   * print_help("sunshine");
-   * ```
-   */
   void
   print_help(const char *name) {
     std::cout
@@ -213,4 +186,15 @@ namespace logging {
       << "        -p | Enable/Disable UPnP"sv << std::endl
       << std::endl;
   }
+
+  std::string
+  bracket(const std::string &input) {
+    return "["s + input + "]"s;
+  }
+
+  std::wstring
+  bracket(const std::wstring &input) {
+    return L"["s + input + L"]"s;
+  }
+
 }  // namespace logging

@@ -1,6 +1,6 @@
 /**
  * @file src/platform/macos/display.mm
- * @brief todo
+ * @brief Definitions for display capture on macOS.
  */
 #include "src/platform/common.h"
 #include "src/platform/macos/av_img_t.h"
@@ -31,6 +31,9 @@ namespace platf {
     capture_e
     capture(const push_captured_image_cb_t &push_captured_image_cb, const pull_free_image_cb_t &pull_free_image_cb, bool *cursor) override {
       auto signal = [av_capture capture:^(CMSampleBufferRef sampleBuffer) {
+        auto new_sample_buffer = std::make_shared<av_sample_buf_t>(sampleBuffer);
+        auto new_pixel_buffer = std::make_shared<av_pixel_buf_t>(new_sample_buffer->buf);
+
         std::shared_ptr<img_t> img_out;
         if (!pull_free_image_cb(img_out)) {
           // got interrupt signal
@@ -39,16 +42,21 @@ namespace platf {
         }
         auto av_img = std::static_pointer_cast<av_img_t>(img_out);
 
-        CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+        auto old_data_retainer = std::make_shared<temp_retain_av_img_t>(
+          av_img->sample_buffer,
+          av_img->pixel_buffer,
+          img_out->data);
 
-        av_img->sample_buffer = std::make_shared<av_sample_buf_t>(sampleBuffer);
-        av_img->pixel_buffer = std::make_shared<av_pixel_buf_t>(pixelBuffer);
-        img_out->data = av_img->pixel_buffer->lock();
+        av_img->sample_buffer = new_sample_buffer;
+        av_img->pixel_buffer = new_pixel_buffer;
+        img_out->data = new_pixel_buffer->data();
 
-        img_out->width = (int) CVPixelBufferGetWidth(pixelBuffer);
-        img_out->height = (int) CVPixelBufferGetHeight(pixelBuffer);
-        img_out->row_pitch = (int) CVPixelBufferGetBytesPerRow(pixelBuffer);
+        img_out->width = (int) CVPixelBufferGetWidth(new_pixel_buffer->buf);
+        img_out->height = (int) CVPixelBufferGetHeight(new_pixel_buffer->buf);
+        img_out->row_pitch = (int) CVPixelBufferGetBytesPerRow(new_pixel_buffer->buf);
         img_out->pixel_pitch = img_out->row_pitch / img_out->width;
+
+        old_data_retainer = nullptr;
 
         if (!push_captured_image_cb(std::move(img_out), true)) {
           // got interrupt signal
@@ -93,18 +101,26 @@ namespace platf {
     int
     dummy_img(img_t *img) override {
       auto signal = [av_capture capture:^(CMSampleBufferRef sampleBuffer) {
+        auto new_sample_buffer = std::make_shared<av_sample_buf_t>(sampleBuffer);
+        auto new_pixel_buffer = std::make_shared<av_pixel_buf_t>(new_sample_buffer->buf);
+
         auto av_img = (av_img_t *) img;
 
-        CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+        auto old_data_retainer = std::make_shared<temp_retain_av_img_t>(
+          av_img->sample_buffer,
+          av_img->pixel_buffer,
+          img->data);
 
-        av_img->sample_buffer = std::make_shared<av_sample_buf_t>(sampleBuffer);
-        av_img->pixel_buffer = std::make_shared<av_pixel_buf_t>(pixelBuffer);
-        img->data = av_img->pixel_buffer->lock();
+        av_img->sample_buffer = new_sample_buffer;
+        av_img->pixel_buffer = new_pixel_buffer;
+        img->data = new_pixel_buffer->data();
 
-        img->width = (int) CVPixelBufferGetWidth(pixelBuffer);
-        img->height = (int) CVPixelBufferGetHeight(pixelBuffer);
-        img->row_pitch = (int) CVPixelBufferGetBytesPerRow(pixelBuffer);
+        img->width = (int) CVPixelBufferGetWidth(new_pixel_buffer->buf);
+        img->height = (int) CVPixelBufferGetHeight(new_pixel_buffer->buf);
+        img->row_pitch = (int) CVPixelBufferGetBytesPerRow(new_pixel_buffer->buf);
         img->pixel_pitch = img->row_pitch / img->width;
+
+        old_data_retainer = nullptr;
 
         // returning false here stops capture backend
         return false;
@@ -142,18 +158,23 @@ namespace platf {
 
     auto display = std::make_shared<av_display_t>();
 
+    // Default to main display
     display->display_id = CGMainDisplayID();
-    if (!display_name.empty()) {
-      auto display_array = [AVVideo displayNames];
 
-      for (NSDictionary *item in display_array) {
-        NSString *name = item[@"name"];
-        if (name.UTF8String == display_name) {
-          NSNumber *display_id = item[@"id"];
-          display->display_id = [display_id unsignedIntValue];
-        }
+    // Print all displays available with it's name and id
+    auto display_array = [AVVideo displayNames];
+    BOOST_LOG(info) << "Detecting displays"sv;
+    for (NSDictionary *item in display_array) {
+      NSNumber *display_id = item[@"id"];
+      // We need show display's product name and corresponding display number given by user
+      NSString *name = item[@"displayName"];
+      // We are using CGGetActiveDisplayList that only returns active displays so hardcoded connected value in log to true
+      BOOST_LOG(info) << "Detected display: "sv << name.UTF8String << " (id: "sv << [NSString stringWithFormat:@"%@", display_id].UTF8String << ") connected: true"sv;
+      if (!display_name.empty() && std::atoi(display_name.c_str()) == [display_id unsignedIntValue]) {
+        display->display_id = [display_id unsignedIntValue];
       }
     }
+    BOOST_LOG(info) << "Configuring selected display ("sv << display->display_id << ") to stream"sv;
 
     display->av_capture = [[AVVideo alloc] initWithDisplay:display->display_id frameRate:config.framerate];
 
@@ -164,6 +185,9 @@ namespace platf {
 
     display->width = display->av_capture.frameWidth;
     display->height = display->av_capture.frameHeight;
+    // We also need set env_width and env_height for absolute mouse coordinates
+    display->env_width = display->width;
+    display->env_height = display->height;
 
     return display;
   }

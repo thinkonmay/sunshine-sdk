@@ -1,6 +1,6 @@
 /**
  * @file src/platform/linux/x11grab.cpp
- * @brief todo
+ * @brief Definitions for x11 capture.
  */
 #include "src/platform/common.h"
 
@@ -418,7 +418,7 @@ namespace platf {
       }
 
       if (streamedMonitor != -1) {
-        BOOST_LOG(info) << "Configuring selected monitor ("sv << streamedMonitor << ") to stream"sv;
+        BOOST_LOG(info) << "Configuring selected display ("sv << streamedMonitor << ") to stream"sv;
         screen_res_t screenr { x11::rr::GetScreenResources(xdisplay.get(), xwindow) };
         int output = screenr->noutput;
 
@@ -641,6 +641,7 @@ namespace platf {
       }
       else {
         auto img_cookie = xcb::shm_get_image_unchecked(xcb.get(), display->root, offset_x, offset_y, width, height, ~0, XCB_IMAGE_FORMAT_Z_PIXMAP, seg, 0);
+        auto frame_timestamp = std::chrono::steady_clock::now();
 
         xcb_img_t img_reply { xcb::shm_get_image_reply(xcb.get(), img_cookie, nullptr) };
         if (!img_reply) {
@@ -653,6 +654,7 @@ namespace platf {
         }
 
         std::copy_n((std::uint8_t *) data.data, frame_size(), img_out->data);
+        img_out->frame_timestamp = frame_timestamp;
 
         if (cursor) {
           blend_cursor(shm_xdisplay.get(), *img_out, offset_x, offset_y);
@@ -768,7 +770,7 @@ namespace platf {
       return {};
     }
 
-    BOOST_LOG(info) << "Detecting monitors"sv;
+    BOOST_LOG(info) << "Detecting displays"sv;
 
     x11::xdisplay_t xdisplay { x11::OpenDisplay(nullptr) };
     if (!xdisplay) {
@@ -783,7 +785,7 @@ namespace platf {
     for (int x = 0; x < output; ++x) {
       output_info_t out_info { x11::rr::GetOutputInfo(xdisplay.get(), screenr.get(), screenr->outputs[x]) };
       if (out_info) {
-        BOOST_LOG(info) << "Detected monitor "sv << monitor << ": "sv << out_info->name << ", connected: "sv << (out_info->connection == RR_Connected);
+        BOOST_LOG(info) << "Detected display: "sv << out_info->name << " (id: "sv << monitor << ")"sv << out_info->name << " connected: "sv << (out_info->connection == RR_Connected);
         ++monitor;
       }
     }

@@ -1,11 +1,10 @@
 /**
  * @file src/platform/macos/nv12_zero_device.h
- * @brief todo
+ * @brief Declarations for NV12 zero copy device on macOS.
  */
 #pragma once
 
 #include "src/platform/common.h"
-#include "src/platform/macos/av_img_t.h"
 
 struct AVFrame;
 

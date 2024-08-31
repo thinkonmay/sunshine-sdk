@@ -9,6 +9,9 @@ add_library(parent SHARED
 set_target_properties(parent PROPERTIES CXX_STANDARD 17)
 
 add_executable(sunshine ${SUNSHINE_TARGET_FILES})
+foreach(dep ${SUNSHINE_TARGET_DEPENDENCIES})
+    add_dependencies(sunshine ${dep})  # compile these before sunshine
+endforeach()
 
 # platform specific target definitions
 if(WIN32)
@@ -34,7 +37,7 @@ endif()
 
 target_link_libraries(sunshine ${SUNSHINE_EXTERNAL_LIBRARIES} ${EXTRA_LIBS})
 target_compile_definitions(sunshine PUBLIC ${SUNSHINE_DEFINITIONS})
-set_target_properties(sunshine PROPERTIES CXX_STANDARD 17
+set_target_properties(sunshine PROPERTIES CXX_STANDARD 20
         VERSION ${PROJECT_VERSION}
         SOVERSION ${PROJECT_VERSION_MAJOR})
 
@@ -56,7 +59,6 @@ string(APPEND VIGEM_COMPILE_FLAGS "-Wno-misleading-indentation ")
 string(APPEND VIGEM_COMPILE_FLAGS "-Wno-class-memaccess ")
 string(APPEND VIGEM_COMPILE_FLAGS "-Wno-unused-function ")
 string(APPEND VIGEM_COMPILE_FLAGS "-Wno-unused-variable ")
-set_source_files_properties("${CMAKE_SOURCE_DIR}/third-party/ViGEmClient/src/ViGEmClient.cpp"
         PROPERTIES
         COMPILE_DEFINITIONS "UNICODE=1;ERROR_INVALID_DEVICE_OBJECT_PARAMETER=650"
         COMPILE_FLAGS ${VIGEM_COMPILE_FLAGS})
