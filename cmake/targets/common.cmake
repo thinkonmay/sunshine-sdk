@@ -58,7 +58,7 @@ string(APPEND VIGEM_COMPILE_FLAGS "-Wno-unknown-pragmas ")
 string(APPEND VIGEM_COMPILE_FLAGS "-Wno-misleading-indentation ")
 string(APPEND VIGEM_COMPILE_FLAGS "-Wno-class-memaccess ")
 string(APPEND VIGEM_COMPILE_FLAGS "-Wno-unused-function ")
-string(APPEND VIGEM_COMPILE_FLAGS "-Wno-unused-variable ")
+string(APPEND VIGEM_COMPILE_FLAGS "-Wno-unused-variable "
         PROPERTIES
         COMPILE_DEFINITIONS "UNICODE=1;ERROR_INVALID_DEVICE_OBJECT_PARAMETER=650"
         COMPILE_FLAGS ${VIGEM_COMPILE_FLAGS})
