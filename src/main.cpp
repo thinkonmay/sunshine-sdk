@@ -25,6 +25,11 @@
 #include <Windows.h>
 #endif
 
+enum StatusCode {
+  NORMAL_EXIT,
+  NO_ENCODER_AVAILABLE = 7777
+};
+
 using namespace std::literals;
 using namespace boost::interprocess;
 
@@ -149,7 +154,7 @@ main(int argc, char *argv[]) {
      queuetype != QueueType::Microphone) {
     if (video::probe_encoders()) {
       BOOST_LOG(error) << "Video failed to find working encoder"sv;
-      return -1;
+      return StatusCode::NO_ENCODER_AVAILABLE;
     }
   }
 
@@ -310,5 +315,5 @@ main(int argc, char *argv[]) {
   }
 #endif
 
-  return 0;
+  return StatusCode::NORMAL_EXIT;
 }
