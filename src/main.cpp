@@ -27,7 +27,7 @@
 
 enum StatusCode {
   NORMAL_EXIT,
-  NO_ENCODER_AVAILABLE = 7777
+  NO_ENCODER_AVAILABLE = 77
 };
 
 using namespace std::literals;
