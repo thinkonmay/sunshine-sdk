@@ -17,9 +17,29 @@
 #include "src/utility.h"
 #include "src/video_colorspace.h"
 
-extern "C" {
-#include <moonlight-common-c/src/Limelight.h>
-}
+typedef struct _SS_HDR_METADATA {
+    // RGB order
+    struct {
+        uint16_t x; // Normalized to 50,000
+        uint16_t y; // Normalized to 50,000
+    } displayPrimaries[3];
+
+    struct {
+        uint16_t x; // Normalized to 50,000
+        uint16_t y; // Normalized to 50,000
+    } whitePoint;
+
+    uint16_t maxDisplayLuminance; // Nits
+    uint16_t minDisplayLuminance; // 1/10000th of a nit
+
+    // These are content-specific values which may not be available for all hosts.
+    uint16_t maxContentLightLevel; // Nits
+    uint16_t maxFrameAverageLightLevel; // Nits
+
+    // These are display-specific values which may not be available for all hosts.
+    uint16_t maxFullFrameLuminance; // Nits
+} SS_HDR_METADATA, *PSS_HDR_METADATA;
+
 
 using namespace std::literals;
 
