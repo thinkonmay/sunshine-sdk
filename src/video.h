@@ -166,9 +166,6 @@ namespace video {
     invalidate_ref_frames(int64_t first_frame, int64_t last_frame) = 0;
   };
 
-  // encoders
-  extern encoder_t software;
-
 #if !defined(__APPLE__)
   extern encoder_t nvenc;  // available for windows and linux
 #endif

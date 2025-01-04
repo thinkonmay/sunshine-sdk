@@ -734,69 +734,6 @@ namespace video {
   };
 #endif
 
-  encoder_t software {
-    "software"sv,
-    std::make_unique<encoder_platform_formats_avcodec>(
-      AV_HWDEVICE_TYPE_NONE, AV_HWDEVICE_TYPE_NONE,
-      AV_PIX_FMT_NONE,
-      AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV420P10,
-      nullptr),
-    {
-      // libsvtav1 takes different presets than libx264/libx265.
-      // We set an infinite GOP length, use a low delay prediction structure,
-      // force I frames to be key frames, and set max bitrate to default to work
-      // around a FFmpeg bug with CBR mode.
-      {
-        { "svtav1-params"s, "keyint=-1:pred-struct=1:force-key-frames=1:mbr=0"s },
-        { "preset"s, &config::video.sw.svtav1_preset },
-      },
-      {},  // SDR-specific options
-      {},  // HDR-specific options
-      {},  // Fallback options
-
-      // QP rate control fallback
-      std::nullopt,
-
-#ifdef ENABLE_BROKEN_AV1_ENCODER
-      // Due to bugs preventing on-demand IDR frames from working and very poor
-      // real-time encoding performance, we do not enable libsvtav1 by default.
-      // It is only suitable for testing AV1 until the IDR frame issue is fixed.
-      "libsvtav1"s,
-#else
-      {},
-#endif
-    },
-    {
-      // x265's Info SEI is so long that it causes the IDR picture data to be
-      // kicked to the 2nd packet in the frame, breaking Moonlight's parsing logic.
-      // It also looks like gop_size isn't passed on to x265, so we have to set
-      // 'keyint=-1' in the parameters ourselves.
-      {
-        { "forced-idr"s, 1 },
-        { "x265-params"s, "info=0:keyint=-1"s },
-        { "preset"s, &config::video.sw.sw_preset },
-        { "tune"s, &config::video.sw.sw_tune },
-      },
-      {},  // SDR-specific options
-      {},  // HDR-specific options
-      {},  // Fallback options
-      std::nullopt,  // QP rate control fallback
-      "libx265"s,
-    },
-    {
-      // Common options
-      {
-        { "preset"s, &config::video.sw.sw_preset },
-        { "tune"s, &config::video.sw.sw_tune },
-      },
-      {},  // SDR-specific options
-      {},  // HDR-specific options
-      {},  // Fallback options
-      std::nullopt,  // QP rate control fallback
-      "libx264"s,
-    },
-    H264_ONLY | PARALLEL_ENCODING | ALWAYS_REPROBE
-  };
 
 #ifdef __linux__
   encoder_t vaapi {
@@ -935,9 +872,6 @@ namespace video {
     &videotoolbox
 #endif
 
-#ifdef ALLOW_SW_ENCODER
-    ,&software
-#endif
   };
 
   static encoder_t *chosen_encoder;

@@ -302,25 +302,6 @@ namespace config {
 
   }  // namespace vt
 
-  namespace sw {
-    int
-    svtav1_preset_from_view(const std::string_view &preset) {
-#define _CONVERT_(x, y) \
-  if (preset == #x##sv) return y
-      _CONVERT_(veryslow, 1);
-      _CONVERT_(slower, 2);
-      _CONVERT_(slow, 4);
-      _CONVERT_(medium, 5);
-      _CONVERT_(fast, 7);
-      _CONVERT_(faster, 9);
-      _CONVERT_(veryfast, 10);
-      _CONVERT_(superfast, 11);
-      _CONVERT_(ultrafast, 12);
-#undef _CONVERT_
-      return 11;  // Default to superfast
-    }
-  }  // namespace sw
-
   video_t video {
     28,  // qp
 
