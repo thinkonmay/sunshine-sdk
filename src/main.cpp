@@ -158,10 +158,6 @@ main(int argc, char *argv[]) {
     }
   }
 
-  if(queuetype == QueueType::Input) {
-    auto input_deinit_guard = input::init();
-  }
-
   //Get buffer local address from handle
   BOOST_LOG(info) << "Allocating shared memory"sv;
   SharedMemory* memory = obtain_shared_memory(argv[1]);
@@ -184,31 +180,6 @@ main(int argc, char *argv[]) {
   };
     
 
-  auto pull = [process_shutdown_event](safe::mail_t mail, Queue* queue){
-    auto input         = input::alloc(mail);
-    auto local_shutdown= mail->event<bool>(mail::shutdown);
-
-#ifdef _WIN32 
-    platf::adjust_thread_priority(platf::thread_priority_e::critical);
-#endif
-
-    queue->metadata.active = 1;
-    auto current_index = queue->index;
-    while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
-      while (current_index < queue->index) {
-        current_index++;
-        auto real_index = current_index % QUEUE_SIZE;
-        auto data = queue->array[real_index].data;
-        auto size = queue->array[real_index].size;
-        std::vector<uint8_t> raw(data, data + size);
-        input::passthrough(input,raw);
-      }
-      
-
-      std::this_thread::sleep_for(1ms);
-    }
-    queue->metadata.active = 0;
-  };
 
   auto push = [process_shutdown_event](safe::mail_t mail, Queue* queue, QueueType queue_type){
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
@@ -291,10 +262,6 @@ main(int argc, char *argv[]) {
     auto forward = std::thread{push,mail,queue,(QueueType)queuetype};
     capture.detach();
     forward.detach();
-  } else if (queuetype == QueueType::Input) {
-    auto process = std::thread{pull,mail,queue};
-    process.detach();
-
   }
 
   auto local_shutdown= mail->event<bool>(mail::shutdown);

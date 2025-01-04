@@ -546,8 +546,6 @@ namespace platf {
   void
   freeInput(void *);
 
-  using input_t = util::safe_ptr<void, freeInput>;
-
   std::filesystem::path
   appdata();
 
@@ -670,89 +668,6 @@ namespace platf {
   bool
   process_group_running(std::uintptr_t native_handle);
 
-  input_t
-  input();
-  void
-  move_mouse(input_t &input, int deltaX, int deltaY);
-  void
-  abs_mouse(input_t &input, const touch_port_t &touch_port, float x, float y);
-  void
-  button_mouse(input_t &input, int button, bool release);
-  void
-  scroll(input_t &input, int distance);
-  void
-  hscroll(input_t &input, int distance);
-  void
-  keyboard(input_t &input, uint16_t modcode, bool release, uint8_t flags);
-  void
-  gamepad(input_t &input, int nr, const gamepad_state_t &gamepad_state);
-  void
-  unicode(input_t &input, char *utf8, int size);
-
-  typedef deinit_t client_input_t;
-
-  /**
-   * @brief Allocates a context to store per-client input data.
-   * @param input The global input context.
-   * @return A unique pointer to a per-client input data context.
-   */
-  std::unique_ptr<client_input_t>
-  allocate_client_input_context(input_t &input);
-
-  /**
-   * @brief Sends a touch event to the OS.
-   * @param input The client-specific input context.
-   * @param touch_port The current viewport for translating to screen coordinates.
-   * @param touch The touch event.
-   */
-  void
-  touch(client_input_t *input, const touch_port_t &touch_port, const touch_input_t &touch);
-
-  /**
-   * @brief Sends a pen event to the OS.
-   * @param input The client-specific input context.
-   * @param touch_port The current viewport for translating to screen coordinates.
-   * @param pen The pen event.
-   */
-  void
-  pen(client_input_t *input, const touch_port_t &touch_port, const pen_input_t &pen);
-
-  /**
-   * @brief Sends a gamepad touch event to the OS.
-   * @param input The global input context.
-   * @param touch The touch event.
-   */
-  void
-  gamepad_touch(input_t &input, const gamepad_touch_t &touch);
-
-  /**
-   * @brief Sends a gamepad motion event to the OS.
-   * @param input The global input context.
-   * @param motion The motion event.
-   */
-  void
-  gamepad_motion(input_t &input, const gamepad_motion_t &motion);
-
-  /**
-   * @brief Sends a gamepad battery event to the OS.
-   * @param input The global input context.
-   * @param battery The battery event.
-   */
-  void
-  gamepad_battery(input_t &input, const gamepad_battery_t &battery);
-
-  /**
-   * @brief Creates a new virtual gamepad.
-   * @param input The global input context.
-   * @param id The gamepad ID.
-   * @param metadata Controller metadata from client (empty if none provided).
-   * @param feedback_queue The queue for posting messages back to the client.
-   * @return 0 on success.
-   */
-  int
-  alloc_gamepad(input_t &input, const gamepad_id_t &id, const gamepad_arrival_t &metadata, feedback_queue_t feedback_queue);
-  void
-  free_gamepad(input_t &input, int nr);
 
   /**
    * @brief Returns the supported platform capabilities to advertise to the client.
@@ -771,7 +686,4 @@ namespace platf {
 
   [[nodiscard]] std::unique_ptr<deinit_t>
   init();
-
-  std::vector<std::string_view> &
-  supported_gamepads();
 }  // namespace platf

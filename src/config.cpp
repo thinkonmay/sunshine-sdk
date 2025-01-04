@@ -419,31 +419,6 @@ namespace config {
     { 10, 30, 60, 90, 120 },  // supported fps
   };
 
-  input_t input {
-    {
-      { 0x10, 0xA0 },
-      { 0x11, 0xA2 },
-      { 0x12, 0xA4 },
-    },
-    -1ms,  // back_button_timeout
-    500ms,  // key_repeat_delay
-    std::chrono::duration<double> { 1 / 24.9 },  // key_repeat_period
-
-    {
-      platf::supported_gamepads().front().data(),
-      platf::supported_gamepads().front().size(),
-    },  // Default gamepad
-    true,  // back as touchpad click enabled (manual DS4 only)
-    true,  // client gamepads with motion events are emulated as DS4
-    true,  // client gamepads with touchpads are emulated as DS4
-
-    true,  // keyboard enabled
-    true,  // mouse enabled
-    true,  // controller enabled
-    true,  // always send scancodes
-    true,  // high resolution scrolling
-    true,  // native pen/touch support
-  };
 
   sunshine_t sunshine {
     "en",  // locale

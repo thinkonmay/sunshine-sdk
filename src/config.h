@@ -118,27 +118,6 @@ namespace config {
     std::vector<int> fps;
   };
 
-  struct input_t {
-    std::unordered_map<int, int> keybindings;
-
-    std::chrono::milliseconds back_button_timeout;
-    std::chrono::milliseconds key_repeat_delay;
-    std::chrono::duration<double> key_repeat_period;
-
-    std::string gamepad;
-    bool ds4_back_as_touchpad_click;
-    bool motion_as_ds4;
-    bool touchpad_as_ds4;
-
-    bool keyboard;
-    bool mouse;
-    bool controller;
-
-    bool always_send_scancodes;
-
-    bool high_resolution_scrolling;
-    bool native_pen_touch;
-  };
 
   namespace flag {
     enum flag_e : std::size_t {
@@ -190,6 +169,5 @@ namespace config {
   extern audio_t audio;
   extern stream_t stream;
   extern nvhttp_t nvhttp;
-  extern input_t input;
   extern sunshine_t sunshine;
 }  // namespace config
