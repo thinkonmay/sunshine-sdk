@@ -963,37 +963,33 @@ namespace platf::dxgi {
 namespace platf {
   std::shared_ptr<display_t>
   display(mem_type_e hwdevice_type, const std::string &display_name, const video::config_t &config) {
-    if (true || config::video.capture.empty()) {
-      if (hwdevice_type == mem_type_e::dxgi) {
-        auto disp = std::make_shared<dxgi::display_ddup_vram_t>();
+    if (hwdevice_type == mem_type_e::dxgi) {
+      auto disp = std::make_shared<dxgi::display_wgc_vram_t>();
 
-        if (!disp->init(config, display_name)) {
-          return disp;
-        }
+      if (!disp->init(config, display_name)) {
+        return disp;
       }
-      else if (hwdevice_type == mem_type_e::system) {
-        auto disp = std::make_shared<dxgi::display_ddup_ram_t>();
+    }
+    else if (hwdevice_type == mem_type_e::system) {
+      auto disp = std::make_shared<dxgi::display_wgc_ram_t>();
 
-        if (!disp->init(config, display_name)) {
-          return disp;
-        }
+      if (!disp->init(config, display_name)) {
+        return disp;
       }
     }
 
-    if (false || config::video.capture.empty()) {
-      if (hwdevice_type == mem_type_e::dxgi) {
-        auto disp = std::make_shared<dxgi::display_wgc_vram_t>();
+    if (hwdevice_type == mem_type_e::dxgi) {
+      auto disp = std::make_shared<dxgi::display_ddup_vram_t>();
 
-        if (!disp->init(config, display_name)) {
-          return disp;
-        }
+      if (!disp->init(config, display_name)) {
+        return disp;
       }
-      else if (hwdevice_type == mem_type_e::system) {
-        auto disp = std::make_shared<dxgi::display_wgc_ram_t>();
+    }
+    else if (hwdevice_type == mem_type_e::system) {
+      auto disp = std::make_shared<dxgi::display_ddup_ram_t>();
 
-        if (!disp->init(config, display_name)) {
-          return disp;
-        }
+      if (!disp->init(config, display_name)) {
+        return disp;
       }
     }
 

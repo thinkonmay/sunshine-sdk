@@ -197,10 +197,16 @@ main(int argc, char *argv[]) {
 
     queue->metadata.active = 1;
     auto last_timestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    bool first_video_packet = true;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video0 || queue_type == QueueType::Video1) {
         do {
           auto packet = video_packets->pop();
+          if (packet->is_idr() != 0 && first_video_packet) {
+            BOOST_LOG(info) << "idr frame";
+            first_video_packet = false;
+          }
+
           auto timestamp = packet->frame_timestamp.value().time_since_epoch().count();
           push_packet(queue,packet->data(),packet->data_size(),PacketMetadata{ 
             packet->is_idr(),
