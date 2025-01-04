@@ -5,7 +5,7 @@ project(sunshine_tools)
 include_directories("${CMAKE_SOURCE_DIR}")
 
 add_executable(ddprobe ddprobe.cpp)
-set_target_properties(ddprobe PROPERTIES CXX_STANDARD 17)
+set_target_properties(ddprobe PROPERTIES CXX_STANDARD 20)
 target_link_libraries(ddprobe
         ${CMAKE_THREAD_LIBS_INIT}
         dxgi

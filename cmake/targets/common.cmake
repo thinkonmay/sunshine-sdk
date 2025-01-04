@@ -6,7 +6,7 @@ add_library(parent SHARED
         "${CMAKE_SOURCE_DIR}/lib/interprocess.h"
         "${CMAKE_SOURCE_DIR}/lib/interprocess.cpp"
         )
-set_target_properties(parent PROPERTIES CXX_STANDARD 17)
+set_target_properties(parent PROPERTIES CXX_STANDARD 20)
 
 add_executable(sunshine ${SUNSHINE_TARGET_FILES})
 
@@ -34,7 +34,7 @@ endif()
 
 target_link_libraries(sunshine ${SUNSHINE_EXTERNAL_LIBRARIES} ${EXTRA_LIBS})
 target_compile_definitions(sunshine PUBLIC ${SUNSHINE_DEFINITIONS})
-set_target_properties(sunshine PROPERTIES CXX_STANDARD 17
+set_target_properties(sunshine PROPERTIES CXX_STANDARD 20
         VERSION ${PROJECT_VERSION}
         SOVERSION ${PROJECT_VERSION_MAJOR})
 

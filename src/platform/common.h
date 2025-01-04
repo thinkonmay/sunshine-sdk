@@ -563,6 +563,31 @@ namespace platf {
     virtual ~audio_control_t() = default;
   };
 
+  struct high_precision_timer: private boost::noncopyable {
+    virtual ~high_precision_timer() = default;
+
+    /**
+     * @brief Sleep for the duration
+     * @param duration Sleep duration
+     */
+    virtual void
+    sleep_for(const std::chrono::nanoseconds &duration) = 0;
+
+    /**
+     * @brief Check if platform-specific timer backend has been initialized successfully
+     * @return `true` on success, `false` on error
+     */
+    virtual
+    operator bool() = 0;
+  };
+
+  /**
+   * @brief Create platform-specific timer capable of high-precision sleep
+   * @return A unique pointer to timer
+   */
+  std::unique_ptr<high_precision_timer>
+  create_high_precision_timer();
+
   void
   freeInput(void *);
 

@@ -945,9 +945,8 @@ namespace platf::dxgi {
   }
 
   capture_e
-  display_vram_t::snapshot(const pull_free_image_cb_t &pull_free_image_cb, std::shared_ptr<platf::img_t> &img_out, std::chrono::milliseconds timeout, bool cursor_visible) {
+  display_ddup_vram_t::snapshot(const pull_free_image_cb_t &pull_free_image_cb, std::shared_ptr<platf::img_t> &img_out, std::chrono::milliseconds timeout, bool cursor_visible) {
     HRESULT status;
-
     DXGI_OUTDUPL_FRAME_INFO frame_info;
 
     resource_t::pointer res_p {};
@@ -1329,6 +1328,93 @@ namespace platf::dxgi {
     return capture_e::ok;
   }
 
+  capture_e
+  display_ddup_vram_t::release_snapshot() {
+    return dup.release_frame();
+  }
+
+  int
+  display_ddup_vram_t::init(const ::video::config_t &config, const std::string &display_name) {
+    if (display_base_t::init(config, display_name) || dup.init(this, config)) {
+      return -1;
+    }
+
+    D3D11_SAMPLER_DESC sampler_desc {};
+    sampler_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    sampler_desc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    sampler_desc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    sampler_desc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampler_desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    sampler_desc.MinLOD = 0;
+    sampler_desc.MaxLOD = D3D11_FLOAT32_MAX;
+
+    auto status = device->CreateSamplerState(&sampler_desc, &sampler_linear);
+    if (FAILED(status)) {
+      BOOST_LOG(error) << "Failed to create point sampler state [0x"sv << util::hex(status).to_string_view() << ']';
+      return -1;
+    }
+
+    status = device->CreateVertexShader(cursor_vs_hlsl->GetBufferPointer(), cursor_vs_hlsl->GetBufferSize(), nullptr, &cursor_vs);
+    if (status) {
+      BOOST_LOG(error) << "Failed to create scene vertex shader [0x"sv << util::hex(status).to_string_view() << ']';
+      return -1;
+    }
+
+    {
+      int32_t rotation_modifier = display_rotation == DXGI_MODE_ROTATION_UNSPECIFIED ? 0 : display_rotation - 1;
+      int32_t rotation_data[16 / sizeof(int32_t)] { rotation_modifier };  // aligned to 16-byte
+      auto rotation = make_buffer(device.get(), rotation_data);
+      if (!rotation) {
+        BOOST_LOG(error) << "Failed to create display rotation vertex constant buffer";
+        return -1;
+      }
+      device_ctx->VSSetConstantBuffers(2, 1, &rotation);
+    }
+
+    if (config.dynamicRange && is_hdr()) {
+      // This shader will normalize scRGB white levels to a user-defined white level
+      status = device->CreatePixelShader(cursor_ps_normalize_white_hlsl->GetBufferPointer(), cursor_ps_normalize_white_hlsl->GetBufferSize(), nullptr, &cursor_ps);
+      if (status) {
+        BOOST_LOG(error) << "Failed to create cursor blending (normalized white) pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
+        return -1;
+      }
+
+      // Use a 300 nit target for the mouse cursor. We should really get
+      // the user's SDR white level in nits, but there is no API that
+      // provides that information to Win32 apps.
+      float white_multiplier_data[16 / sizeof(float)] { 300.0f / 80.f };  // aligned to 16-byte
+      auto white_multiplier = make_buffer(device.get(), white_multiplier_data);
+      if (!white_multiplier) {
+        BOOST_LOG(warning) << "Failed to create cursor blending (normalized white) white multiplier constant buffer";
+        return -1;
+      }
+
+      device_ctx->PSSetConstantBuffers(1, 1, &white_multiplier);
+    }
+    else {
+      status = device->CreatePixelShader(cursor_ps_hlsl->GetBufferPointer(), cursor_ps_hlsl->GetBufferSize(), nullptr, &cursor_ps);
+      if (status) {
+        BOOST_LOG(error) << "Failed to create cursor blending pixel shader [0x"sv << util::hex(status).to_string_view() << ']';
+        return -1;
+      }
+    }
+
+    blend_alpha = make_blend(device.get(), true, false);
+    blend_invert = make_blend(device.get(), true, true);
+    blend_disable = make_blend(device.get(), false, false);
+
+    if (!blend_disable || !blend_alpha || !blend_invert) {
+      return -1;
+    }
+
+    device_ctx->OMSetBlendState(blend_disable.get(), nullptr, 0xFFFFFFFFu);
+    device_ctx->PSSetSamplers(0, 1, &sampler_linear);
+    device_ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    return 0;
+  }
+
+
   int
   display_vram_t::init(const ::video::config_t &config, const std::string &display_name) {
     if (display_base_t::init(config, display_name)) {
@@ -1406,6 +1492,80 @@ namespace platf::dxgi {
     device_ctx->OMSetBlendState(blend_disable.get(), nullptr, 0xFFFFFFFFu);
     device_ctx->PSSetSamplers(0, 1, &sampler_linear);
     device_ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+    return 0;
+  }
+
+  /**
+   * Get the next frame from the Windows.Graphics.Capture API and copy it into a new snapshot texture.
+   * @param pull_free_image_cb call this to get a new free image from the video subsystem.
+   * @param img_out the captured frame is returned here
+   * @param timeout how long to wait for the next frame
+   * @param cursor_visible
+   */
+  capture_e
+  display_wgc_vram_t::snapshot(const pull_free_image_cb_t &pull_free_image_cb, std::shared_ptr<platf::img_t> &img_out, std::chrono::milliseconds timeout, bool cursor_visible) {
+    texture2d_t src;
+    uint64_t frame_qpc;
+    dup.set_cursor_visible(cursor_visible);
+    auto capture_status = dup.next_frame(timeout, &src, frame_qpc);
+    if (capture_status != capture_e::ok)
+      return capture_status;
+
+    auto frame_timestamp = std::chrono::steady_clock::now() - qpc_time_difference(qpc_counter(), frame_qpc);
+    D3D11_TEXTURE2D_DESC desc;
+    src->GetDesc(&desc);
+
+    // It's possible for our display enumeration to race with mode changes and result in
+    // mismatched image pool and desktop texture sizes. If this happens, just reinit again.
+    if (desc.Width != width_before_rotation || desc.Height != height_before_rotation) {
+      BOOST_LOG(info) << "Capture size changed ["sv << width << 'x' << height << " -> "sv << desc.Width << 'x' << desc.Height << ']';
+      return capture_e::reinit;
+    }
+
+    // It's also possible for the capture format to change on the fly. If that happens,
+    // reinitialize capture to try format detection again and create new images.
+    if (capture_format != desc.Format) {
+      BOOST_LOG(info) << "Capture format changed ["sv << dxgi_format_to_string(capture_format) << " -> "sv << dxgi_format_to_string(desc.Format) << ']';
+      return capture_e::reinit;
+    }
+
+    std::shared_ptr<platf::img_t> img;
+    if (!pull_free_image_cb(img))
+      return capture_e::interrupted;
+
+    auto d3d_img = std::static_pointer_cast<img_d3d_t>(img);
+    d3d_img->blank = false;  // image is always ready for capture
+    if (complete_img(d3d_img.get(), false) == 0) {
+      texture_lock_helper lock_helper(d3d_img->capture_mutex.get());
+      if (lock_helper.lock()) {
+        device_ctx->CopyResource(d3d_img->capture_texture.get(), src.get());
+      }
+      else {
+        BOOST_LOG(error) << "Failed to lock capture texture";
+        return capture_e::error;
+      }
+    }
+    else {
+      return capture_e::error;
+    }
+    img_out = img;
+    if (img_out) {
+      img_out->frame_timestamp = frame_timestamp;
+    }
+
+    return capture_e::ok;
+  }
+
+  capture_e
+  display_wgc_vram_t::release_snapshot() {
+    return dup.release_frame();
+  }
+
+  int
+  display_wgc_vram_t::init(const ::video::config_t &config, const std::string &display_name) {
+    if (display_base_t::init(config, display_name) || dup.init(this, config))
+      return -1;
 
     return 0;
   }
