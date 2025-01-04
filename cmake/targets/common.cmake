@@ -48,15 +48,3 @@ endif()
 target_compile_options(sunshine PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${SUNSHINE_COMPILE_OPTIONS}>;$<$<COMPILE_LANGUAGE:CUDA>:${SUNSHINE_COMPILE_OPTIONS_CUDA};-std=c++17>)  # cmake-lint: disable=C0301
 
 # custom compile flags, must be after adding tests
-
-# third-party/ViGEmClient
-set(VIGEM_COMPILE_FLAGS "")
-string(APPEND VIGEM_COMPILE_FLAGS "-Wno-unknown-pragmas ")
-string(APPEND VIGEM_COMPILE_FLAGS "-Wno-misleading-indentation ")
-string(APPEND VIGEM_COMPILE_FLAGS "-Wno-class-memaccess ")
-string(APPEND VIGEM_COMPILE_FLAGS "-Wno-unused-function ")
-string(APPEND VIGEM_COMPILE_FLAGS "-Wno-unused-variable ")
-set_source_files_properties("${CMAKE_SOURCE_DIR}/third-party/ViGEmClient/src/ViGEmClient.cpp"
-        PROPERTIES
-        COMPILE_DEFINITIONS "UNICODE=1;ERROR_INVALID_DEVICE_OBJECT_PARAMETER=650"
-        COMPILE_FLAGS ${VIGEM_COMPILE_FLAGS})
