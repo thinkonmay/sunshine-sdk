@@ -2285,8 +2285,6 @@ namespace video {
       }
     }
       
-    BOOST_LOG(error) << "Done alloc"sv;
-
     session->request_idr_frame();
 
     auto packets = mail::man->queue<packet_t>(mail::video_packets);
