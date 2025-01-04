@@ -387,15 +387,6 @@ namespace platf::dxgi {
   }
 
   int
-  display_ram_t::init(const ::video::config_t &config, const std::string &display_name) {
-    if (display_base_t::init(config, display_name)) {
-      return -1;
-    }
-
-    return 0;
-  }
-
-  int
   display_ddup_ram_t::init(const ::video::config_t &config, const std::string &display_name) {
     if (display_base_t::init(config, display_name) || dup.init(this, config)) {
       return -1;

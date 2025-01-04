@@ -162,9 +162,6 @@ namespace platf::dxgi {
     int
     init(const ::video::config_t &config, const std::string &display_name);
 
-    void
-    high_precision_sleep(std::chrono::nanoseconds duration);
-
     capture_e
     capture(const push_captured_image_cb_t &push_captured_image_cb, const pull_free_image_cb_t &pull_free_image_cb, bool *cursor) override;
 
@@ -263,9 +260,6 @@ namespace platf::dxgi {
 
   class display_ram_t: public display_base_t {
   public:
-    virtual capture_e
-    snapshot(const pull_free_image_cb_t &pull_free_image_cb, std::shared_ptr<platf::img_t> &img_out, std::chrono::milliseconds timeout, bool cursor_visible) override;
-
     std::shared_ptr<img_t>
     alloc_img() override;
     int
@@ -274,9 +268,6 @@ namespace platf::dxgi {
     complete_img(img_t *img, bool dummy) override;
     std::vector<DXGI_FORMAT>
     get_supported_capture_formats() override;
-
-    int
-    init(const ::video::config_t &config, const std::string &display_name);
 
     std::unique_ptr<avcodec_encode_device_t>
     make_avcodec_encode_device(pix_fmt_e pix_fmt) override;
@@ -288,9 +279,6 @@ namespace platf::dxgi {
 
   class display_vram_t: public display_base_t, public std::enable_shared_from_this<display_vram_t> {
   public:
-    virtual capture_e
-    snapshot(const pull_free_image_cb_t &pull_free_image_cb, std::shared_ptr<platf::img_t> &img_out, std::chrono::milliseconds timeout, bool cursor_visible) override;
-
     std::shared_ptr<img_t>
     alloc_img() override;
     int
@@ -299,9 +287,6 @@ namespace platf::dxgi {
     complete_img(img_t *img_base, bool dummy) override;
     std::vector<DXGI_FORMAT>
     get_supported_capture_formats() override;
-
-    int
-    init(const ::video::config_t &config, const std::string &display_name);
 
     bool
     is_codec_supported(std::string_view name, const ::video::config_t &config) override;

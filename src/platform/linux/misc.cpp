@@ -286,16 +286,6 @@ namespace platf {
   }
 
   void
-  streaming_will_start() {
-    // Nothing to do
-  }
-
-  void
-  streaming_will_stop() {
-    // Nothing to do
-  }
-
-  void
   restart_on_exit() {
     char executable[PATH_MAX];
     ssize_t len = readlink("/proc/self/exe", executable, PATH_MAX - 1);

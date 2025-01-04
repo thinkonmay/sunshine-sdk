@@ -38,6 +38,7 @@ list(PREPEND PLATFORM_LIBRARIES
         libstdc++.a
         libwinpthread.a
         libssp.a
+        ntdll
         ksuser
         wsock32
         ws2_32
@@ -47,10 +48,5 @@ list(PREPEND PLATFORM_LIBRARIES
         userenv
         synchronization.lib
         avrt
-        ole32
-        oleaut32
-        imm32
-        winmm
-        version
         iphlpapi
         shlwapi)

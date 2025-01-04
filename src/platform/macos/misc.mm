@@ -213,15 +213,7 @@ namespace platf {
     // Unimplemented
   }
 
-  void
-  streaming_will_start() {
-    // Nothing to do
-  }
 
-  void
-  streaming_will_stop() {
-    // Nothing to do
-  }
 
   void
   restart_on_exit() {
