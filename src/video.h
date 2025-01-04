@@ -17,6 +17,33 @@ extern "C" {
 struct AVPacket;
 namespace video {
 
+  /* Encoding configuration requested by remote client */
+  struct config_t {
+    std::optional<std::string> display;
+
+    int width;  // Video width in pixels
+    int height;  // Video height in pixels
+    int framerate;  // Requested framerate, used in individual frame bitrate budget calculation
+    int bitrate;  // Video bitrate in kilobits (1000 bits) for requested framerate
+    int slicesPerFrame;  // Number of slices per frame
+    int numRefFrames;  // Max number of reference frames
+
+    /* Requested color range and SDR encoding colorspace, HDR encoding colorspace is always BT.2020+ST2084
+       Color range (encoderCscMode & 0x1) : 0 - limited, 1 - full
+       SDR encoding colorspace (encoderCscMode >> 1) : 0 - BT.601, 1 - BT.709, 2 - BT.2020 */
+    int encoderCscMode;
+
+    int videoFormat;  // 0 - H.264, 1 - HEVC, 2 - AV1
+
+    /* Encoding color depth (bit depth): 0 - 8-bit, 1 - 10-bit
+       HDR encoding activates when color depth is higher than 8-bit and the display which is being captured is operating in HDR mode */
+    int dynamicRange;
+
+    int chromaSamplingType;  // 0 - 4:2:0, 1 - 4:4:4
+
+    int enableIntraRefresh;  // 0 - disabled, 1 - enabled
+  };
+
   platf::mem_type_e
   map_base_dev_type(AVHWDeviceType type);
   platf::pix_fmt_e
@@ -39,6 +66,7 @@ namespace video {
     virtual ~encoder_platform_formats_t() = default;
     platf::mem_type_e dev_type;
     platf::pix_fmt_e pix_fmt_8bit, pix_fmt_10bit;
+    platf::pix_fmt_e pix_fmt_yuv444_8bit, pix_fmt_yuv444_10bit;
   };
 
   struct encoder_platform_formats_avcodec: encoder_platform_formats_t {
@@ -50,21 +78,28 @@ namespace video {
       const AVPixelFormat &avcodec_dev_pix_fmt,
       const AVPixelFormat &avcodec_pix_fmt_8bit,
       const AVPixelFormat &avcodec_pix_fmt_10bit,
+      const AVPixelFormat &avcodec_pix_fmt_yuv444_8bit,
+      const AVPixelFormat &avcodec_pix_fmt_yuv444_10bit,
       const init_buffer_function_t &init_avcodec_hardware_input_buffer_function):
         avcodec_base_dev_type { avcodec_base_dev_type },
         avcodec_derived_dev_type { avcodec_derived_dev_type },
         avcodec_dev_pix_fmt { avcodec_dev_pix_fmt },
         avcodec_pix_fmt_8bit { avcodec_pix_fmt_8bit },
         avcodec_pix_fmt_10bit { avcodec_pix_fmt_10bit },
+        avcodec_pix_fmt_yuv444_8bit { avcodec_pix_fmt_yuv444_8bit },
+        avcodec_pix_fmt_yuv444_10bit { avcodec_pix_fmt_yuv444_10bit },
         init_avcodec_hardware_input_buffer { init_avcodec_hardware_input_buffer_function } {
       dev_type = map_base_dev_type(avcodec_base_dev_type);
       pix_fmt_8bit = map_pix_fmt(avcodec_pix_fmt_8bit);
       pix_fmt_10bit = map_pix_fmt(avcodec_pix_fmt_10bit);
+      pix_fmt_yuv444_8bit = map_pix_fmt(avcodec_pix_fmt_yuv444_8bit);
+      pix_fmt_yuv444_10bit = map_pix_fmt(avcodec_pix_fmt_yuv444_10bit);
     }
 
     AVHWDeviceType avcodec_base_dev_type, avcodec_derived_dev_type;
     AVPixelFormat avcodec_dev_pix_fmt;
     AVPixelFormat avcodec_pix_fmt_8bit, avcodec_pix_fmt_10bit;
+    AVPixelFormat avcodec_pix_fmt_yuv444_8bit, avcodec_pix_fmt_yuv444_10bit;
 
     init_buffer_function_t init_avcodec_hardware_input_buffer;
   };
@@ -83,12 +118,12 @@ namespace video {
   struct encoder_t {
     std::string_view name;
     enum flag_e {
-      PASSED,  // Is supported
-      REF_FRAMES_RESTRICT,  // Set maximum reference frames
-      CBR,  // Some encoders don't support CBR, if not supported --> attempt constant quantatication parameter instead
-      DYNAMIC_RANGE,  // hdr
-      VUI_PARAMETERS,  // AMD encoder with VAAPI doesn't add VUI parameters to SPS
-      MAX_FLAGS
+      PASSED,  ///< Indicates the encoder is supported.
+      REF_FRAMES_RESTRICT,  ///< Set maximum reference frames.
+      DYNAMIC_RANGE,  ///< HDR support.
+      YUV444,  ///< YUV 4:4:4 support.
+      VUI_PARAMETERS,  ///< AMD encoder with VAAPI doesn't add VUI parameters to SPS.
+      MAX_FLAGS  ///< Maximum number of flags.
     };
 
     static std::string_view
@@ -99,8 +134,8 @@ namespace video {
       switch (flag) {
         _CONVERT(PASSED);
         _CONVERT(REF_FRAMES_RESTRICT);
-        _CONVERT(CBR);
         _CONVERT(DYNAMIC_RANGE);
+        _CONVERT(YUV444);
         _CONVERT(VUI_PARAMETERS);
         _CONVERT(MAX_FLAGS);
       }
@@ -126,12 +161,9 @@ namespace video {
       std::vector<option_t> common_options;
       std::vector<option_t> sdr_options;
       std::vector<option_t> hdr_options;
+      std::vector<option_t> sdr444_options;
+      std::vector<option_t> hdr444_options;
       std::vector<option_t> fallback_options;
-
-      // QP option to set in the case that CBR/VBR is not supported
-      // by the encoder. If CBR/VBR is guaranteed to be supported,
-      // don't specify this option to avoid wasteful encoder probing.
-      std::optional<option_t> qp;
 
       std::string name;
       std::bitset<MAX_FLAGS> capabilities;
@@ -146,6 +178,21 @@ namespace video {
         return capabilities[(std::size_t) flag];
       }
     } av1, hevc, h264;
+
+    const codec_t &
+    codec_from_config(const config_t &config) const {
+      switch (config.videoFormat) {
+        default:
+          BOOST_LOG(error) << "Unknown video format " << config.videoFormat << ", falling back to H.264";
+          // fallthrough
+        case 0:
+          return h264;
+        case 1:
+          return hevc;
+        case 2:
+          return av1;
+      }
+    }
 
     uint32_t flags;
   };
@@ -290,28 +337,6 @@ namespace video {
 
   using hdr_info_t = std::unique_ptr<hdr_info_raw_t>;
 
-  /* Encoding configuration requested by remote client */
-  struct config_t {
-    std::optional<std::string> display;
-
-    int width;  // Video width in pixels
-    int height;  // Video height in pixels
-    int framerate;  // Requested framerate, used in individual frame bitrate budget calculation
-    int bitrate;  // Video bitrate in kilobits (1000 bits) for requested framerate
-    int slicesPerFrame;  // Number of slices per frame
-    int numRefFrames;  // Max number of reference frames
-
-    /* Requested color range and SDR encoding colorspace, HDR encoding colorspace is always BT.2020+ST2084
-       Color range (encoderCscMode & 0x1) : 0 - limited, 1 - full
-       SDR encoding colorspace (encoderCscMode >> 1) : 0 - BT.601, 1 - BT.709, 2 - BT.2020 */
-    int encoderCscMode;
-
-    int videoFormat;  // 0 - H.264, 1 - HEVC, 2 - AV1
-
-    /* Encoding color depth (bit depth): 0 - 8-bit, 1 - 10-bit
-       HDR encoding activates when color depth is higher than 8-bit and the display which is being captured is operating in HDR mode */
-    int dynamicRange;
-  };
 
   extern int active_hevc_mode;
   extern int active_av1_mode;

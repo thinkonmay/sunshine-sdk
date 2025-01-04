@@ -227,19 +227,19 @@ namespace config {
 
   namespace qsv {
     enum preset_e : int {
-      veryslow = 1,
-      slower = 2,
-      slow = 3,
-      medium = 4,
-      fast = 5,
-      faster = 6,
-      veryfast = 7
+      veryslow = 1,  ///< veryslow preset
+      slower = 2,  ///< slower preset
+      slow = 3,  ///< slow preset
+      medium = 4,  ///< medium preset
+      fast = 5,  ///< fast preset
+      faster = 6,  ///< faster preset
+      veryfast = 7  ///< veryfast preset
     };
 
     enum cavlc_e : int {
-      _auto = false,
-      enabled = true,
-      disabled = false
+      _auto = false,  ///< Auto
+      enabled = true,  ///< Enabled
+      disabled = false  ///< Disabled
     };
 
     std::optional<int>
