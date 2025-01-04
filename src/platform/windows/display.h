@@ -11,6 +11,7 @@
 #include <dxgi.h>
 #include <dxgi1_6.h>
 
+#include <Unknwn.h>
 #include <winrt/Windows.Graphics.Capture.h>
 
 #include "src/platform/common.h"

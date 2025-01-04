@@ -9,6 +9,8 @@
 #include <iostream>
 #include <thread>
 #include <unordered_map>
+#include <utility>
+
 
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
@@ -97,6 +99,9 @@ namespace config {
   #define AMF_VIDEO_ENCODER_CABAC 1
   #define AMF_VIDEO_ENCODER_CALV 2
 #else
+  #ifdef _GLIBCXX_USE_C99_INTTYPES
+    #undef _GLIBCXX_USE_C99_INTTYPES
+  #endif
   #include <AMF/components/VideoEncoderAV1.h>
   #include <AMF/components/VideoEncoderHEVC.h>
   #include <AMF/components/VideoEncoderVCE.h>

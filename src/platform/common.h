@@ -59,13 +59,13 @@ namespace boost {
   namespace filesystem {
     class path;
   }
-  namespace process {
+  namespace process::inline v1 {
     class child;
     class group;
     template <typename Char>
     class basic_environment;
     typedef basic_environment<char> environment;
-  }  // namespace process
+  }  // namespace process::inline v1
 }  // namespace boost
 namespace video {
   struct config_t;
