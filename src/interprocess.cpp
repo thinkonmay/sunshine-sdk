@@ -12,7 +12,10 @@
 #include <sstream>
 
 void
-init_shared_memory(SharedMemory* memory){
+init_shared_memory(SharedMemory** _memory){
+    *_memory = (SharedMemory*) malloc(sizeof(SharedMemory));
+    SharedMemory* memory = *_memory;
+    memset(memory,0,sizeof(SharedMemory));
     for (int j = 0; j < QueueType::QueueMax; j++) {
         for (int k = 0; k < EventType::EventMax; k++) 
             memory->queues[j].events[k].read = 1;

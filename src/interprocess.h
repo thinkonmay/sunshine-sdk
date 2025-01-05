@@ -11,7 +11,7 @@
 
 
 void
-init_shared_memory(SharedMemory* shm);
+init_shared_memory(SharedMemory** shm);
 
 void 
 push_packet(Queue* memory, void* data, int size, PacketMetadata metadata);

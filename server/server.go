@@ -27,5 +27,5 @@ func main() {
 }
 
 func serve(pc net.PacketConn, addr net.Addr, buf []byte) {
-	fmt.Printf("udp packet size %d\n",len(buf))
+	fmt.Printf("udp packet size %d from %s\n",len(buf),addr.String())
 }

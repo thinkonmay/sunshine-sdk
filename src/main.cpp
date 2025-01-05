@@ -164,9 +164,8 @@ main(int argc, char *argv[]) {
   }
 
   //Get buffer local address from handle
-  SharedMemory* memory = (SharedMemory*) malloc(sizeof(SharedMemory));
-  memset(memory,0,sizeof(SharedMemory));
-  init_shared_memory(memory);
+  SharedMemory* memory = 0;
+  init_shared_memory(&memory);
 
   BOOST_LOG(info) << "Allocated shared memory"sv;
   auto video_capture = [&](safe::mail_t mail, char* displayin,int codec){
