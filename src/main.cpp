@@ -152,8 +152,8 @@ main(int argc, char *argv[]) {
   }
 
 
-  int queuetype = -1;
-  std::stringstream ss; ss << argv[2]; ss >> queuetype;
+  int queuetype = QueueType::Video0;
+  std::stringstream ss0; ss0 << argv[1]; ss0 >> queuetype;
   if(queuetype != QueueType::Audio && 
      queuetype != QueueType::Input &&
      queuetype != QueueType::Microphone) {
@@ -186,7 +186,13 @@ main(int argc, char *argv[]) {
     
 
 
-  auto push = [process_shutdown_event](safe::mail_t mail, Queue* queue, QueueType queue_type){
+  int port;
+  std::string address;
+  std::stringstream ss; ss << argv[2]; ss >> address;
+  std::stringstream ss2; ss2 << argv[3]; ss2 >> port;
+  udp::endpoint remote_endpoint = udp::endpoint(make_address(address), port);
+
+  auto push = [process_shutdown_event,remote_endpoint](safe::mail_t mail, Queue* queue, QueueType queue_type){
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto bitrate       = mail->event<int>(mail::bitrate);
@@ -204,13 +210,13 @@ main(int argc, char *argv[]) {
     auto last_timestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     bool first_video_packet = true;
 
-    boost::asio::io_context io_service;
-    udp::socket socket(io_service);
-    udp::endpoint remote_endpoint = udp::endpoint(make_address("127.0.0.1"), 63400);
-    socket.open(udp::v4());
     auto localAddr = make_address("127.0.0.1");
     auto rAddr = remote_endpoint.address();
     auto rPort = remote_endpoint.port();
+
+    boost::asio::io_context io_service;
+    udp::socket socket(io_service);
+    socket.open(udp::v4());
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video0 || queue_type == QueueType::Video1) {
         do {
