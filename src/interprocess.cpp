@@ -11,37 +11,14 @@
 #include <iostream>
 #include <sstream>
 
-#include <boost/interprocess/managed_shared_memory.hpp>
+void
+init_shared_memory(SharedMemory* memory){
+    for (int j = 0; j < QueueType::QueueMax; j++) {
+        for (int k = 0; k < EventType::EventMax; k++) 
+            memory->queues[j].events[k].read = 1;
 
-using namespace boost::interprocess;
-
-
-
-
-SharedMemory* obtain_shared_memory(char* rand) {
-    std::vector<std::string> strings;
-
-    std::istringstream f(rand);
-    std::string s;    
-    while (getline(f, s, ';')) {
-        strings.push_back(s);
+        memory->queues[j].index = QUEUE_SIZE - 1;
     }
-
-    if(strings.size() != 2)
-        return NULL;
-
-    std::stringstream h;
-    std::stringstream k;
-    long long handle;  h << strings.at(1); h >> handle;
-    std::string key;  k << strings.at(0); k >> key;
-
-    //Open managed segment
-    static managed_shared_memory segment(open_only, key.c_str());
-
-    //Get buffer local address from handle
-    SharedMemory* memory = (SharedMemory*)segment.get_address_from_handle(handle);
-
-    return memory;
 }
 
 void 

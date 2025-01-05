@@ -8,7 +8,9 @@
 #include <csignal>
 #include <fstream>
 #include <iostream>
-#include <boost/interprocess/managed_shared_memory.hpp>
+#include <boost/asio.hpp>
+#include <boost/array.hpp>
+#include <boost/bind.hpp>
 
 // local includes
 #include "globals.h"
@@ -20,6 +22,7 @@
 #include "audio.h"
 #include "input.h"
 #include "config.h"
+#include "platform/common.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -31,7 +34,9 @@ enum StatusCode {
 };
 
 using namespace std::literals;
-using namespace boost::interprocess;
+using namespace boost::asio::ip;
+using boost::asio::ip::udp;
+using boost::asio::ip::address;
 
 std::map<int, std::function<void()>> signal_handlers;
 void
@@ -159,8 +164,9 @@ main(int argc, char *argv[]) {
   }
 
   //Get buffer local address from handle
-  BOOST_LOG(info) << "Allocating shared memory"sv;
-  SharedMemory* memory = obtain_shared_memory(argv[1]);
+  SharedMemory* memory = (SharedMemory*) malloc(sizeof(SharedMemory));
+  memset(memory,0,sizeof(SharedMemory));
+  init_shared_memory(memory);
 
   BOOST_LOG(info) << "Allocated shared memory"sv;
   auto video_capture = [&](safe::mail_t mail, char* displayin,int codec){
@@ -198,6 +204,14 @@ main(int argc, char *argv[]) {
     queue->metadata.active = 1;
     auto last_timestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     bool first_video_packet = true;
+
+    boost::asio::io_context io_service;
+    udp::socket socket(io_service);
+    udp::endpoint remote_endpoint = udp::endpoint(make_address("127.0.0.1"), 63400);
+    socket.open(udp::v4());
+    auto localAddr = make_address("127.0.0.1");
+    auto rAddr = remote_endpoint.address();
+    auto rPort = remote_endpoint.port();
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video0 || queue_type == QueueType::Video1) {
         do {
@@ -208,16 +222,29 @@ main(int argc, char *argv[]) {
           }
 
           auto timestamp = packet->frame_timestamp.value().time_since_epoch().count();
-          push_packet(queue,packet->data(),packet->data_size(),PacketMetadata{ 
-            packet->is_idr(),
-            timestamp - last_timestamp
-          });
+          const char* ptr = (char*)packet->data();
+          size_t size = packet->data_size();
+          platf::batched_send_info_t send_info {
+            ptr, size, 1,
+            (uintptr_t) socket.native_handle(), 
+            rAddr, rPort, localAddr,
+          };
+
+          platf::send_batch(send_info);
           last_timestamp = timestamp;
         } while (video_packets->peek());
       } else if (queue_type == QueueType::Audio) {
         do {
           auto packet = audio_packets->pop();
-          push_packet(queue,packet->second.begin(),packet->second.size(),PacketMetadata{ 0 });
+          const char* ptr = (char*)packet->second.begin();
+          size_t size = packet->second.size();
+          platf::batched_send_info_t send_info {
+            ptr, size, 1,
+            (uintptr_t) socket.native_handle(), 
+            rAddr, rPort, localAddr,
+          };
+
+          platf::send_batch(send_info);
         } while (audio_packets->peek());
       }
 
