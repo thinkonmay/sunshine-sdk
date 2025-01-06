@@ -188,9 +188,13 @@ main(int argc, char *argv[]) {
 
   int port;
   std::string address;
-  std::stringstream ss; ss << argv[2]; ss >> address;
-  std::stringstream ss2; ss2 << argv[3]; ss2 >> port;
+  std::stringstream ss; ss << argv[3]; ss >> address;
+  std::stringstream ss2; ss2 << argv[4]; ss2 >> port;
   udp::endpoint remote_endpoint = udp::endpoint(make_address(address), port);
+
+  std::string laddress;
+  std::stringstream ss3; ss3 << argv[2]; ss3 >> laddress;
+  auto localAddr = make_address(laddress);
 
   auto push = [process_shutdown_event,remote_endpoint](safe::mail_t mail, Queue* queue, QueueType queue_type){
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
@@ -210,7 +214,6 @@ main(int argc, char *argv[]) {
     auto last_timestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     bool first_video_packet = true;
 
-    auto localAddr = make_address("127.0.0.1");
     auto rAddr = remote_endpoint.address();
     auto rPort = remote_endpoint.port();
 
