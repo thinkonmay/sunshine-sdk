@@ -194,9 +194,8 @@ main(int argc, char *argv[]) {
 
   std::string laddress;
   std::stringstream ss3; ss3 << argv[2]; ss3 >> laddress;
-  auto localAddr = make_address(laddress);
 
-  auto push = [process_shutdown_event,remote_endpoint](safe::mail_t mail, Queue* queue, QueueType queue_type){
+  auto push = [process_shutdown_event,remote_endpoint,laddress](safe::mail_t mail, Queue* queue, QueueType queue_type){
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto bitrate       = mail->event<int>(mail::bitrate);
@@ -214,6 +213,7 @@ main(int argc, char *argv[]) {
     auto last_timestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     bool first_video_packet = true;
 
+    auto localAddr = make_address(laddress);
     auto rAddr = remote_endpoint.address();
     auto rPort = remote_endpoint.port();
 
