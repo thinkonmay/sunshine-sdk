@@ -53,6 +53,45 @@ on_signal(int sig, FN &&fn) {
 }
 
 
+
+class Client {
+  boost::asio::io_context io_service;
+  udp::socket socket{io_service};
+  boost::array<char, 16 * 1024> recv_buffer;
+  udp::endpoint remote_endpoint;
+  safe::mail_t mail;
+
+public:
+  Client(safe::mail_t m) {
+    mail = m;
+  }
+
+  void Receiver(udp::endpoint remote_endpoint)
+  {
+      socket.open(udp::v4());
+      socket.bind(remote_endpoint);
+      wait();
+      io_service.run();
+  }
+
+private:
+  void handle_receive(const boost::system::error_code& error, size_t bytes_transferred) {
+    if (error) {
+      return;
+    }
+
+    wait();
+  }
+
+  void wait() {
+      socket.async_receive_from(boost::asio::buffer(recv_buffer),
+          remote_endpoint,
+          boost::bind(&Client::handle_receive, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+  }
+};
+
+
+
 /**
  * @brief Main application entry point.
  * @param argc The number of arguments.
@@ -192,6 +231,7 @@ main(int argc, char *argv[]) {
   std::stringstream ss2; ss2 << argv[4]; ss2 >> port;
   udp::endpoint remote_endpoint = udp::endpoint(make_address(address), port);
 
+
   std::string laddress;
   std::stringstream ss3; ss3 << argv[2]; ss3 >> laddress;
 
@@ -291,6 +331,8 @@ main(int argc, char *argv[]) {
 
 
   auto mail = std::make_shared<safe::mail_raw_t>();
+  auto client = new Client(mail);
+  std::thread recv([&] { client->Receiver(remote_endpoint); });
   auto queue = &memory->queues[queuetype];
   BOOST_LOG(info) << "Starting capture on channel " << queuetype;
   if (queuetype == QueueType::Video0 || queuetype == QueueType::Video1) {
