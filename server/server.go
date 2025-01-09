@@ -8,7 +8,7 @@ import (
 
 func main() {
 	// listen to incoming udp packets
-	pc, err := net.ListenPacket("udp", ":63400")
+	pc, err := net.ListenPacket("udp", ":32521")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -21,11 +21,13 @@ func main() {
 		if err != nil {
 			fmt.Printf("error serving %s\n",err.Error())
 		}
-		go serve(pc, addr, buf[:n])
+
+		fmt.Printf("udp packet size %d from %s\n",n,addr.String())
+		_,err = pc.WriteTo([]byte("hi"),addr)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 }
 
-func serve(pc net.PacketConn, addr net.Addr, buf []byte) {
-	fmt.Printf("udp packet size %d from %s\n",len(buf),addr.String())
-}
