@@ -1,0 +1,129 @@
+---
+name: CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  github_env:
+    name: GitHub Env Debug
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Dump github context
+        run: echo "$GITHUB_CONTEXT"
+        shell: bash
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+
+  setup_release:
+    name: Setup Release
+    outputs:
+      publish_release: ${{ steps.setup_release.outputs.publish_release }}
+      release_body: ${{ steps.setup_release.outputs.release_body }}
+      release_commit: ${{ steps.setup_release.outputs.release_commit }}
+      release_generate_release_notes: ${{ steps.setup_release.outputs.release_generate_release_notes }}
+      release_tag: ${{ steps.setup_release.outputs.release_tag }}
+      release_version: ${{ steps.setup_release.outputs.release_version }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Release
+        id: setup_release
+        uses: LizardByte/setup-release-action@v2025.102.14715
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  build_win:
+    name: Windows
+    runs-on: windows-2019
+    needs: [setup_release]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Dependencies Windows
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ucrt64
+          update: true
+          install: >-
+            git
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-cppwinrt
+            mingw-w64-x86_64-curl-winssl
+            mingw-w64-x86_64-graphviz
+            mingw-w64-x86_64-miniupnpc
+            mingw-w64-x86_64-nlohmann-json
+            mingw-w64-x86_64-nodejs
+            mingw-w64-x86_64-nsis
+            mingw-w64-x86_64-onevpl
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-opus
+            mingw-w64-x86_64-toolchain
+            wget
+
+      - name: Build Windows
+        shell: msys2 {0}
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          BUILD_VERSION: ${{ needs.setup_release.outputs.release_tag }}
+          COMMIT: ${{ needs.setup_release.outputs.release_commit }}
+        run: |
+          mkdir -p build
+          cmake \
+            -B build \
+            -G Ninja \
+            -S . \
+            -DBUILD_WERROR=ON \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DSUNSHINE_ASSETS_DIR=assets \
+            -DSUNSHINE_PUBLISHER_NAME='${{ github.repository_owner }}' \
+            -DSUNSHINE_PUBLISHER_WEBSITE='https://app.lizardbyte.dev' \
+            -DSUNSHINE_PUBLISHER_ISSUE_URL='https://app.lizardbyte.dev/support' \
+            -DTESTS_SOFTWARE_ENCODER_UNAVAILABLE='skip'
+          ninja -C build
+
+      - name: Package Windows
+        shell: msys2 {0}
+        run: |
+          mkdir -p artifacts
+          cd build
+
+          # package
+          cpack -G NSIS
+          cpack -G ZIP
+
+          # move
+          mv ./cpack_artifacts/Sunshine.exe ../artifacts/sunshine-windows-installer.exe
+          mv ./cpack_artifacts/Sunshine.zip ../artifacts/sunshine-windows-portable.zip
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sunshine-windows
+          path: artifacts/
+
+      - name: Create/Update GitHub Release
+        if: ${{ needs.setup_release.outputs.publish_release == 'true' }}
+        uses: LizardByte/create-release-action@v2025.102.13208
+        with:
+          allowUpdates: true
+          body: ${{ needs.setup_release.outputs.release_body }}
+          generateReleaseNotes: ${{ needs.setup_release.outputs.release_generate_release_notes }}
+          name: ${{ needs.setup_release.outputs.release_tag }}
+          prerelease: true
+          tag: ${{ needs.setup_release.outputs.release_tag }}
+          token: ${{ secrets.GH_BOT_TOKEN }}
