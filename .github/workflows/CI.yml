@@ -40,14 +40,6 @@ jobs:
           install: >-
             wget
 
-      - name: Setup Dependencies Windows
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: mingw64
-          update: true
-          install: >-
-            wget
-
       - name: Update Windows dependencies
         shell: msys2 {0}
         run: |
