@@ -66,22 +66,14 @@ jobs:
 
       - name: Build Windows
         shell: msys2 {0}
-        env:
-          BRANCH: ${{ github.head_ref || github.ref_name }}
-          BUILD_VERSION: ${{ needs.check_changelog.outputs.next_version }}
-          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           mkdir build
           cd build
           cmake \
-            -DBUILD_WERROR=ON \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DSUNSHINE_ASSETS_DIR=assets \
-            -DTESTS_PYTHON_EXECUTABLE='${{ steps.python-path.outputs.python-path }}' \
-            -DTESTS_SOFTWARE_ENCODER_UNAVAILABLE='skip' \
-            -G "MinGW Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -G "Ninja" \
             ..
-          mingw32-make -j$(nproc)
+          ninja
 
       - name: Package Windows
         shell: msys2 {0}
@@ -89,13 +81,8 @@ jobs:
           mkdir -p artifacts
           cd build
 
-          # package
-          cpack -G NSIS
-          cpack -G ZIP
-
           # move
-          mv ./cpack_artifacts/Sunshine.exe ../artifacts/sunshine-windows-installer.exe
-          mv ./cpack_artifacts/Sunshine.zip ../artifacts/sunshine-windows-portable.zip
+          mv ./sunshine.exe ../artifacts/shmsunshine.exe
 
 
       - name: Upload Artifacts
@@ -103,20 +90,6 @@ jobs:
         with:
           name: sunshine-windows
           path: artifacts/
-
-      - name: Create/Update GitHub Release
-        if: ${{ needs.setup_release.outputs.create_release == 'true' }}
-        uses: ncipollo/release-action@v1
-        with:
-          name: ${{ needs.setup_release.outputs.release_name }}
-          tag: ${{ needs.setup_release.outputs.release_tag }}
-          commit: ${{ needs.setup_release.outputs.release_commit }}
-          artifacts: "*artifacts/*"
-          token: ${{ secrets.GH_BOT_TOKEN }}
-          allowUpdates: true
-          body: ${{ needs.setup_release.outputs.release_body }}
-          discussionCategory: announcements
-          prerelease: ${{ needs.setup_release.outputs.pre_release }}
 
   # release-winget:
   #   name: Release to WinGet
