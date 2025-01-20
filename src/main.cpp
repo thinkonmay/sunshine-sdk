@@ -54,10 +54,11 @@ on_signal(int sig, FN &&fn) {
 
 
 
-class Client {
+template<class FN>
+class UDPClient {
 public:
-  Client(safe::mail_t m) {
-    mail = m;
+  UDPClient(FN &&handler) {
+    bufhandler = std::forward<FN>(handler);
   }
 
   void Bind(udp::endpoint _remote_endpoint) {
@@ -82,15 +83,16 @@ public:
   }
 
 private:
+  std::function<void(std::string)> bufhandler;
   boost::asio::io_context* io_service = nullptr;
   udp::socket* socket = nullptr;
   boost::array<char, 16 * 1024> recv_buffer;
   udp::endpoint remote_endpoint;
-  safe::mail_t mail;
   void handle_receive(const boost::system::error_code& err, size_t bytes_transferred) {
     if (!err) {
       char* data = recv_buffer.c_array();
-      BOOST_LOG(error) << "Receive " << std::string(data,data+bytes_transferred);
+      auto buff = std::string(data,data+bytes_transferred);
+      bufhandler(buff);
       wait();
     }
   }
@@ -100,7 +102,7 @@ private:
       boost::asio::buffer(recv_buffer),
       remote_endpoint,
       boost::bind(
-        &Client::handle_receive, 
+        &UDPClient::handle_receive, 
         this, 
         boost::asio::placeholders::error, 
         boost::asio::placeholders::bytes_transferred
@@ -224,7 +226,6 @@ main(int argc, char *argv[]) {
   SharedMemory* memory = 0;
   init_shared_memory(&memory);
 
-  BOOST_LOG(info) << "Allocated shared memory"sv;
   auto video_capture = [&](safe::mail_t mail, char* displayin,int codec){
     std::optional<std::string> display = std::nullopt;
     if (strlen(displayin) > 0)
@@ -256,8 +257,38 @@ main(int argc, char *argv[]) {
   std::stringstream ss4; ss4 << argv[3]; ss4 >> lport;
   udp::endpoint local_endpoint = udp::endpoint(make_address(laddress), lport);
 
-  auto mail = std::make_shared<safe::mail_raw_t>();
-  auto client = new Client(mail);
+  auto mail          = std::make_shared<safe::mail_raw_t>();
+  auto bitrate       = mail->event<int>(mail::bitrate);
+  auto framerate     = mail->event<int>(mail::framerate);
+  auto idr           = mail->event<bool>(mail::idr);
+  auto client = new UDPClient([bitrate,framerate,idr](std::string buffer){
+    if (buffer.length() != 2) {
+      BOOST_LOG(info) << "invalid message "<< buffer;
+      return;
+    }
+    
+    switch (buffer.at(0)) {
+    case EventType::Bitrate:
+      BOOST_LOG(info) << "bitrate changed to " << (buffer.at(1) * 1000);
+      bitrate->raise(buffer.at(1) * 1000);
+      break;
+    case EventType::Framerate:
+      BOOST_LOG(info) << "framerate changed to " << (buffer.at(1) * 1000);
+      framerate->raise(buffer.at(1));
+      break;
+    case EventType::Pointer:
+      BOOST_LOG(info) << "pointer changed to " << (buffer.at(1) != 0);
+      display_cursor = buffer.at(1) != 0;
+      break;
+    case EventType::Idr:
+      BOOST_LOG(info) << "IDR";
+      idr->raise(true);
+      break;
+    default:
+      BOOST_LOG(info) << "invalid message "<< u_int(buffer.at(0)) << " " << u_int(buffer.at(1));
+      break;
+    }
+  });
 
   client->Bind(local_endpoint);
   std::thread recv([client,local_endpoint] { while(true) {
@@ -269,9 +300,6 @@ main(int argc, char *argv[]) {
   auto push = [client,process_shutdown_event,remote_endpoint,local_endpoint](safe::mail_t mail, Queue* queue, QueueType queue_type){
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
-    auto bitrate       = mail->event<int>(mail::bitrate);
-    auto framerate     = mail->event<int>(mail::framerate);
-    auto idr           = mail->event<bool>(mail::idr);
     auto local_shutdown= mail->event<bool>(mail::shutdown);
     auto touch_port    = mail->event<input::touch_port_t>(mail::touch_port);
 
@@ -326,16 +354,6 @@ main(int argc, char *argv[]) {
         } while (audio_packets->peek());
       }
 
-      if(peek_event(queue,EventType::Bitrate))
-        bitrate->raise(pop_event(queue,EventType::Bitrate).value_number);
-      if(peek_event(queue,EventType::Framerate)) 
-        framerate->raise(pop_event(queue,EventType::Framerate).value_number);
-      if(peek_event(queue,EventType::Pointer)) 
-        display_cursor = pop_event(queue,EventType::Pointer).value_number > 0;
-      if(peek_event(queue,EventType::Idr)) {
-        pop_event(queue,EventType::Idr);
-        idr->raise(1);
-      } 
       if(touch_port->peek()) {
         auto touch = touch_port->pop();
         if (touch.has_value()) {

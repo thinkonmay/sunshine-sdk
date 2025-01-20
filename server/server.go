@@ -16,18 +16,17 @@ func main() {
 
 	fmt.Printf("start serving\n")
 	for {
-		buf := make([]byte, 1024 * 1024 * 10)
+		buf := make([]byte, 1024*1024*10)
 		n, addr, err := pc.ReadFrom(buf)
 		if err != nil {
-			fmt.Printf("error serving %s\n",err.Error())
+			fmt.Printf("error serving %s\n", err.Error())
 		}
 
-		fmt.Printf("udp packet size %d from %s\n",n,addr.String())
-		_,err = pc.WriteTo([]byte("hi"),addr)
+		fmt.Printf("udp packet size %d from %s\n", n, addr.String())
+		_, err = pc.WriteTo([]byte{6, 0}, addr)
 		if err != nil {
 			panic(err)
 		}
 	}
 
 }
-
