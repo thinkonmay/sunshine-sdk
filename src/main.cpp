@@ -211,11 +211,9 @@ main(int argc, char *argv[]) {
   }
 
 
-  int queuetype = QueueType::Video0;
+  int queuetype = QueueType::Video;
   std::stringstream ss0; ss0 << argv[1]; ss0 >> queuetype;
-  if(queuetype != QueueType::Audio && 
-     queuetype != QueueType::Input &&
-     queuetype != QueueType::Microphone) {
+  if(queuetype == QueueType::Video) {
     if (video::probe_encoders()) {
       BOOST_LOG(error) << "Video failed to find working encoder"sv;
       return StatusCode::NO_ENCODER_AVAILABLE;
@@ -261,9 +259,12 @@ main(int argc, char *argv[]) {
   auto bitrate       = mail->event<int>(mail::bitrate);
   auto framerate     = mail->event<int>(mail::framerate);
   auto idr           = mail->event<bool>(mail::idr);
-  auto client = new UDPClient([bitrate,framerate,idr](std::string buffer){
+  auto client = new UDPClient([queuetype,bitrate,framerate,idr](std::string buffer){
     if (buffer.length() != 2) {
-      BOOST_LOG(info) << "invalid message "<< buffer;
+      BOOST_LOG(error) << "invalid message "<< buffer;
+      return;
+    } else if (queuetype == QueueType::Audio) {
+      BOOST_LOG(error) << "audio buffer does not accept response";
       return;
     }
     
@@ -277,15 +278,15 @@ main(int argc, char *argv[]) {
       framerate->raise(buffer.at(1));
       break;
     case EventType::Pointer:
-      BOOST_LOG(info) << "pointer changed to " << (buffer.at(1) != 0);
+      BOOST_LOG(debug) << "pointer changed to " << (buffer.at(1) != 0);
       display_cursor = buffer.at(1) != 0;
       break;
     case EventType::Idr:
-      BOOST_LOG(info) << "IDR";
+      BOOST_LOG(debug) << "IDR";
       idr->raise(true);
       break;
     default:
-      BOOST_LOG(info) << "invalid message "<< u_int(buffer.at(0)) << " " << u_int(buffer.at(1));
+      BOOST_LOG(error) << "invalid message "<< u_int(buffer.at(0)) << " " << u_int(buffer.at(1));
       break;
     }
   });
@@ -305,8 +306,7 @@ main(int argc, char *argv[]) {
 
 
 #ifdef _WIN32 
-    if (queue_type == QueueType::Video0 || queue_type == QueueType::Video1)
-      platf::adjust_thread_priority(platf::thread_priority_e::critical);
+    platf::adjust_thread_priority(platf::thread_priority_e::critical);
 #endif
 
     queue->metadata.active = 1;
@@ -319,7 +319,7 @@ main(int argc, char *argv[]) {
     auto lPort = local_endpoint.port();
 
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
-      if (queue_type == QueueType::Video0 || queue_type == QueueType::Video1) {
+      if (queue_type == QueueType::Video) {
         do {
           auto packet = video_packets->pop();
           if (packet->is_idr() != 0 && first_video_packet) {
@@ -380,7 +380,7 @@ main(int argc, char *argv[]) {
 
   auto queue = &memory->queues[queuetype];
   BOOST_LOG(info) << "Starting capture on channel " << queuetype;
-  if (queuetype == QueueType::Video0 || queuetype == QueueType::Video1) {
+  if (queuetype == QueueType::Video) {
     auto capture = std::thread{video_capture,mail,queue->metadata.display,queue->metadata.codec};
     auto forward = std::thread{push,mail,queue,(QueueType)queuetype};
     capture.detach();

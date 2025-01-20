@@ -15,8 +15,8 @@ func main() {
 	defer pc.Close()
 
 	fmt.Printf("start serving\n")
+	buf := make([]byte, 1024*1024*10)
 	for {
-		buf := make([]byte, 1024*1024*10)
 		n, addr, err := pc.ReadFrom(buf)
 		if err != nil {
 			fmt.Printf("error serving %s\n", err.Error())

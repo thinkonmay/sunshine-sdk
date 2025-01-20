@@ -7,11 +7,8 @@
 
 
 enum QueueType {
-    Video0,
-    Video1,
+    Video,
     Audio,
-    Microphone,
-    Input,
     QueueMax
 };
 
