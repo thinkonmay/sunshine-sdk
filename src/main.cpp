@@ -22,6 +22,7 @@
 #include "audio.h"
 #include "input.h"
 #include "config.h"
+#include "file_handler.h"
 #include "platform/common.h"
 
 #ifdef _WIN32
@@ -223,7 +224,13 @@ main(int argc, char *argv[]) {
 
 
   int queuetype = QueueType::Video;
-  std::stringstream ss0; ss0 << argv[1]; ss0 >> queuetype;
+  std::stringstream ss0; ss0 << argv[1]; 
+  std::string target; ss0 >> target;
+  if (target == "audio")
+    queuetype = QueueType::Audio;
+
+
+
   if(queuetype == QueueType::Video) {
     if (video::probe_encoders()) {
       BOOST_LOG(error) << "Video failed to find working encoder"sv;
@@ -235,13 +242,9 @@ main(int argc, char *argv[]) {
   SharedMemory* memory = 0;
   init_shared_memory(&memory);
 
-  auto video_capture = [&](safe::mail_t mail, char* displayin,int codec){
-    std::optional<std::string> display = std::nullopt;
-    if (strlen(displayin) > 0)
-      display = std::string(displayin);
-
+  auto video_capture = [&](safe::mail_t mail, std::string displayin,int codec){
     video::capture(mail,video::config_t{
-      display, 1920, 1080, 60, 6000, 1, 0, 1, codec, 0
+      displayin, 1920, 1080, 60, 6000, 1, 0, 1, codec, 0
     },NULL);
   };
 
@@ -366,7 +369,19 @@ main(int argc, char *argv[]) {
           platf::send_batch(send_info);
         } while (audio_packets->peek());
       }
+    }
 
+    if (!local_shutdown->peek())
+      local_shutdown->raise(true);
+
+    queue->metadata.active = 0;
+  };
+
+  auto touch_fun = [mail,process_shutdown_event](Queue* queue){
+    auto local_shutdown= mail->event<bool>(mail::shutdown);
+    auto touch_port    = mail->event<input::touch_port_t>(mail::touch_port);
+
+    while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if(touch_port->peek()) {
         auto touch = touch_port->pop();
         if (touch.has_value()) {
@@ -380,6 +395,11 @@ main(int argc, char *argv[]) {
           queue->metadata.height = value.height;
           queue->metadata.width = value.width;
           queue->metadata.scalar_inv = value.scalar_inv;
+          BOOST_LOG(info) << "touch port event ";
+          file_handler::write_file(
+            "./metadata.bin",
+            std::string_view((char*)&queue->metadata,sizeof(QueueMetadata))
+          );
         }
       }
     }
@@ -394,8 +414,10 @@ main(int argc, char *argv[]) {
   auto queue = &memory->queues[queuetype];
   BOOST_LOG(info) << "Starting capture on channel " << queuetype;
   if (queuetype == QueueType::Video) {
-    auto capture = std::thread{video_capture,mail,queue->metadata.display,queue->metadata.codec};
+    auto capture = std::thread{video_capture,mail,target,queue->metadata.codec};
     auto forward = std::thread{push,mail,queue,(QueueType)queuetype};
+    auto touch_thread = std::thread{touch_fun,queue};
+    touch_thread.detach();
     capture.detach();
     forward.detach();
   } else if (queuetype == QueueType::Audio) {

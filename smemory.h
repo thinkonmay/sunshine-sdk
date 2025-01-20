@@ -29,7 +29,6 @@ typedef struct {
 
 typedef struct {
     int active;
-    char display[64];
     int codec;
 
     int env_width, env_height;
