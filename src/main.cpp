@@ -110,7 +110,18 @@ private:
   }
 };
 
+std::vector<std::string> 
+split (std::string s, char delim) {
+    std::vector<std::string> result;
+    std::stringstream ss (s);
+    std::string item;
 
+    while (getline (ss, item, delim)) {
+        result.push_back (item);
+    }
+
+    return result;
+}
 
 /**
  * @brief Main application entry point.
@@ -244,15 +255,17 @@ main(int argc, char *argv[]) {
 
   int port;
   std::string address;
-  std::stringstream ss; ss << argv[4]; ss >> address;
-  std::stringstream ss2; ss2 << argv[5]; ss2 >> port;
+  auto rendpoint = split(std::string(argv[3]),':');
+  std::stringstream ss; ss <<   rendpoint[0]; ss >> address;
+  std::stringstream ss2; ss2 << rendpoint[1]; ss2 >> port;
   udp::endpoint remote_endpoint = udp::endpoint(make_address(address), port);
 
 
   int lport;
   std::string laddress;
-  std::stringstream ss3; ss3 << argv[2]; ss3 >> laddress;
-  std::stringstream ss4; ss4 << argv[3]; ss4 >> lport;
+  auto lendpoint = split(std::string(argv[2]),':');
+  std::stringstream ss3; ss3 << lendpoint[0]; ss3 >> laddress;
+  std::stringstream ss4; ss4 << lendpoint[1]; ss4 >> lport;
   udp::endpoint local_endpoint = udp::endpoint(make_address(laddress), lport);
 
   auto mail          = std::make_shared<safe::mail_raw_t>();
