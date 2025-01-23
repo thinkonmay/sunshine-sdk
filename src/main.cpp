@@ -334,6 +334,7 @@ main(int argc, char *argv[]) {
     auto lAddr = local_endpoint.address();
     auto lPort = local_endpoint.port();
 
+    auto buffer = (char*)malloc(1024 * 1024);
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video) {
         do {
@@ -346,8 +347,13 @@ main(int argc, char *argv[]) {
           auto timestamp = packet->frame_timestamp.value().time_since_epoch().count();
           const char* ptr = (char*)packet->data();
           size_t size = packet->data_size();
+          auto duration = timestamp - last_timestamp;
+
+          memcpy(buffer,&duration,sizeof(long long));
+          memcpy(buffer,ptr,size);
+
           platf::batched_send_info_t send_info {
-            ptr, size, 1,
+            buffer, size + sizeof(long long), 1,
             client->GetHandle(), 
             rAddr, rPort, lAddr
           };
@@ -358,15 +364,22 @@ main(int argc, char *argv[]) {
       } else if (queue_type == QueueType::Audio) {
         do {
           auto packet = audio_packets->pop();
+          auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
           const char* ptr = (char*)packet->second.begin();
           size_t size = packet->second.size();
+          auto duration = timestamp - last_timestamp;
+
+          memcpy(buffer,&duration,sizeof(long long));
+          memcpy(buffer,ptr,size);
+
           platf::batched_send_info_t send_info {
-            ptr, size, 1,
+            buffer, size + sizeof(long long), 1,
             client->GetHandle(), 
             rAddr, rPort, lAddr
           };
 
           platf::send_batch(send_info);
+          last_timestamp = timestamp;
         } while (audio_packets->peek());
       }
     }
