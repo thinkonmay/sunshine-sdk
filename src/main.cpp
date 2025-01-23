@@ -277,7 +277,7 @@ main(int argc, char *argv[]) {
   auto idr           = mail->event<bool>(mail::idr);
   auto client = new UDPClient([queuetype,bitrate,framerate,idr](std::string buffer){
     if (buffer.length() != 2) {
-      BOOST_LOG(error) << "invalid message "<< buffer;
+      BOOST_LOG(error) << "invalid message "<< buffer.length();
       return;
     } else if (queuetype == QueueType::Audio) {
       BOOST_LOG(error) << "audio buffer does not accept response";
