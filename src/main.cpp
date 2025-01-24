@@ -347,13 +347,13 @@ main(int argc, char *argv[]) {
           auto timestamp = packet->frame_timestamp.value().time_since_epoch().count();
           const char* ptr = (char*)packet->data();
           size_t size = packet->data_size();
-          auto duration = timestamp - last_timestamp;
+          auto duration = uint32_t(timestamp - last_timestamp);;
 
-          memcpy(buffer,&duration,sizeof(long long));
-          memcpy(buffer,ptr,size);
+          memcpy(buffer,&duration,sizeof(uint32_t));
+          memcpy(buffer+sizeof(uint32_t),ptr,size);
 
           platf::batched_send_info_t send_info {
-            buffer, size + sizeof(long long), 1,
+            buffer, size + sizeof(uint32_t), 1,
             client->GetHandle(), 
             rAddr, rPort, lAddr
           };
@@ -367,13 +367,13 @@ main(int argc, char *argv[]) {
           auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
           const char* ptr = (char*)packet->second.begin();
           size_t size = packet->second.size();
-          auto duration = timestamp - last_timestamp;
+          auto duration = uint32_t(timestamp - last_timestamp);;
 
-          memcpy(buffer,&duration,sizeof(long long));
-          memcpy(buffer,ptr,size);
+          memcpy(buffer,&duration,sizeof(uint32_t));
+          memcpy(buffer+sizeof(uint32_t),ptr,size);
 
           platf::batched_send_info_t send_info {
-            buffer, size + sizeof(long long), 1,
+            buffer, size + sizeof(uint32_t), 1,
             client->GetHandle(), 
             rAddr, rPort, lAddr
           };
@@ -427,7 +427,7 @@ main(int argc, char *argv[]) {
   auto queue = &memory->queues[queuetype];
   BOOST_LOG(info) << "Starting capture on channel " << queuetype;
   if (queuetype == QueueType::Video) {
-    auto capture = std::thread{video_capture,mail,target,queue->metadata.codec};
+    auto capture = std::thread{video_capture,mail,target,0};
     auto forward = std::thread{push,mail,queue,(QueueType)queuetype};
     auto touch_thread = std::thread{touch_fun,queue};
     touch_thread.detach();
