@@ -152,7 +152,7 @@ main(int argc, char *argv[]) {
 
   mail::man = std::make_shared<safe::mail_raw_t>();
 
-  auto log_deinit_guard = logging::init(config::sunshine.min_log_level, config::sunshine.log_file);
+  auto log_deinit_guard = logging::init(config::sunshine.min_log_level);
   if (!log_deinit_guard) {
     BOOST_LOG(error) << "Logging failed to initialize"sv;
   }

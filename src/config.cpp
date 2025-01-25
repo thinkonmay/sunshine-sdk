@@ -367,58 +367,9 @@ namespace config {
     false,  // install_steam_drivers
   };
 
-  stream_t stream {
-    10s,  // ping_timeout
-
-    APPS_JSON_PATH,
-
-    20,  // fecPercentage
-    1,  // channels
-
-    ENCRYPTION_MODE_NEVER,  // lan_encryption_mode
-    ENCRYPTION_MODE_OPPORTUNISTIC,  // wan_encryption_mode
-  };
-
-  nvhttp_t nvhttp {
-    "lan",  // origin web manager
-
-    PRIVATE_KEY_FILE,
-    CERTIFICATE_FILE,
-
-    boost::asio::ip::host_name(),  // sunshine_name,
-    "sunshine_state.json"s,  // file_state
-    {},  // external_ip
-    {
-      "352x240"s,
-      "480x360"s,
-      "858x480"s,
-      "1280x720"s,
-      "1920x1080"s,
-      "2560x1080"s,
-      "2560x1440"s,
-      "3440x1440"s,
-      "1920x1200"s,
-      "3840x2160"s,
-      "3840x1600"s,
-    },  // supported resolutions
-
-    { 10, 30, 60, 90, 120 },  // supported fps
-  };
-
 
   sunshine_t sunshine {
-    "en",  // locale
     2,  // min_log_level
     0,  // flags
-    {},  // User file
-    {},  // Username
-    {},  // Password
-    {},  // Password Salt
-    platf::appdata().string() + "/sunshine.conf",  // config file
-    {},  // cmd args
-    47989,  // Base port number
-    "ipv4",  // Address family
-    platf::appdata().string() + "/sunshine.log",  // log file
-    {},  // prep commands
   };
 }  // namespace config

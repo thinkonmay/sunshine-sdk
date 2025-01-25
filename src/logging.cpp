@@ -63,7 +63,6 @@ namespace logging {
   /**
    * @brief Initialize the logging system.
    * @param min_log_level The minimum log level to output.
-   * @param log_file The log file to write to.
    * @returns A deinit_t object that will deinitialize the logging system when it goes out of scope.
    *
    * EXAMPLES:
@@ -72,7 +71,7 @@ namespace logging {
    * ```
    */
   [[nodiscard]] std::unique_ptr<deinit_t>
-  init(int min_log_level, const std::string &log_file) {
+  init(int min_log_level) {
     if (sink) {
       // Deinitialize the logging system before reinitializing it. This can probably only ever be hit in tests.
       deinit();
@@ -84,7 +83,6 @@ namespace logging {
 
     boost::shared_ptr<std::ostream> stream { &std::cout, boost::null_deleter() };
     sink->locked_backend()->add_stream(stream);
-    sink->locked_backend()->add_stream(boost::make_shared<std::ofstream>(log_file));
     sink->set_filter(severity >= min_log_level);
 
     sink->set_formatter([](const bl::record_view &view, bl::formatting_ostream &os) {

@@ -28,7 +28,7 @@ namespace logging {
   void
   deinit();
   [[nodiscard]] std::unique_ptr<deinit_t>
-  init(int min_log_level, const std::string &log_file);
+  init(int min_log_level);
   void
   setup_av_logging(int min_log_level);
   void

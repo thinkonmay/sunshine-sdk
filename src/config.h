@@ -86,39 +86,6 @@ namespace config {
   constexpr int ENCRYPTION_MODE_OPPORTUNISTIC = 1;  // Use video encryption if available, but stream without it if not supported
   constexpr int ENCRYPTION_MODE_MANDATORY = 2;  // Always use video encryption and refuse clients that can't encrypt
 
-  struct stream_t {
-    std::chrono::milliseconds ping_timeout;
-
-    std::string file_apps;
-
-    int fec_percentage;
-
-    // max unique instances of video and audio streams
-    int channels;
-
-    // Video encryption settings for LAN and WAN streams
-    int lan_encryption_mode;
-    int wan_encryption_mode;
-  };
-
-  struct nvhttp_t {
-    // Could be any of the following values:
-    // pc|lan|wan
-    std::string origin_web_ui_allowed;
-
-    std::string pkey;
-    std::string cert;
-
-    std::string sunshine_name;
-
-    std::string file_state;
-
-    std::string external_ip;
-    std::vector<std::string> resolutions;
-    std::vector<int> fps;
-  };
-
-
   namespace flag {
     enum flag_e : std::size_t {
       PIN_STDIN = 0,  // Read PIN from stdin instead of http
@@ -140,34 +107,11 @@ namespace config {
     bool elevated;
   };
   struct sunshine_t {
-    std::string locale;
     int min_log_level;
     std::bitset<flag::FLAG_SIZE> flags;
-    std::string credentials_file;
-
-    std::string username;
-    std::string password;
-    std::string salt;
-
-    std::string config_file;
-
-    struct cmd_t {
-      std::string name;
-      int argc;
-      char **argv;
-    } cmd;
-
-    std::uint16_t port;
-    std::string address_family;
-
-    std::string log_file;
-
-    std::vector<prep_cmd_t> prep_cmds;
   };
 
   extern video_t video;
   extern audio_t audio;
-  extern stream_t stream;
-  extern nvhttp_t nvhttp;
   extern sunshine_t sunshine;
 }  // namespace config
