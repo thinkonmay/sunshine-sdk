@@ -290,7 +290,7 @@ main(int argc, char *argv[]) {
       bitrate->raise(buffer.at(1) * 1000);
       break;
     case EventType::Framerate:
-      BOOST_LOG(info) << "framerate changed to " << (buffer.at(1) * 1000);
+      BOOST_LOG(info) << "framerate changed to " << (buffer.at(1));
       framerate->raise(buffer.at(1));
       break;
     case EventType::Pointer:
