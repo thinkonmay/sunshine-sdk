@@ -364,7 +364,7 @@ namespace config {
   audio_t audio {
     {},  // audio_sink
     {},  // virtual_sink
-    true,  // install_steam_drivers
+    false,  // install_steam_drivers
   };
 
   stream_t stream {
