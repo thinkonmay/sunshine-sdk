@@ -335,6 +335,7 @@ main(int argc, char *argv[]) {
     auto lPort = local_endpoint.port();
 
     auto buffer = (char*)malloc(1024 * 1024);
+    uint16_t index = 0;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video) {
         do {
@@ -349,17 +350,19 @@ main(int argc, char *argv[]) {
           size_t size = packet->data_size();
           auto duration = uint32_t(timestamp - last_timestamp);;
 
-          memcpy(buffer,&duration,sizeof(uint32_t));
-          memcpy(buffer+sizeof(uint32_t),ptr,size);
+          memcpy(buffer,&index,sizeof(uint16_t));
+          memcpy(buffer + sizeof(uint16_t),&duration,sizeof(uint32_t));
+          memcpy(buffer + sizeof(uint32_t) + sizeof(uint16_t),ptr,size);
 
           platf::batched_send_info_t send_info {
-            buffer, size + sizeof(uint32_t), 1,
+            buffer, size + sizeof(uint32_t) + sizeof(uint16_t), 1,
             client->GetHandle(), 
             rAddr, rPort, lAddr
           };
 
           platf::send_batch(send_info);
           last_timestamp = timestamp;
+          index++;
         } while (video_packets->peek());
       } else if (queue_type == QueueType::Audio) {
         do {
@@ -369,17 +372,19 @@ main(int argc, char *argv[]) {
           size_t size = packet->second.size();
           auto duration = uint32_t(timestamp - last_timestamp);;
 
-          memcpy(buffer,&duration,sizeof(uint32_t));
-          memcpy(buffer+sizeof(uint32_t),ptr,size);
+          memcpy(buffer,&index,sizeof(uint16_t));
+          memcpy(buffer + sizeof(uint16_t),&duration,sizeof(uint32_t));
+          memcpy(buffer + sizeof(uint32_t) + sizeof(uint16_t),ptr,size);
 
           platf::batched_send_info_t send_info {
-            buffer, size + sizeof(uint32_t), 1,
+            buffer, size + sizeof(uint32_t) + sizeof(uint16_t), 1,
             client->GetHandle(), 
             rAddr, rPort, lAddr
           };
 
           platf::send_batch(send_info);
           last_timestamp = timestamp;
+          index++;
         } while (audio_packets->peek());
       }
     }
