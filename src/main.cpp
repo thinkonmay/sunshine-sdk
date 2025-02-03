@@ -334,7 +334,7 @@ main(int argc, char *argv[]) {
     auto lAddr = local_endpoint.address();
     auto lPort = local_endpoint.port();
 
-    auto buffer = (char*)malloc(1024 * 1024);
+    auto buffer = (char*)malloc(5*1024*1024);
     uint32_t index = 0;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video) {
