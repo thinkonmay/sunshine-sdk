@@ -286,11 +286,11 @@ main(int argc, char *argv[]) {
     
     switch (buffer.at(0)) {
     case EventType::Bitrate:
-      BOOST_LOG(info) << "bitrate changed to " << (buffer.at(1) * 1000);
+      BOOST_LOG(debug) << "bitrate changed to " << (buffer.at(1) * 1000);
       bitrate->raise(buffer.at(1) * 1000);
       break;
     case EventType::Framerate:
-      BOOST_LOG(info) << "framerate changed to " << (buffer.at(1));
+      BOOST_LOG(debug) << "framerate changed to " << (buffer.at(1));
       framerate->raise(buffer.at(1));
       break;
     case EventType::Pointer:
