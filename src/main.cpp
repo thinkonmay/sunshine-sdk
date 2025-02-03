@@ -340,8 +340,8 @@ main(int argc, char *argv[]) {
       if (queue_type == QueueType::Video) {
         do {
           auto packet = video_packets->pop();
-          if (packet->is_idr() != 0 && first_video_packet) {
-            BOOST_LOG(info) << "idr frame";
+          if (first_video_packet) {
+            BOOST_LOG(info) << "first frame";
             first_video_packet = false;
           }
 

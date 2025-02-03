@@ -17,7 +17,7 @@ thread_pool_util::ThreadPool task_pool;
 /**
  * @brief A boolean flag to indicate whether the cursor should be displayed.
  */
-bool display_cursor = false;
+bool display_cursor = true;
 
 #ifdef _WIN32
 /**
