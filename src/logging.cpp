@@ -95,30 +95,26 @@ namespace logging {
       std::string_view log_type;
       switch (log_level) {
         case 0:
-          log_type = "Verbose: "sv;
+          log_type = "verb "sv;
           break;
         case 1:
-          log_type = "Debug: "sv;
+          log_type = "debg "sv;
           break;
         case 2:
-          log_type = "Info: "sv;
+          log_type = "info "sv;
           break;
         case 3:
-          log_type = "Warning: "sv;
+          log_type = "warn "sv;
           break;
         case 4:
-          log_type = "Error: "sv;
+          log_type = "errr "sv;
           break;
         case 5:
-          log_type = "Fatal: "sv;
+          log_type = "ftal "sv;
           break;
       };
 
-      char _date[DATE_BUFFER_SIZE];
-      std::time_t t = std::time(nullptr);
-      strftime(_date, DATE_BUFFER_SIZE, "[%Y:%m:%d:%H:%M:%S]: ", std::localtime(&t));
-
-      os << _date << log_type << view.attribute_values()[message].extract<std::string>();
+      os << log_type << view.attribute_values()[message].extract<std::string>();
     });
 
     // Flush after each log record to ensure log file contents on disk isn't stale.
