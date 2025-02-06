@@ -1704,23 +1704,23 @@ namespace video {
     if (encode_device) {
       switch (encode_device->colorspace.colorspace) {
         case colorspace_e::bt2020:
-          BOOST_LOG(info) << "HDR color coding [Rec. 2020 + SMPTE 2084 PQ]"sv;
+          BOOST_LOG(debug) << "HDR color coding [Rec. 2020 + SMPTE 2084 PQ]"sv;
           break;
 
         case colorspace_e::rec601:
-          BOOST_LOG(info) << "SDR color coding [Rec. 601]"sv;
+          BOOST_LOG(debug) << "SDR color coding [Rec. 601]"sv;
           break;
 
         case colorspace_e::rec709:
-          BOOST_LOG(info) << "SDR color coding [Rec. 709]"sv;
+          BOOST_LOG(debug) << "SDR color coding [Rec. 709]"sv;
           break;
 
         case colorspace_e::bt2020sdr:
-          BOOST_LOG(info) << "SDR color coding [Rec. 2020]"sv;
+          BOOST_LOG(debug) << "SDR color coding [Rec. 2020]"sv;
           break;
       }
-      BOOST_LOG(info) << "Color depth: " << encode_device->colorspace.bit_depth << "-bit";
-      BOOST_LOG(info) << "Color range: ["sv << (encode_device->colorspace.full_range ? "JPEG"sv : "MPEG"sv) << ']';
+      BOOST_LOG(debug) << "Color depth: " << encode_device->colorspace.bit_depth << "-bit";
+      BOOST_LOG(debug) << "Color range: ["sv << (encode_device->colorspace.full_range ? "JPEG"sv : "MPEG"sv) << ']';
     }
 
     if (dynamic_cast<platf::avcodec_encode_device_t *>(encode_device.get())) {

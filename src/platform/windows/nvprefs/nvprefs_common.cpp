@@ -9,12 +9,12 @@ namespace nvprefs {
 
   void
   info_message(const std::wstring &message) {
-    BOOST_LOG(info) << "nvprefs: " << message;
+    BOOST_LOG(debug) << "nvprefs: " << message;
   }
 
   void
   info_message(const std::string &message) {
-    BOOST_LOG(info) << "nvprefs: " << message;
+    BOOST_LOG(debug) << "nvprefs: " << message;
   }
 
   void

@@ -157,11 +157,6 @@ main(int argc, char *argv[]) {
     BOOST_LOG(error) << "Logging failed to initialize"sv;
   }
 
-  // logging can begin at this point
-  // if anything is logged prior to this point, it will appear in stdout, but not in the log viewer in the UI
-  // the version should be printed to the log before anything else
-  BOOST_LOG(info) << PROJECT_NAME << " version: " << PROJECT_VER;
-
 
 #ifdef _WIN32
   // Modify relevant NVIDIA control panel settings if the system has corresponding gpu
@@ -413,7 +408,6 @@ main(int argc, char *argv[]) {
           queue->metadata.height = value.height;
           queue->metadata.width = value.width;
           queue->metadata.scalar_inv = value.scalar_inv;
-          BOOST_LOG(info) << "touch port event ";
           file_handler::write_file(
             "./metadata.bin",
             std::string_view((char*)&queue->metadata,sizeof(QueueMetadata))

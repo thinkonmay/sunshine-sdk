@@ -279,7 +279,7 @@ namespace platf::dxgi {
       return false;
     }
 
-    BOOST_LOG(info) << "Set GPU preference: "sv << preference;
+    BOOST_LOG(debug) << "Set GPU preference: "sv << preference;
     return true;
   }
 
@@ -567,7 +567,7 @@ namespace platf::dxgi {
     adapter->GetDesc(&adapter_desc);
 
     auto description = to_utf8(adapter_desc.Description);
-    BOOST_LOG(info)
+    BOOST_LOG(debug)
       << std::endl
       << "Device Description : " << description << std::endl
       << "Device Vendor ID   : 0x"sv << util::hex(adapter_desc.VendorId).to_string_view() << std::endl
@@ -652,8 +652,8 @@ namespace platf::dxgi {
             // Track OBS to see if they find better workaround or NVIDIA fixes it on their end, they seem to be in communication
             if (hags_enabled && !config::video.nv_realtime_hags) priority = D3DKMT_SCHEDULINGPRIORITYCLASS_HIGH;
           }
-          BOOST_LOG(info) << "Active GPU has HAGS " << (hags_enabled ? "enabled" : "disabled");
-          BOOST_LOG(info) << "Using " << (priority == D3DKMT_SCHEDULINGPRIORITYCLASS_HIGH ? "high" : "realtime") << " GPU priority";
+          BOOST_LOG(debug) << "Active GPU has HAGS " << (hags_enabled ? "enabled" : "disabled");
+          BOOST_LOG(debug) << "Using " << (priority == D3DKMT_SCHEDULINGPRIORITYCLASS_HIGH ? "high" : "realtime") << " GPU priority";
           if (FAILED(d3dkmt_set_process_priority(GetCurrentProcess(), priority))) {
             BOOST_LOG(warning) << "Failed to adjust GPU priority. Please run application as administrator for optimal performance.";
           }
@@ -698,7 +698,7 @@ namespace platf::dxgi {
       DXGI_OUTPUT_DESC1 desc1;
       output6->GetDesc1(&desc1);
 
-      BOOST_LOG(info)
+      BOOST_LOG(debug)
         << std::endl
         << "Colorspace         : "sv << colorspace_to_string(desc1.ColorSpace) << std::endl
         << "Bits Per Color     : "sv << desc1.BitsPerColor << std::endl
