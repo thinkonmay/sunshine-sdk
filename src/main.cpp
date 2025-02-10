@@ -158,28 +158,6 @@ main(int argc, char *argv[]) {
   }
 
 
-#ifdef _WIN32
-  // Modify relevant NVIDIA control panel settings if the system has corresponding gpu
-  if (nvprefs_instance.load()) {
-    // Restore global settings to the undo file left by improper termination of sunshine.exe
-    nvprefs_instance.restore_from_and_delete_undo_file_if_exists();
-    // Modify application settings for sunshine.exe
-    nvprefs_instance.modify_application_profile();
-    // Modify global settings, undo file is produced in the process to restore after improper termination
-    nvprefs_instance.modify_global_profile();
-    // Unload dynamic library to survive driver re-installation
-    nvprefs_instance.unload();
-  }
-
-  // Wait as long as possible to terminate Sunshine.exe during logoff/shutdown
-  SetProcessShutdownParameters(0x100, SHUTDOWN_NORETRY);
-
-  // We must create a hidden window to receive shutdown notifications since we load gdi32.dll
-  std::promise<HWND> session_monitor_hwnd_promise;
-  auto session_monitor_hwnd_future = session_monitor_hwnd_promise.get_future();
-  std::promise<void> session_monitor_join_thread_promise;
-  auto session_monitor_join_thread_future = session_monitor_join_thread_promise.get_future();
-#endif
 
   task_pool.start(1);
 
@@ -209,15 +187,6 @@ main(int argc, char *argv[]) {
     process_shutdown_event->raise(true);
   });
 
-  // If any of the following fail, we log an error and continue event though sunshine will not function correctly.
-  // This allows access to the UI to fix configuration problems or view the logs.
-
-  auto platf_deinit_guard = platf::init();
-  if (!platf_deinit_guard) {
-    BOOST_LOG(error) << "Platform failed to initialize"sv;
-  }
-
-
   int queuetype = QueueType::Video;
   std::stringstream ss0; ss0 << argv[1]; 
   std::string target; ss0 >> target;
@@ -227,10 +196,36 @@ main(int argc, char *argv[]) {
 
 
   if(queuetype == QueueType::Video) {
-    if (video::probe_encoders()) {
-      BOOST_LOG(error) << "Video failed to find working encoder"sv;
-      return StatusCode::NO_ENCODER_AVAILABLE;
+#ifdef _WIN32
+    // Modify relevant NVIDIA control panel settings if the system has corresponding gpu
+    if (nvprefs_instance.load()) {
+      // Restore global settings to the undo file left by improper termination of sunshine.exe
+      nvprefs_instance.restore_from_and_delete_undo_file_if_exists();
+      // Modify application settings for sunshine.exe
+      nvprefs_instance.modify_application_profile();
+      // Modify global settings, undo file is produced in the process to restore after improper termination
+      nvprefs_instance.modify_global_profile();
+      // Unload dynamic library to survive driver re-installation
+      nvprefs_instance.unload();
     }
+
+    // Wait as long as possible to terminate Sunshine.exe during logoff/shutdown
+    SetProcessShutdownParameters(0x100, SHUTDOWN_NORETRY);
+
+    // We must create a hidden window to receive shutdown notifications since we load gdi32.dll
+    std::promise<HWND> session_monitor_hwnd_promise;
+    auto session_monitor_hwnd_future = session_monitor_hwnd_promise.get_future();
+    std::promise<void> session_monitor_join_thread_promise;
+    auto session_monitor_join_thread_future = session_monitor_join_thread_promise.get_future();
+#endif
+  }
+
+  auto platf_deinit_guard = platf::init();
+  if (!platf_deinit_guard)
+    BOOST_LOG(error) << "Platform failed to initialize"sv;
+  if(queuetype == QueueType::Video && video::probe_encoders()) {
+    BOOST_LOG(error) << "Video failed to find working encoder"sv;
+    return StatusCode::NO_ENCODER_AVAILABLE;
   }
 
   //Get buffer local address from handle

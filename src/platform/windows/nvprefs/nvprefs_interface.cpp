@@ -18,7 +18,6 @@ namespace nvprefs {
   struct nvprefs_interface::impl {
     bool loaded = false;
     driver_settings_t driver_settings;
-    std::filesystem::path undo_folder_path;
     std::filesystem::path undo_file_path;
     std::optional<undo_data_t> undo_data;
     std::optional<undo_file_t> undo_file;
@@ -38,17 +37,8 @@ namespace nvprefs {
   bool
   nvprefs_interface::load() {
     if (!pimpl->loaded) {
-      // Check %ProgramData% variable, need it for storing undo file
-      wchar_t program_data_env[MAX_PATH];
-      auto get_env_result = GetEnvironmentVariableW(L"ProgramData", program_data_env, MAX_PATH);
-      if (get_env_result == 0 || get_env_result >= MAX_PATH || !std::filesystem::is_directory(program_data_env)) {
-        error_message("Missing or malformed %ProgramData% environment variable");
-        return false;
-      }
-
       // Prepare undo file path variables
-      pimpl->undo_folder_path = std::filesystem::path(program_data_env) / sunshine_program_data_folder;
-      pimpl->undo_file_path = pimpl->undo_folder_path / nvprefs_undo_file_name;
+      pimpl->undo_file_path = std::filesystem::current_path() / nvprefs_undo_file_name;
 
       // Dynamically load nvapi library and load driver settings
       pimpl->loaded = pimpl->driver_settings.init();
@@ -144,12 +134,6 @@ namespace nvprefs {
     auto make_undo_and_commit = [&]() -> bool {
       // Create and lock undo file if it hasn't been done yet
       if (!pimpl->undo_file) {
-        // Prepare Sunshine folder in ProgramData if it doesn't exist
-        if (!CreateDirectoryW(pimpl->undo_folder_path.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) {
-          error_message("Couldn't create undo folder");
-          return false;
-        }
-
         // Create undo file to handle improper termination of nvprefs.exe
         pimpl->undo_file = undo_file_t::create_new_file(pimpl->undo_file_path);
         if (!pimpl->undo_file) {
