@@ -136,9 +136,6 @@ split (std::string s, char delim) {
  */
 int
 main(int argc, char *argv[]) {
-
-  task_pool_util::TaskPool::task_id_t force_shutdown = nullptr;
-
 #ifdef _WIN32
   // Switch default C standard library locale to UTF-8 on Windows 10 1803+
   setlocale(LC_ALL, ".UTF-8");
@@ -163,27 +160,15 @@ main(int argc, char *argv[]) {
 
   // Create signal handler after logging has been initialized
   auto process_shutdown_event = mail::man->event<bool>(mail::shutdown);
-  on_signal(SIGINT, [&force_shutdown, process_shutdown_event]() {
+  on_signal(SIGINT, [process_shutdown_event]() {
     BOOST_LOG(info) << "Interrupt handler called"sv;
-
-    auto task = []() {
-      BOOST_LOG(fatal) << "10 seconds passed, yet Sunshine's still running: Forcing shutdown"sv;
-      logging::log_flush();
-    };
-    force_shutdown = task_pool.pushDelayed(task, 10s).task_id;
-
+    logging::log_flush();
     process_shutdown_event->raise(true);
   });
 
-  on_signal(SIGTERM, [&force_shutdown, process_shutdown_event]() {
+  on_signal(SIGTERM, [process_shutdown_event]() {
     BOOST_LOG(info) << "Terminate handler called"sv;
-
-    auto task = []() {
-      BOOST_LOG(fatal) << "10 seconds passed, yet Sunshine's still running: Forcing shutdown"sv;
-      logging::log_flush();
-    };
-    force_shutdown = task_pool.pushDelayed(task, 10s).task_id;
-
+    logging::log_flush();
     process_shutdown_event->raise(true);
   });
 
@@ -298,11 +283,15 @@ main(int argc, char *argv[]) {
   });
 
   client->Bind(local_endpoint);
-  std::thread recv([client,local_endpoint] { while(true) {
-    client->Receiver(); 
-    client->Bind(local_endpoint);
-    std::this_thread::sleep_for(1s);
-  }});
+  std::thread recv([client,local_endpoint,mail,process_shutdown_event] { 
+    auto local_shutdown = mail->event<bool>(mail::shutdown);
+    while(!process_shutdown_event->peek() && !local_shutdown->peek()) {
+      client->Receiver(); 
+      client->Bind(local_endpoint);
+      std::this_thread::sleep_for(1s);
+    }
+  });
+  recv.detach();
 
   auto push = [client,process_shutdown_event,remote_endpoint,local_endpoint](safe::mail_t mail, Queue* queue, QueueType queue_type){
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
@@ -436,9 +425,9 @@ main(int argc, char *argv[]) {
 
   auto local_shutdown= mail->event<bool>(mail::shutdown);
   while (!process_shutdown_event->peek() && !local_shutdown->peek())
-    std::this_thread::sleep_for(1s);
+    std::this_thread::sleep_for(100ms);
 
-  BOOST_LOG(info) << "Closed" << queuetype;
+  BOOST_LOG(info) << "Closed";
   // let other threads to close
   std::this_thread::sleep_for(1s);
   task_pool.stop();
