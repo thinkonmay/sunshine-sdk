@@ -11,9 +11,7 @@ set(BOOST_COMPONENTS
         program_options
         system)  # system is not used by Sunshine, but by Simple-Web-Server, added here for convenience
 
-if(BOOST_USE_STATIC)
-    set(Boost_USE_STATIC_LIBS ON)  # cmake-lint: disable=C0103
-endif()
+set(Boost_USE_STATIC_LIBS ON)  # cmake-lint: disable=C0103
 
 find_package(Boost CONFIG ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS})
 if(NOT Boost_FOUND)
