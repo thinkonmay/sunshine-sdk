@@ -1,67 +1,78 @@
 package main
 
 /*
-#include <string.h>
+#include <windows.h>
+#include <stdio.h>
+#include <conio.h>
+#include <tchar.h>
 
-typedef struct {
-    int active;
-    int codec;
+void*
+create_file(char* path, int size, void** pHandle)
+{
+	HANDLE hMapFile = CreateFileMappingA(
+					INVALID_HANDLE_VALUE,    // use paging file
+					NULL,                    // default security
+					PAGE_READWRITE,          // read/write access
+					0,                       // maximum object size (high-order DWORD)
+					size,                // maximum object size (low-order DWORD)
+					path);                 // name of mapping object
 
-    int env_width, env_height;
-    int width, height;
-    // Offset x and y coordinates of the client
-    float client_offsetX, client_offsetY;
-    float offsetX, offsetY;
+	if (hMapFile == NULL)
+		return NULL;
 
-    float scalar_inv;
-}QueueMetadata;
+	*pHandle = hMapFile;
+	return MapViewOfFile(hMapFile,   // handle to map object
+							FILE_MAP_ALL_ACCESS, // read/write permission
+							0, 0, size);
+}
+
+void
+close_file(void* ptr) {
+	CloseHandle((HANDLE)ptr);
+}
+
 */
 import "C"
 import (
 	"fmt"
-	"log"
-	"net"
-	"os"
-	"time"
+	"os/exec"
+	"syscall"
 	"unsafe"
+
+	"github.com/google/uuid"
 )
 
 func main() {
-	// listen to incoming udp packets
-	pc, err := net.ListenPacket("udp", ":32521")
-	if err != nil {
-		log.Fatal(err)
+	id := uuid.NewString()
+	var handle unsafe.Pointer
+	buffer := C.create_file(C.CString(id), 5*1025*1024, &handle)
+	if buffer == nil {
+		panic("invalid buffer")
 	}
-	defer pc.Close()
+	defer C.close_file(handle)
+
+	cmd := exec.Command("C:/ideacrawler/thinkmay3/assets/shmsunshine.exe", "asdfa", id)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		panic(err)
+	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	err = cmd.Start()
+	if err != nil {
+		panic(err)
+	}
 
 	go func() {
-		var metadata C.QueueMetadata
+		buff := make([]byte, 5*1024*1024)
 		for {
-			data,err := os.ReadFile("C:\\ideacrawler\\binary\\metadata.bin")
+			n, err := stdout.Read(buff)
 			if err != nil {
 				panic(err)
 			}
 
-			from := unsafe.Pointer(&data[0])
-			to := unsafe.Pointer(&metadata)
-			C.memcpy(to,from,C.ulonglong(len(data)))
-
-			fmt.Printf("%v\n",metadata)
-			time.Sleep(time.Second)
+			fmt.Print(string(buff[:n]))
 		}
 	}()
 
-	fmt.Printf("start serving\n")
-	buf := make([]byte, 1024*1024*10)
-	for {
-		_, addr, err := pc.ReadFrom(buf)
-		if err != nil {
-			fmt.Printf("error serving %s\n", err.Error())
-		}
-
-		_, err = pc.WriteTo([]byte{6, 0}, addr)
-		if err != nil {
-			panic(err)
-		}
-	}
+	cmd.Wait()
 }

@@ -55,62 +55,6 @@ on_signal(int sig, FN &&fn) {
 
 
 
-template<class FN>
-class UDPClient {
-public:
-  UDPClient(FN handler) {
-    bufhandler = handler;
-  }
-
-  void Bind(udp::endpoint _remote_endpoint) {
-    if(io_service != nullptr)
-      io_service->stop();
-    if (socket != nullptr)
-      socket->close();
-
-    io_service = new boost::asio::io_context();
-    socket = new udp::socket(*io_service);
-    socket->open(udp::v4());
-    socket->bind(_remote_endpoint);
-    remote_endpoint = remote_endpoint;
-  }
-  void Receiver() {
-    wait();
-    io_service->run();
-  }
-
-  uintptr_t GetHandle() {
-    return (uintptr_t)socket->native_handle();
-  }
-
-private:
-  std::function<void(std::string)> bufhandler;
-  boost::asio::io_context* io_service = nullptr;
-  udp::socket* socket = nullptr;
-  boost::array<char, 16 * 1024> recv_buffer;
-  udp::endpoint remote_endpoint;
-  void handle_receive(const boost::system::error_code& err, size_t bytes_transferred) {
-    if (!err) {
-      char* data = recv_buffer.c_array();
-      auto buff = std::string(data,data+bytes_transferred);
-      bufhandler(buff);
-      wait();
-    }
-  }
-
-  void wait() {
-    socket->async_receive_from(
-      boost::asio::buffer(recv_buffer),
-      remote_endpoint,
-      boost::bind(
-        &UDPClient::handle_receive, 
-        this, 
-        boost::asio::placeholders::error, 
-        boost::asio::placeholders::bytes_transferred
-      ));
-  }
-};
-
 std::vector<std::string> 
 split (std::string s, char delim) {
     std::vector<std::string> result;
@@ -206,18 +150,18 @@ main(int argc, char *argv[]) {
   }
 
   auto platf_deinit_guard = platf::init();
+  auto memory = init_shared_memory(argv[2]);
   if (!platf_deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
   } else if(queuetype == QueueType::Video && video::probe_encoders()) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
+  } else if (memory == nullptr) {
+    BOOST_LOG(error) << "Failed to find shared memory"sv;
+    return StatusCode::NO_ENCODER_AVAILABLE;
   }
-
-  //Get buffer local address from handle
-  SharedMemory* memory = 0;
-  init_shared_memory(&memory);
-
+  
   auto video_capture = [&](safe::mail_t mail, std::string displayin,int codec){
     video::capture(mail,video::config_t{
       displayin, 1920, 1080, 60, 6000, 1, 0, 1, codec, 0
@@ -232,26 +176,11 @@ main(int argc, char *argv[]) {
     
 
 
-  int port;
-  std::string address;
-  auto rendpoint = split(std::string(argv[3]),':');
-  std::stringstream ss; ss <<   rendpoint[0]; ss >> address;
-  std::stringstream ss2; ss2 << rendpoint[1]; ss2 >> port;
-  udp::endpoint remote_endpoint = udp::endpoint(make_address(address), port);
-
-
-  int lport;
-  std::string laddress;
-  auto lendpoint = split(std::string(argv[2]),':');
-  std::stringstream ss3; ss3 << lendpoint[0]; ss3 >> laddress;
-  std::stringstream ss4; ss4 << lendpoint[1]; ss4 >> lport;
-  udp::endpoint local_endpoint = udp::endpoint(make_address(laddress), lport);
-
   auto mail          = std::make_shared<safe::mail_raw_t>();
   auto bitrate       = mail->event<int>(mail::bitrate);
   auto framerate     = mail->event<int>(mail::framerate);
   auto idr           = mail->event<bool>(mail::idr);
-  auto client = new UDPClient([queuetype,bitrate,framerate,idr](std::string buffer){
+  auto func = [queuetype,bitrate,framerate,idr](std::string buffer){
     if (buffer.length() != 2) {
       BOOST_LOG(error) << "invalid message "<< buffer.length();
       return;
@@ -281,20 +210,10 @@ main(int argc, char *argv[]) {
       BOOST_LOG(error) << "invalid message "<< u_int(buffer.at(0)) << " " << u_int(buffer.at(1));
       break;
     }
-  });
+  };
 
-  client->Bind(local_endpoint);
-  std::thread recv([client,local_endpoint,mail,process_shutdown_event] { 
-    auto local_shutdown = mail->event<bool>(mail::shutdown);
-    while(!process_shutdown_event->peek() && !local_shutdown->peek()) {
-      client->Receiver(); 
-      client->Bind(local_endpoint);
-      std::this_thread::sleep_for(1s);
-    }
-  });
-  recv.detach();
 
-  auto push = [client,process_shutdown_event,remote_endpoint,local_endpoint](safe::mail_t mail, Queue* queue, QueueType queue_type){
+  auto push = [process_shutdown_event](safe::mail_t mail, Queue* queue, QueueType queue_type){
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown= mail->event<bool>(mail::shutdown);
@@ -308,11 +227,6 @@ main(int argc, char *argv[]) {
     queue->metadata.active = 1;
     auto last_timestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     bool first_video_packet = true;
-
-    auto rAddr = remote_endpoint.address();
-    auto rPort = remote_endpoint.port();
-    auto lAddr = local_endpoint.address();
-    auto lPort = local_endpoint.port();
 
     auto buffer = (char*)malloc(5*1024*1024);
     uint32_t index = 0;
@@ -334,13 +248,6 @@ main(int argc, char *argv[]) {
           memcpy(buffer + sizeof(uint32_t),&duration,sizeof(uint32_t));
           memcpy(buffer + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
 
-          platf::batched_send_info_t send_info {
-            buffer, size + sizeof(uint32_t) + sizeof(uint32_t), 1,
-            client->GetHandle(), 
-            rAddr, rPort, lAddr
-          };
-
-          platf::send_batch(send_info);
           last_timestamp = timestamp;
           index++;
         } while (video_packets->peek());
@@ -356,13 +263,6 @@ main(int argc, char *argv[]) {
           memcpy(buffer + sizeof(uint32_t),&duration,sizeof(uint32_t));
           memcpy(buffer + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
 
-          platf::batched_send_info_t send_info {
-            buffer, size + sizeof(uint32_t) + sizeof(uint32_t), 1,
-            client->GetHandle(), 
-            rAddr, rPort, lAddr
-          };
-
-          platf::send_batch(send_info);
           last_timestamp = timestamp;
           index++;
         } while (audio_packets->peek());

@@ -10,8 +10,8 @@
 #include <smemory.h>
 
 
-void
-init_shared_memory(SharedMemory** shm);
+SharedMemory*
+init_shared_memory(char* data);
 
 void 
 push_packet(Queue* memory, void* data, int size, PacketMetadata metadata);

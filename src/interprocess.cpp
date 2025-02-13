@@ -10,19 +10,9 @@
 #include <vector>
 #include <iostream>
 #include <sstream>
-
-void
-init_shared_memory(SharedMemory** _memory){
-    *_memory = (SharedMemory*) malloc(sizeof(SharedMemory));
-    SharedMemory* memory = *_memory;
-    memset(memory,0,sizeof(SharedMemory));
-    for (int j = 0; j < QueueType::QueueMax; j++) {
-        for (int k = 0; k < EventType::EventMax; k++) 
-            memory->queues[j].events[k].read = 1;
-
-        memory->queues[j].index = QUEUE_SIZE - 1;
-    }
-}
+#include <windows.h>
+#pragma comment(lib, "user32.lib")
+#define BUF_SIZE 256
 
 void 
 push_packet(Queue* queue, 
@@ -59,4 +49,41 @@ pop_event(Queue* queue, EventType type){
     queue->events[type].read = true;
     BOOST_LOG(debug) << "Receive event " << type << ", value: "<< queue->events[type].value_number;
     return queue->events[type];
+}
+
+
+
+void*
+map_file(char* name)
+{
+   HANDLE hMapFile;
+
+   hMapFile = OpenFileMappingA(
+                   FILE_MAP_ALL_ACCESS,   // read/write access
+                   FALSE,                 // do not inherit the name
+                   name);               // name of mapping object
+
+   if (hMapFile == NULL) {
+      BOOST_LOG(error) << "Could not open file mapping object " <<  GetLastError();
+      return nullptr;
+   }
+
+    void* pBuf = MapViewOfFile(hMapFile, // handle to map object
+               FILE_MAP_ALL_ACCESS,  // read/write permission
+               0,
+               0,
+               BUF_SIZE);
+
+    if (pBuf == NULL) {
+        BOOST_LOG(error) << "Could not map view of file (%d) " << GetLastError();
+        CloseHandle(hMapFile);
+        return nullptr;
+    }
+
+   return pBuf;
+}
+SharedMemory*
+init_shared_memory(char* data){
+    SharedMemory* memory = (SharedMemory*)map_file(data);
+    return memory;
 }
