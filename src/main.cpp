@@ -163,7 +163,7 @@ main(int argc, char *argv[]) {
   }
 
   auto platf_deinit_guard = platf::init();
-  auto memory = init_shared_memory(argv[2]);
+  auto queue = init_shared_memory(argv[2]);
   if (!platf_deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
