@@ -164,6 +164,7 @@ main(int argc, char *argv[]) {
 
   auto platf_deinit_guard = platf::init();
   auto queue = init_shared_memory(argv[2]);
+  memset(queue,0,sizeof(Queue));
   if (!platf_deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
@@ -257,9 +258,9 @@ main(int argc, char *argv[]) {
 
           if (queue->inindex >= QUEUE_SIZE)
             queue->inindex = 0;
-          memcpy(&queue->incoming[queue->inindex],&queue->inindex,sizeof(uint32_t));
-          memcpy(&queue->incoming[queue->inindex] + sizeof(uint32_t),&duration,sizeof(uint32_t));
-          memcpy(&queue->incoming[queue->inindex] + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
+          memcpy(queue->incoming[queue->inindex].data,&queue->inindex,sizeof(uint32_t));
+          memcpy(queue->incoming[queue->inindex].data + sizeof(uint32_t),&duration,sizeof(uint32_t));
+          memcpy(queue->incoming[queue->inindex].data + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
           queue->incoming[queue->inindex].size = size + sizeof(uint32_t) + sizeof(uint32_t);
           queue->inindex++;
           last_timestamp = timestamp;
@@ -274,9 +275,9 @@ main(int argc, char *argv[]) {
 
           if (queue->inindex >= QUEUE_SIZE)
             queue->inindex = 0;
-          memcpy(&queue->incoming[queue->inindex],&queue->inindex,sizeof(uint32_t));
-          memcpy(&queue->incoming[queue->inindex] + sizeof(uint32_t),&duration,sizeof(uint32_t));
-          memcpy(&queue->incoming[queue->inindex] + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
+          memcpy(queue->incoming[queue->inindex].data,&queue->inindex,sizeof(uint32_t));
+          memcpy(queue->incoming[queue->inindex].data + sizeof(uint32_t),&duration,sizeof(uint32_t));
+          memcpy(queue->incoming[queue->inindex].data + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
           queue->incoming[queue->inindex].size = size + sizeof(uint32_t) + sizeof(uint32_t);
           queue->inindex++;
           last_timestamp = timestamp;

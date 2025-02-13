@@ -12,7 +12,6 @@
 #include <sstream>
 #include <windows.h>
 #pragma comment(lib, "user32.lib")
-#define BUF_SIZE 256
 
 
 
@@ -35,7 +34,7 @@ map_file(char* name)
                FILE_MAP_ALL_ACCESS,  // read/write permission
                0,
                0,
-               BUF_SIZE);
+               sizeof(Queue));
 
     if (pBuf == NULL) {
         BOOST_LOG(error) << "Could not map view of file (%d) " << GetLastError();
