@@ -33,6 +33,19 @@ enum StatusCode {
   NORMAL_EXIT,
   NO_ENCODER_AVAILABLE = 77
 };
+enum QueueType {
+  Video,
+  Audio,
+};
+enum EventType {
+  Pointer,
+  Bitrate,
+  Framerate,
+  Idr,
+  Hdr,
+  Stop,
+  EventMax
+};
 
 using namespace std::literals;
 using namespace boost::asio::ip;
@@ -157,7 +170,7 @@ main(int argc, char *argv[]) {
   } else if(queuetype == QueueType::Video && video::probe_encoders()) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
-  } else if (memory == nullptr) {
+  } else if (queue == nullptr) {
     BOOST_LOG(error) << "Failed to find shared memory"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
   }
@@ -228,8 +241,6 @@ main(int argc, char *argv[]) {
     auto last_timestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     bool first_video_packet = true;
 
-    auto buffer = (char*)malloc(5*1024*1024);
-    uint32_t index = 0;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video) {
         do {
@@ -244,12 +255,14 @@ main(int argc, char *argv[]) {
           size_t size = packet->data_size();
           auto duration = uint32_t(timestamp - last_timestamp);;
 
-          memcpy(buffer,&index,sizeof(uint32_t));
-          memcpy(buffer + sizeof(uint32_t),&duration,sizeof(uint32_t));
-          memcpy(buffer + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
-
+          if (queue->inindex >= QUEUE_SIZE)
+            queue->inindex = 0;
+          memcpy(&queue->incoming[queue->inindex],&queue->inindex,sizeof(uint32_t));
+          memcpy(&queue->incoming[queue->inindex] + sizeof(uint32_t),&duration,sizeof(uint32_t));
+          memcpy(&queue->incoming[queue->inindex] + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
+          queue->incoming[queue->inindex].size = size + sizeof(uint32_t) + sizeof(uint32_t);
+          queue->inindex++;
           last_timestamp = timestamp;
-          index++;
         } while (video_packets->peek());
       } else if (queue_type == QueueType::Audio) {
         do {
@@ -259,12 +272,14 @@ main(int argc, char *argv[]) {
           size_t size = packet->second.size();
           auto duration = uint32_t(timestamp - last_timestamp);;
 
-          memcpy(buffer,&index,sizeof(uint32_t));
-          memcpy(buffer + sizeof(uint32_t),&duration,sizeof(uint32_t));
-          memcpy(buffer + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
-
+          if (queue->inindex >= QUEUE_SIZE)
+            queue->inindex = 0;
+          memcpy(&queue->incoming[queue->inindex],&queue->inindex,sizeof(uint32_t));
+          memcpy(&queue->incoming[queue->inindex] + sizeof(uint32_t),&duration,sizeof(uint32_t));
+          memcpy(&queue->incoming[queue->inindex] + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
+          queue->incoming[queue->inindex].size = size + sizeof(uint32_t) + sizeof(uint32_t);
+          queue->inindex++;
           last_timestamp = timestamp;
-          index++;
         } while (audio_packets->peek());
       }
     }
@@ -308,7 +323,6 @@ main(int argc, char *argv[]) {
   };
 
 
-  auto queue = &memory->queues[queuetype];
   BOOST_LOG(info) << "Starting capture on channel " << queuetype;
   if (queuetype == QueueType::Video) {
     auto capture = std::thread{video_capture,mail,target,0};
