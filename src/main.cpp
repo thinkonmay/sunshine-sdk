@@ -58,8 +58,8 @@ on_signal(int sig, FN &&fn) {
 template<class FN>
 class UDPClient {
 public:
-  UDPClient(FN &&handler) {
-    bufhandler = std::forward<FN>(handler);
+  UDPClient(FN handler) {
+    bufhandler = handler;
   }
 
   void Bind(udp::endpoint _remote_endpoint) {
