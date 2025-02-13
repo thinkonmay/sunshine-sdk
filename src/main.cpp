@@ -206,9 +206,10 @@ main(int argc, char *argv[]) {
   }
 
   auto platf_deinit_guard = platf::init();
-  if (!platf_deinit_guard)
+  if (!platf_deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
-  if(queuetype == QueueType::Video && video::probe_encoders()) {
+    return StatusCode::NO_ENCODER_AVAILABLE;
+  } else if(queuetype == QueueType::Video && video::probe_encoders()) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
   }
