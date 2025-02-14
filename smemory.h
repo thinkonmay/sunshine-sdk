@@ -1,5 +1,5 @@
 #define QUEUE_SIZE 64
-#define PACKET_SIZE 512 * 1024
+#define PACKET_SIZE 5 * 1024 * 1024
 
 typedef struct {
     int active;

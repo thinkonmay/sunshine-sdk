@@ -309,7 +309,9 @@ main(int argc, char *argv[]) {
     auto touch_port    = mail->event<input::touch_port_t>(mail::touch_port);
 
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
-      if(touch_port->peek()) {
+      if(!touch_port->peek()) {
+        std::this_thread::sleep_for(100ms);
+      } else {
         auto touch = touch_port->pop();
         if (touch.has_value()) {
           auto value = touch.value();
