@@ -276,6 +276,7 @@ main(int argc, char *argv[]) {
           memcpy(queue->incoming[updated].data + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
           queue->incoming[updated].size = size + sizeof(uint32_t) + sizeof(uint32_t);
           queue->inindex = updated;
+          last_timestamp = timestamp;
         } while (video_packets->peek());
       } else if (queue_type == QueueType::Audio) {
         do {
