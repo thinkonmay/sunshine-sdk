@@ -191,38 +191,49 @@ main(int argc, char *argv[]) {
 
 
   auto mail          = std::make_shared<safe::mail_raw_t>();
-  auto bitrate       = mail->event<int>(mail::bitrate);
-  auto framerate     = mail->event<int>(mail::framerate);
-  auto idr           = mail->event<bool>(mail::idr);
-  auto func = [queuetype,bitrate,framerate,idr](std::string buffer){
-    if (buffer.length() != 2) {
-      BOOST_LOG(error) << "invalid message "<< buffer.length();
-      return;
-    } else if (queuetype == QueueType::Audio) {
-      BOOST_LOG(error) << "audio buffer does not accept response";
-      return;
-    }
-    
-    switch (buffer.at(0)) {
-    case EventType::Bitrate:
-      BOOST_LOG(debug) << "bitrate changed to " << (buffer.at(1) * 1000);
-      bitrate->raise(buffer.at(1) * 1000);
-      break;
-    case EventType::Framerate:
-      BOOST_LOG(debug) << "framerate changed to " << (buffer.at(1));
-      framerate->raise(buffer.at(1));
-      break;
-    case EventType::Pointer:
-      BOOST_LOG(debug) << "pointer changed to " << (buffer.at(1) != 0);
-      display_cursor = buffer.at(1) != 0;
-      break;
-    case EventType::Idr:
-      BOOST_LOG(debug) << "IDR";
-      idr->raise(true);
-      break;
-    default:
-      BOOST_LOG(error) << "invalid message "<< u_int(buffer.at(0)) << " " << u_int(buffer.at(1));
-      break;
+
+  auto pull = [process_shutdown_event,queue,mail](){
+    auto local_shutdown= mail->event<bool>(mail::shutdown);
+    auto bitrate       = mail->event<int>(mail::bitrate);
+    auto framerate     = mail->event<int>(mail::framerate);
+    auto idr           = mail->event<bool>(mail::idr);
+
+    auto expected_index = 0;
+    while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
+      char buffer[512] = {0};
+      while (expected_index == queue->outindex)
+        std::this_thread::sleep_for(10ms);
+
+      memcpy(buffer,
+        queue->outcoming[queue->outindex].data,
+        queue->outcoming[queue->outindex].size
+      );
+
+      expected_index++;
+      if (expected_index >= QUEUE_SIZE)
+        expected_index = 0;
+      
+      switch (buffer[0]) {
+      case EventType::Bitrate:
+        BOOST_LOG(debug) << "bitrate changed to " << (buffer[1] * 1000);
+        bitrate->raise(buffer[1] * 1000);
+        break;
+      case EventType::Framerate:
+        BOOST_LOG(debug) << "framerate changed to " << (buffer[1]);
+        framerate->raise(buffer[1]);
+        break;
+      case EventType::Pointer:
+        BOOST_LOG(debug) << "pointer changed to " << (buffer[1] != 0);
+        display_cursor = buffer[1] != 0;
+        break;
+      case EventType::Idr:
+        BOOST_LOG(debug) << "IDR";
+        idr->raise(true);
+        break;
+      default:
+        BOOST_LOG(error) << "invalid message "<< u_int(buffer[0]) << " " << u_int(buffer[1]);
+        break;
+      }
     }
   };
 
@@ -238,13 +249,14 @@ main(int argc, char *argv[]) {
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
 #endif
 
-    queue->metadata.active = 1;
     auto last_timestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     bool first_video_packet = true;
 
+    uint32_t findex = -1;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video) {
         do {
+          findex++;
           auto packet = video_packets->pop();
           if (first_video_packet) {
             BOOST_LOG(info) << "first frame";
@@ -256,30 +268,32 @@ main(int argc, char *argv[]) {
           size_t size = packet->data_size();
           auto duration = uint32_t(timestamp - last_timestamp);;
 
-          if (queue->inindex >= QUEUE_SIZE)
-            queue->inindex = 0;
-          memcpy(queue->incoming[queue->inindex].data,&queue->inindex,sizeof(uint32_t));
-          memcpy(queue->incoming[queue->inindex].data + sizeof(uint32_t),&duration,sizeof(uint32_t));
-          memcpy(queue->incoming[queue->inindex].data + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
-          queue->incoming[queue->inindex].size = size + sizeof(uint32_t) + sizeof(uint32_t);
-          queue->inindex++;
-          last_timestamp = timestamp;
+          auto updated = queue->inindex + 1;
+          if (updated >= QUEUE_SIZE)
+            updated = 0;
+          memcpy(queue->incoming[updated].data,&findex,sizeof(uint32_t));
+          memcpy(queue->incoming[updated].data + sizeof(uint32_t),&duration,sizeof(uint32_t));
+          memcpy(queue->incoming[updated].data + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
+          queue->incoming[updated].size = size + sizeof(uint32_t) + sizeof(uint32_t);
+          queue->inindex = updated;
         } while (video_packets->peek());
       } else if (queue_type == QueueType::Audio) {
         do {
+          findex++;
           auto packet = audio_packets->pop();
           auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
           const char* ptr = (char*)packet->second.begin();
           size_t size = packet->second.size();
           auto duration = uint32_t(timestamp - last_timestamp);;
 
-          if (queue->inindex >= QUEUE_SIZE)
-            queue->inindex = 0;
-          memcpy(queue->incoming[queue->inindex].data,&queue->inindex,sizeof(uint32_t));
-          memcpy(queue->incoming[queue->inindex].data + sizeof(uint32_t),&duration,sizeof(uint32_t));
-          memcpy(queue->incoming[queue->inindex].data + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
-          queue->incoming[queue->inindex].size = size + sizeof(uint32_t) + sizeof(uint32_t);
-          queue->inindex++;
+          auto updated = queue->inindex + 1;
+          if (updated >= QUEUE_SIZE)
+            updated = 0;
+          memcpy(queue->incoming[updated].data,&findex,sizeof(uint32_t));
+          memcpy(queue->incoming[updated].data + sizeof(uint32_t),&duration,sizeof(uint32_t));
+          memcpy(queue->incoming[updated].data + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
+          queue->incoming[updated].size = size + sizeof(uint32_t) + sizeof(uint32_t);
+          queue->inindex = updated;
           last_timestamp = timestamp;
         } while (audio_packets->peek());
       }
@@ -287,8 +301,6 @@ main(int argc, char *argv[]) {
 
     if (!local_shutdown->peek())
       local_shutdown->raise(true);
-
-    queue->metadata.active = 0;
   };
 
   auto touch_fun = [mail,process_shutdown_event](Queue* queue){
@@ -309,18 +321,12 @@ main(int argc, char *argv[]) {
           queue->metadata.height = value.height;
           queue->metadata.width = value.width;
           queue->metadata.scalar_inv = value.scalar_inv;
-          file_handler::write_file(
-            "./metadata.bin",
-            std::string_view((char*)&queue->metadata,sizeof(QueueMetadata))
-          );
         }
       }
     }
 
     if (!local_shutdown->peek())
       local_shutdown->raise(true);
-
-    queue->metadata.active = 0;
   };
 
 
@@ -329,6 +335,8 @@ main(int argc, char *argv[]) {
     auto capture = std::thread{video_capture,mail,target,0};
     auto forward = std::thread{push,mail,queue,(QueueType)queuetype};
     auto touch_thread = std::thread{touch_fun,queue};
+    auto receive = std::thread{pull};
+    receive.detach();
     touch_thread.detach();
     capture.detach();
     forward.detach();
