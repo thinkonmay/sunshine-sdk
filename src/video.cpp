@@ -1754,10 +1754,6 @@ namespace video {
     auto shutdown_event = mail->event<bool>(mail::shutdown);
     auto bitrate_events = mail->event<int>(mail::bitrate);
     auto framerate_events = mail->event<int>(mail::framerate);
-
-    BOOST_LOG(info) << "framerate "sv << config->framerate;
-    BOOST_LOG(info) << "bitrate "sv << config->bitrate;
-
     auto packets = mail->queue<packet_t>(mail::video_packets);
     auto idr_events = mail->event<bool>(mail::idr);
     auto invalidate_ref_frames_events = mail->event<std::pair<int64_t, int64_t>>(mail::invalidate_ref_frames);
@@ -1801,11 +1797,9 @@ namespace video {
 
       if (bitrate_events->peek()) {
           config->bitrate = bitrate_events->pop().value();
-          BOOST_LOG(info) << "bitrate changed to "sv << config->bitrate;
           break;
       } else if (framerate_events->peek()) {
           config->framerate = framerate_events->pop().value();
-          BOOST_LOG(info) << "framerate changed to "sv << config->framerate;
           break;
       }
 

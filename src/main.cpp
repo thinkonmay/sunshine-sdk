@@ -8,9 +8,6 @@
 #include <csignal>
 #include <fstream>
 #include <iostream>
-#include <boost/asio.hpp>
-#include <boost/array.hpp>
-#include <boost/bind.hpp>
 
 // local includes
 #include "globals.h"
@@ -44,13 +41,11 @@ enum EventType {
   Idr,
   Hdr,
   Stop,
+  BufferOverflow,
   EventMax
 };
 
 using namespace std::literals;
-using namespace boost::asio::ip;
-using boost::asio::ip::udp;
-using boost::asio::ip::address;
 
 std::map<int, std::function<void()>> signal_handlers;
 void
@@ -199,6 +194,7 @@ main(int argc, char *argv[]) {
     auto idr           = mail->event<bool>(mail::idr);
 
     auto expected_index = 0;
+    auto last_bitrate = 6;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       char buffer[512] = {0};
       while (expected_index == queue->outindex)
@@ -215,11 +211,20 @@ main(int argc, char *argv[]) {
       
       switch (buffer[0]) {
       case EventType::Bitrate:
-        BOOST_LOG(debug) << "bitrate changed to " << (buffer[1] * 1000);
+        last_bitrate = buffer[1];
+        BOOST_LOG(info) << "bitrate changed to " << (buffer[1] * 1000);
         bitrate->raise(buffer[1] * 1000);
         break;
+      case EventType::BufferOverflow:
+        if (last_bitrate <= 1) 
+          break;
+
+        last_bitrate--;
+        BOOST_LOG(info) << "overflow, bitrate changed to " << (last_bitrate * 1000);
+        bitrate->raise(last_bitrate * 1000);
+        break;
       case EventType::Framerate:
-        BOOST_LOG(debug) << "framerate changed to " << (buffer[1]);
+        BOOST_LOG(info) << "framerate changed to " << (buffer[1]);
         framerate->raise(buffer[1]);
         break;
       case EventType::Pointer:
