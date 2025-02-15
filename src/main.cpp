@@ -224,11 +224,11 @@ main(int argc, char *argv[]) {
         bitrate->raise(last_bitrate * 1000);
         break;
       case EventType::Framerate:
-        BOOST_LOG(info) << "framerate changed to " << (buffer[1]);
+        BOOST_LOG(info) << "framerate changed to " << (int)(buffer[1]);
         framerate->raise(buffer[1]);
         break;
       case EventType::Pointer:
-        BOOST_LOG(debug) << "pointer changed to " << (buffer[1] != 0);
+        BOOST_LOG(debug) << "pointer changed to " << (bool)(buffer[1] != 0);
         display_cursor = buffer[1] != 0;
         break;
       case EventType::Idr:
