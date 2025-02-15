@@ -195,14 +195,14 @@ main(int argc, char *argv[]) {
 
     auto expected_index = 0;
     auto last_bitrate = 6;
+    char buffer[512] = {0};
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
-      char buffer[512] = {0};
       while (expected_index == queue->outindex)
-        std::this_thread::sleep_for(10ms);
+        std::this_thread::sleep_for(100us);
 
       memcpy(buffer,
-        queue->outcoming[queue->outindex].data,
-        queue->outcoming[queue->outindex].size
+        queue->outcoming[expected_index].data,
+        queue->outcoming[expected_index].size
       );
 
       expected_index++;
