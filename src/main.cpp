@@ -256,7 +256,6 @@ main(int argc, char *argv[]) {
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video) {
         do {
-          findex++;
           auto packet = video_packets->pop();
           if (first_video_packet) {
             BOOST_LOG(info) << "first frame";
@@ -271,6 +270,8 @@ main(int argc, char *argv[]) {
           auto updated = queue->inindex + 1;
           if (updated >= QUEUE_SIZE)
             updated = 0;
+
+          findex++;
           memcpy(queue->incoming[updated].data,&findex,sizeof(uint32_t));
           memcpy(queue->incoming[updated].data + sizeof(uint32_t),&duration,sizeof(uint32_t));
           memcpy(queue->incoming[updated].data + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
@@ -280,7 +281,6 @@ main(int argc, char *argv[]) {
         } while (video_packets->peek());
       } else if (queue_type == QueueType::Audio) {
         do {
-          findex++;
           auto packet = audio_packets->pop();
           auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
           const char* ptr = (char*)packet->second.begin();
@@ -290,6 +290,8 @@ main(int argc, char *argv[]) {
           auto updated = queue->inindex + 1;
           if (updated >= QUEUE_SIZE)
             updated = 0;
+
+          findex++;
           memcpy(queue->incoming[updated].data,&findex,sizeof(uint32_t));
           memcpy(queue->incoming[updated].data + sizeof(uint32_t),&duration,sizeof(uint32_t));
           memcpy(queue->incoming[updated].data + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
