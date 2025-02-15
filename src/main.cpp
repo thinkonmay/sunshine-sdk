@@ -76,6 +76,13 @@ split (std::string s, char delim) {
     return result;
 }
 
+
+void
+copy_to_packet(Packet* packet,void* data, size_t size) {
+  memcpy(packet->data+packet->size,data,size);
+  packet->size += size;
+}
+
 /**
  * @brief Main application entry point.
  * @param argc The number of arguments.
@@ -254,33 +261,28 @@ main(int argc, char *argv[]) {
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
 #endif
 
-    auto last_timestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    bool first_video_packet = true;
-
     uint32_t findex = -1;
+    auto last_timestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video) {
         do {
           auto packet = video_packets->pop();
-          if (first_video_packet) {
-            BOOST_LOG(info) << "first frame";
-            first_video_packet = false;
-          }
-
           auto timestamp = packet->frame_timestamp.value().time_since_epoch().count();
-          const char* ptr = (char*)packet->data();
+          char* ptr = (char*)packet->data();
           size_t size = packet->data_size();
           auto duration = uint32_t(timestamp - last_timestamp);;
+          uint64_t utimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(packet->frame_timestamp.value().time_since_epoch()).count();
 
           auto updated = queue->inindex + 1;
           if (updated >= QUEUE_SIZE)
             updated = 0;
 
           findex++;
-          memcpy(queue->incoming[updated].data,&findex,sizeof(uint32_t));
-          memcpy(queue->incoming[updated].data + sizeof(uint32_t),&duration,sizeof(uint32_t));
-          memcpy(queue->incoming[updated].data + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
-          queue->incoming[updated].size = size + sizeof(uint32_t) + sizeof(uint32_t);
+          queue->incoming[updated].size = 0;
+          copy_to_packet(&queue->incoming[updated],&findex,sizeof(uint32_t));
+          copy_to_packet(&queue->incoming[updated],&duration,sizeof(uint32_t));
+          copy_to_packet(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
+          copy_to_packet(&queue->incoming[updated],ptr,size);
           queue->inindex = updated;
           last_timestamp = timestamp;
         } while (video_packets->peek());
@@ -288,19 +290,21 @@ main(int argc, char *argv[]) {
         do {
           auto packet = audio_packets->pop();
           auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
-          const char* ptr = (char*)packet->second.begin();
+          char* ptr = (char*)packet->second.begin();
           size_t size = packet->second.size();
           auto duration = uint32_t(timestamp - last_timestamp);;
+          uint64_t utimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 
           auto updated = queue->inindex + 1;
           if (updated >= QUEUE_SIZE)
             updated = 0;
 
           findex++;
-          memcpy(queue->incoming[updated].data,&findex,sizeof(uint32_t));
-          memcpy(queue->incoming[updated].data + sizeof(uint32_t),&duration,sizeof(uint32_t));
-          memcpy(queue->incoming[updated].data + sizeof(uint32_t) + sizeof(uint32_t),ptr,size);
-          queue->incoming[updated].size = size + sizeof(uint32_t) + sizeof(uint32_t);
+          queue->incoming[updated].size = 0;
+          copy_to_packet(&queue->incoming[updated],&findex,sizeof(uint32_t));
+          copy_to_packet(&queue->incoming[updated],&duration,sizeof(uint32_t));
+          copy_to_packet(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
+          copy_to_packet(&queue->incoming[updated],ptr,size);
           queue->inindex = updated;
           last_timestamp = timestamp;
         } while (audio_packets->peek());
