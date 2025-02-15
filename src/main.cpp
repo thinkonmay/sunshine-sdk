@@ -262,16 +262,13 @@ main(int argc, char *argv[]) {
 #endif
 
     uint32_t findex = -1;
-    auto last_timestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video) {
         do {
           auto packet = video_packets->pop();
-          auto timestamp = packet->frame_timestamp.value().time_since_epoch().count();
           char* ptr = (char*)packet->data();
           size_t size = packet->data_size();
-          auto duration = uint32_t(timestamp - last_timestamp);;
-          uint64_t utimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(packet->frame_timestamp.value().time_since_epoch()).count();
+          uint64_t utimestamp = packet->frame_timestamp.value().time_since_epoch().count();
 
           auto updated = queue->inindex + 1;
           if (updated >= QUEUE_SIZE)
@@ -280,20 +277,16 @@ main(int argc, char *argv[]) {
           findex++;
           queue->incoming[updated].size = 0;
           copy_to_packet(&queue->incoming[updated],&findex,sizeof(uint32_t));
-          copy_to_packet(&queue->incoming[updated],&duration,sizeof(uint32_t));
           copy_to_packet(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
           copy_to_packet(&queue->incoming[updated],ptr,size);
           queue->inindex = updated;
-          last_timestamp = timestamp;
         } while (video_packets->peek());
       } else if (queue_type == QueueType::Audio) {
         do {
           auto packet = audio_packets->pop();
-          auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
           char* ptr = (char*)packet->second.begin();
           size_t size = packet->second.size();
-          auto duration = uint32_t(timestamp - last_timestamp);;
-          uint64_t utimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+          uint64_t utimestamp = std::chrono::steady_clock::now().time_since_epoch().count();
 
           auto updated = queue->inindex + 1;
           if (updated >= QUEUE_SIZE)
@@ -302,11 +295,9 @@ main(int argc, char *argv[]) {
           findex++;
           queue->incoming[updated].size = 0;
           copy_to_packet(&queue->incoming[updated],&findex,sizeof(uint32_t));
-          copy_to_packet(&queue->incoming[updated],&duration,sizeof(uint32_t));
           copy_to_packet(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
           copy_to_packet(&queue->incoming[updated],ptr,size);
           queue->inindex = updated;
-          last_timestamp = timestamp;
         } while (audio_packets->peek());
       }
     }
