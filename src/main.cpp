@@ -166,7 +166,6 @@ main(int argc, char *argv[]) {
 
   auto platf_deinit_guard = platf::init();
   auto queue = init_shared_memory(argv[2]);
-  memset(queue,0,sizeof(Queue));
   if (!platf_deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
@@ -175,9 +174,10 @@ main(int argc, char *argv[]) {
     return StatusCode::NO_ENCODER_AVAILABLE;
   } else if (queue == nullptr) {
     BOOST_LOG(error) << "Failed to find shared memory"sv;
-    return StatusCode::NO_ENCODER_AVAILABLE;
+    queue = (Queue*)malloc(sizeof(Queue));
   }
   
+  memset(queue,0,sizeof(Queue));
   auto video_capture = [&](safe::mail_t mail, std::string displayin,int codec){
     video::capture(mail,video::config_t{
       displayin, 1920, 1080, 60, 6000, 1, 0, 1, codec, 0
@@ -205,7 +205,7 @@ main(int argc, char *argv[]) {
     char buffer[512] = {0};
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       while (expected_index == queue->outindex)
-        std::this_thread::sleep_for(100us);
+        std::this_thread::sleep_for(1ms);
 
       memcpy(buffer,
         queue->outcoming[expected_index].data,
