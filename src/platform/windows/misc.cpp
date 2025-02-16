@@ -159,21 +159,36 @@ namespace platf {
 
   HDESK
   syncThreadDesktop() {
-    auto hDesk = OpenInputDesktop(DF_ALLOWOTHERACCOUNTHOOK, FALSE, GENERIC_ALL);
-    if (!hDesk) {
+    HWINSTA hWinSta0 = OpenWindowStation(TEXT("WinSta0"), FALSE, MAXIMUM_ALLOWED);
+    if (NULL == hWinSta0) { 
       auto err = GetLastError();
-      BOOST_LOG(error) << "Failed to Open Input Desktop [0x"sv << util::hex(err).to_string_view() << ']';
-
-      return nullptr;
+      BOOST_LOG(error) << "Failed to OpenWindowStation [0x"sv << util::hex(err).to_string_view() << ']';
     }
 
-    if (!SetThreadDesktop(hDesk)) {
+    if (!SetProcessWindowStation(hWinSta0)) { 
       auto err = GetLastError();
-      BOOST_LOG(error) << "Failed to sync desktop to thread [0x"sv << util::hex(err).to_string_view() << ']';
+      BOOST_LOG(error) << "Failed to SetProcessWindowStation [0x"sv << util::hex(err).to_string_view() << ']';
     }
 
-    CloseDesktop(hDesk);
+    HDESK hDesk = OpenDesktop(TEXT("default"), DF_ALLOWOTHERACCOUNTHOOK, FALSE, MAXIMUM_ALLOWED);
+    if (NULL == hDesk) { 
+      auto err = GetLastError();
+      BOOST_LOG(error) << "Failed to OpenDesktop [0x"sv << util::hex(err).to_string_view() << ']';
+    }
 
+    if (!SwitchDesktop(hDesk)) { 
+      auto err = GetLastError();
+      BOOST_LOG(error) << "Failed to SwitchDesktop [0x"sv << util::hex(err).to_string_view() << ']';
+    }
+
+    if (!SetThreadDesktop(hDesk)) { 
+      auto err = GetLastError();
+      BOOST_LOG(error) << "Failed to SetThreadDesktop [0x"sv << util::hex(err).to_string_view() << ']';
+    }
+
+    if (hDesk != NULL) { CloseDesktop(hDesk); }
+    if (hWinSta0 != NULL) { CloseWindowStation(hWinSta0); }
+    BOOST_LOG(info) << "Thread sync with default desktop"sv;
     return hDesk;
   }
 
