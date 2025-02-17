@@ -261,7 +261,7 @@ main(int argc, char *argv[]) {
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
 #endif
 
-    uint32_t findex = -1;
+    uint32_t findex = 0;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if (queue_type == QueueType::Video) {
         do {
