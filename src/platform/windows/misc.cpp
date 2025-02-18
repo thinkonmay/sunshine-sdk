@@ -188,7 +188,7 @@ namespace platf {
 
     if (hDesk != NULL) { CloseDesktop(hDesk); }
     if (hWinSta0 != NULL) { CloseWindowStation(hWinSta0); }
-    BOOST_LOG(info) << "Thread sync with default desktop"sv;
+    BOOST_LOG(debug) << "Thread sync with default desktop"sv;
     return hDesk;
   }
 

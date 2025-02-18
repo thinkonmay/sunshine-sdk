@@ -2541,7 +2541,7 @@ namespace video {
       }
     }
 
-    BOOST_LOG(info) << "// Testing for available encoders, this may generate errors. You can safely ignore those errors. //"sv;
+    BOOST_LOG(debug) << "// Testing for available encoders, this may generate errors. You can safely ignore those errors. //"sv;
 
     // If we haven't found an encoder yet, but we want one with specific codec support, search for that now.
     if (chosen_encoder == nullptr && (active_hevc_mode >= 2 || active_av1_mode >= 2)) {
@@ -2610,9 +2610,9 @@ namespace video {
       return -1;
     }
 
-    BOOST_LOG(info);
-    BOOST_LOG(info) << "// Ignore any errors mentioned above, they are not relevant. //"sv;
-    BOOST_LOG(info);
+    BOOST_LOG(debug);
+    BOOST_LOG(debug) << "// Ignore any errors mentioned above, they are not relevant. //"sv;
+    BOOST_LOG(debug);
 
     auto &encoder = *chosen_encoder;
 

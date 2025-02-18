@@ -320,7 +320,7 @@ namespace platf::dxgi {
         return false;
       }
 
-      BOOST_LOG(info) << "ddprobe.exe ["sv << i << "] ["sv << display_name << "] returned: 0x"sv << util::hex(result).to_string_view();
+      BOOST_LOG(debug) << "ddprobe.exe ["sv << i << "] ["sv << display_name << "] returned: 0x"sv << util::hex(result).to_string_view();
 
       // E_ACCESSDENIED can happen at the login screen. If we get this error,
       // we know capture would have been supported, because DXGI_ERROR_UNSUPPORTED
