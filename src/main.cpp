@@ -145,6 +145,8 @@ main(int argc, char *argv[]) {
     shmid = argv[3];
     if (codecs == "h265")
       codec = 1;
+    else if (codecs == "av1")
+      codec = 2;
   } else shmid = argv[2];
 
 
