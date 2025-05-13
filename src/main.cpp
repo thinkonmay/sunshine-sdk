@@ -136,6 +136,16 @@ main(int argc, char *argv[]) {
   std::string target; ss0 >> target;
   if (target == "audio")
     queuetype = QueueType::Audio;
+  
+  int codec = 0;
+  char* shmid;
+  if (argc == 4) {
+    std::stringstream ss1; ss1 << argv[2]; 
+    std::string codecs; ss1 >> codecs;
+    shmid = argv[3];
+    if (codecs == "h265")
+      codec = 1;
+  } else shmid = argv[2];
 
 
 
@@ -165,7 +175,7 @@ main(int argc, char *argv[]) {
   }
 
   auto platf_deinit_guard = platf::init();
-  auto queue = init_shared_memory(argv[2]);
+  auto queue = init_shared_memory(shmid);
   if (!platf_deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
@@ -343,7 +353,7 @@ main(int argc, char *argv[]) {
 
   BOOST_LOG(info) << "Starting capture on channel " << queuetype;
   if (queuetype == QueueType::Video) {
-    auto capture = std::thread{video_capture,mail,target,0};
+    auto capture = std::thread{video_capture,mail,target,codec};
     auto forward = std::thread{push,mail,queue,(QueueType)queuetype};
     auto touch_thread = std::thread{touch_fun,queue};
     auto receive = std::thread{pull};
