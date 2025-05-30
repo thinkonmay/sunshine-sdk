@@ -294,7 +294,6 @@ main(int argc, char *argv[]) {
 
           findex++;
           uint16_t sum = 0;
-          for (int i=1;i<size+1;i++) sum += (unsigned char)*(ptr+i-1)*i;
           queue->incoming[updated].size = 0;
           copy_to_packet(&queue->incoming[updated],&findex,sizeof(uint32_t));
           copy_to_packet(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
@@ -315,7 +314,6 @@ main(int argc, char *argv[]) {
 
           findex++;
           uint16_t sum = 0;
-          for (int i=1;i<size+1;i++) sum += (unsigned char)*(ptr+i-1)*i;
           queue->incoming[updated].size = 0;
           copy_to_packet(&queue->incoming[updated],&findex,sizeof(uint32_t));
           copy_to_packet(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
