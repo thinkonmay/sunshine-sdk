@@ -29,7 +29,8 @@
 
 enum StatusCode {
   NORMAL_EXIT,
-  NO_ENCODER_AVAILABLE = 77
+  INVALID_IVSHMEM,
+  NO_ENCODER_AVAILABLE
 };
 enum QueueType {
   Video,
@@ -180,6 +181,11 @@ main(int argc, char *argv[]) {
 
 
   IVSHMEM* ivshmem = new IVSHMEM();
+  if (ivshmem->GetSize() != (UINT64)sizeof(Queue)) {
+    BOOST_LOG(error) << "Invalid ivshmem size: "sv << ivshmem->GetSize();
+    return StatusCode::INVALID_IVSHMEM;
+  }
+
   auto queue = (Queue*)ivshmem->GetMemory();
   if (!platf_deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
