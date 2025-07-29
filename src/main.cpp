@@ -8,6 +8,7 @@
 #include <csignal>
 #include <fstream>
 #include <iostream>
+#include <smemory.h>
 
 // local includes
 #include "globals.h"
@@ -138,16 +139,14 @@ main(int argc, char *argv[]) {
     queuetype = QueueType::Audio;
   
   int codec = 0;
-  char* shmid;
-  if (argc == 4) {
+  if (argc == 3) {
     std::stringstream ss1; ss1 << argv[2]; 
     std::string codecs; ss1 >> codecs;
-    shmid = argv[3];
     if (codecs == "h265")
       codec = 1;
     else if (codecs == "av1")
       codec = 2;
-  } else shmid = argv[2];
+  } 
 
 
 
@@ -176,8 +175,12 @@ main(int argc, char *argv[]) {
 #endif
   }
 
+
   auto platf_deinit_guard = platf::init();
-  auto queue = init_shared_memory(shmid);
+
+
+  IVSHMEM* ivshmem = new IVSHMEM();
+  auto queue = (Queue*)ivshmem->GetMemory();
   if (!platf_deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
