@@ -4,8 +4,8 @@ permissions:
   contents: read
 
 on:
+  workflow_dispatch:
   workflow_call:
-    workflow_dispatch:
     inputs:
       release_commit:
         required: true
