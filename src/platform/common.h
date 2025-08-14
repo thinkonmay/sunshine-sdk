@@ -42,9 +42,6 @@ namespace boost {
   namespace process {
     class child;
     class group;
-    template <typename Char>
-    class basic_environment;
-    typedef basic_environment<char> environment;
   }  // namespace process
 }  // namespace boost
 namespace video {
@@ -585,8 +582,6 @@ namespace platf {
   bool
   needs_encoder_reenumeration();
 
-  boost::process::child
-  run_command(bool elevated, bool interactive, const std::string &cmd, boost::filesystem::path &working_dir, const boost::process::environment &env, FILE *file, std::error_code &ec, boost::process::group *group);
 
   enum class thread_priority_e : int {
     low,
@@ -647,12 +642,7 @@ namespace platf {
   std::unique_ptr<deinit_t>
   enable_socket_qos(uintptr_t native_socket, boost::asio::ip::address &address, uint16_t port, qos_data_type_e data_type, bool dscp_tagging);
 
-  /**
-   * @brief Open a url in the default web browser.
-   * @param url The url to open.
-   */
-  void
-  open_url(const std::string &url);
+
 
   /**
    * @brief Attempt to gracefully terminate a process group.

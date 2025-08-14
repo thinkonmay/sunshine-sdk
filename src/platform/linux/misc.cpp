@@ -238,47 +238,6 @@ namespace platf {
     return "00:00:00:00:00:00"s;
   }
 
-  bp::child
-  run_command(bool elevated, bool interactive, const std::string &cmd, boost::filesystem::path &working_dir, const bp::environment &env, FILE *file, std::error_code &ec, bp::group *group) {
-    if (!group) {
-      if (!file) {
-        return bp::child(cmd, env, bp::start_dir(working_dir), bp::std_out > bp::null, bp::std_err > bp::null, ec);
-      }
-      else {
-        return bp::child(cmd, env, bp::start_dir(working_dir), bp::std_out > file, bp::std_err > file, ec);
-      }
-    }
-    else {
-      if (!file) {
-        return bp::child(cmd, env, bp::start_dir(working_dir), bp::std_out > bp::null, bp::std_err > bp::null, ec, *group);
-      }
-      else {
-        return bp::child(cmd, env, bp::start_dir(working_dir), bp::std_out > file, bp::std_err > file, ec, *group);
-      }
-    }
-  }
-
-  /**
-   * @brief Open a url in the default web browser.
-   * @param url The url to open.
-   */
-  void
-  open_url(const std::string &url) {
-    // set working dir to user home directory
-    auto working_dir = boost::filesystem::path(std::getenv("HOME"));
-    std::string cmd = R"(xdg-open ")" + url + R"(")";
-
-    boost::process::environment _env = boost::this_process::environment();
-    std::error_code ec;
-    auto child = run_command(false, false, cmd, working_dir, _env, nullptr, ec, nullptr);
-    if (ec) {
-      BOOST_LOG(warning) << "Couldn't open url ["sv << url << "]: System: "sv << ec.message();
-    }
-    else {
-      BOOST_LOG(info) << "Opened url ["sv << url << "]"sv;
-      child.detach();
-    }
-  }
 
   void
   adjust_thread_priority(thread_priority_e priority) {
