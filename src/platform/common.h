@@ -623,9 +623,6 @@ namespace platf {
   bool
   needs_encoder_reenumeration();
 
-  boost::process::child
-  run_command(bool elevated, bool interactive, const std::string &cmd, boost::filesystem::path &working_dir, const boost::process::environment &env, FILE *file, std::error_code &ec, boost::process::group *group);
-
   enum class thread_priority_e : int {
     low,
     normal,

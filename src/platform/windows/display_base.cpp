@@ -6,7 +6,6 @@
 #include <initguid.h>
 #include <thread>
 
-#include <boost/process.hpp>
 
 // We have to include boost/process.hpp before display.h due to WinSock.h,
 // but that prevents the definition of NTSTATUS so we must define it ourself.
@@ -24,7 +23,6 @@ namespace platf {
   using namespace std::literals;
 }
 namespace platf::dxgi {
-  namespace bp = boost::process;
 
   /**
    * DDAPI-specific initialization goes here.
@@ -283,67 +281,7 @@ namespace platf::dxgi {
     return true;
   }
 
-  // On hybrid graphics systems, Windows will change the order of GPUs reported by
-  // DXGI in accordance with the user's GPU preference. If the selected GPU is a
-  // render-only device with no displays, DXGI will add virtual outputs to the
-  // that device to avoid confusing applications. While this works properly for most
-  // applications, it breaks the Desktop Duplication API because DXGI doesn't proxy
-  // the virtual DXGIOutput to the real GPU it is attached to. When trying to call
-  // DuplicateOutput() on one of these virtual outputs, it fails with DXGI_ERROR_UNSUPPORTED
-  // (even if you try sneaky stuff like passing the ID3D11Device for the iGPU and the
-  // virtual DXGIOutput from the dGPU). Because the GPU preference is once-per-process,
-  // we spawn a helper tool to probe for us before we set our own GPU preference.
-  bool
-  probe_for_gpu_preference(const std::string &display_name) {
-    // If we've already been through here, there's nothing to do this time.
-    static bool set_gpu_preference = false;
-    if (set_gpu_preference) {
-      return true;
-    }
 
-    std::string cmd = "ddprobe.exe";
-
-    // We start at 1 because 0 is automatic selection which can be overridden by
-    // the GPU driver control panel options. Since ddprobe.exe can have different
-    // GPU driver overrides than Sunshine.exe, we want to avoid a scenario where
-    // autoselection might work for ddprobe.exe but not for us.
-    for (int i = 1; i < 5; i++) {
-      // Run the probe tool. It returns the status of DuplicateOutput().
-      //
-      // Arg format: [GPU preference] [Display name]
-      HRESULT result;
-      try {
-        result = bp::system(cmd, std::to_string(i), display_name, bp::std_out > bp::null, bp::std_err > bp::null);
-      }
-      catch (bp::process_error &e) {
-        BOOST_LOG(error) << "Failed to start ddprobe.exe: "sv << e.what();
-        return false;
-      }
-
-      BOOST_LOG(debug) << "ddprobe.exe ["sv << i << "] ["sv << display_name << "] returned: 0x"sv << util::hex(result).to_string_view();
-
-      // E_ACCESSDENIED can happen at the login screen. If we get this error,
-      // we know capture would have been supported, because DXGI_ERROR_UNSUPPORTED
-      // would have been raised first if it wasn't.
-      if (result == S_OK || result == E_ACCESSDENIED) {
-        // We found a working GPU preference, so set ourselves to use that.
-        if (set_gpu_preference_on_self(i)) {
-          set_gpu_preference = true;
-          return true;
-        }
-        else {
-          return false;
-        }
-      }
-      else {
-        // This configuration didn't work, so continue testing others
-        continue;
-      }
-    }
-
-    // If none of the manual options worked, leave the GPU preference alone
-    return false;
-  }
 
   /**
    * @brief Tests to determine if the Desktop Duplication API can capture the given output.
@@ -440,11 +378,6 @@ namespace platf::dxgi {
     env_height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
 
     HRESULT status;
-
-    // We must set the GPU preference before calling any DXGI APIs!
-    if (!probe_for_gpu_preference(display_name)) {
-      BOOST_LOG(warning) << "Failed to set GPU preference. Capture may not work!"sv;
-    }
 
     status = CreateDXGIFactory1(IID_IDXGIFactory1, (void **) &factory);
     if (FAILED(status)) {
@@ -1003,11 +936,6 @@ namespace platf {
     HRESULT status;
 
     BOOST_LOG(debug) << "Detecting monitors..."sv;
-
-    // We must set the GPU preference before calling any DXGI APIs!
-    if (!dxgi::probe_for_gpu_preference(config::video.output_name)) {
-      BOOST_LOG(warning) << "Failed to set GPU preference. Capture may not work!"sv;
-    }
 
     // We sync the thread desktop once before we start the enumeration process
     // to ensure test_dxgi_duplication() returns consistent results for all GPUs
