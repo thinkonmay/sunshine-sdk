@@ -30,6 +30,7 @@ namespace platf::dxgi {
   int
   duplication_t::init(display_base_t *display, const ::video::config_t &config) {
     HRESULT status;
+    auto timer = platf::create_high_precision_timer();
 
     // Capture format will be determined from the first call to AcquireNextFrame()
     display->capture_format = DXGI_FORMAT_UNKNOWN;
@@ -56,7 +57,7 @@ namespace platf::dxgi {
           if (SUCCEEDED(status)) {
             break;
           }
-          std::this_thread::sleep_for(200ms);
+          timer->sleep_for(200ms);
         }
 
         // We don't retry with DuplicateOutput() because we can hit this codepath when we're racing
@@ -85,7 +86,7 @@ namespace platf::dxgi {
           if (SUCCEEDED(status)) {
             break;
           }
-          std::this_thread::sleep_for(200ms);
+          timer->sleep_for(200ms);
         }
 
         if (FAILED(status)) {
@@ -224,7 +225,7 @@ namespace platf::dxgi {
           // To avoid starving the encoding thread, sleep without the lock held for a little
           // while each time we reach our max frame timeout. This will only happen when nothing
           // is updating the display, so no visible stutter should be introduced by the sleep.
-          std::this_thread::sleep_for(10ms);
+          timer->sleep_for(10ms);
         }
       }
 
@@ -325,6 +326,8 @@ namespace platf::dxgi {
       return false;
     }
 
+    auto timer = platf::create_high_precision_timer();
+
     // Check if we can use the Desktop Duplication API on this output
     for (int x = 0; x < 2; ++x) {
       dup_t dup;
@@ -347,7 +350,7 @@ namespace platf::dxgi {
         break;
       }
       else {
-        std::this_thread::sleep_for(200ms);
+        timer->sleep_for(200ms);
       }
     }
 

@@ -896,6 +896,7 @@ namespace video {
   void
   reset_display(std::shared_ptr<platf::display_t> &disp, const platf::mem_type_e &type, const std::string &display_name, config_t *config) {
     // We try this twice, in case we still get an error on reinitialization
+    auto timer = platf::create_high_precision_timer();
     for (int x = 0; x < 2; ++x) {
       disp.reset();
       disp = platf::display(type, display_name, *config);
@@ -906,7 +907,7 @@ namespace video {
       }
 
       // The capture code depends on us to sleep between failures
-      std::this_thread::sleep_for(200ms);
+      timer->sleep_for(200ms);
     }
   }
 
@@ -1057,6 +1058,7 @@ namespace video {
       }
     };
 
+    auto timer         = platf::create_high_precision_timer();
     auto pull_free_image_callback = [&](std::shared_ptr<platf::img_t> &img_out) -> bool {
       img_out.reset();
       while (capture_ctx_queue->running()) {
@@ -1096,7 +1098,7 @@ namespace video {
         }
         else {
           // sleep and retry if image pool is full
-          std::this_thread::sleep_for(1ms);
+          timer->sleep_for(1ms);
         }
       }
       return false;
@@ -1179,7 +1181,7 @@ namespace video {
               ++capture_ctx;
             });
 
-            std::this_thread::sleep_for(20ms);
+            timer->sleep_for(20ms);
           }
 
           while (capture_ctx_queue->running()) {
@@ -1845,7 +1847,7 @@ namespace video {
         SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, false);
         WaitForSingleObject(timer, INFINITE);
 #else
-        std::this_thread::sleep_for(sleep_period * 1ns);
+        timer->sleep_for(sleep_period * 1ns);
 #endif
       }
 
@@ -2172,11 +2174,12 @@ namespace video {
 
     // Encoding takes place on this thread
     platf::adjust_thread_priority(platf::thread_priority_e::high);
+    auto timer         = platf::create_high_precision_timer();
 
     while (!shutdown_event->peek() && images->running()) {
       // Wait for the main capture event when the display is being reinitialized
       if (ref->reinit_event.peek()) {
-        std::this_thread::sleep_for(20ms);
+        timer->sleep_for(20ms);
         continue;
       }
       // Wait for the display to be ready

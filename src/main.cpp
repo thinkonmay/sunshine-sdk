@@ -219,6 +219,7 @@ main(int argc, char *argv[]) {
   auto mail          = std::make_shared<safe::mail_raw_t>();
 
   auto pull = [process_shutdown_event,queue,mail](){
+    auto timer         = platf::create_high_precision_timer();
     auto local_shutdown= mail->event<bool>(mail::shutdown);
     auto bitrate       = mail->event<int>(mail::bitrate);
     auto framerate     = mail->event<int>(mail::framerate);
@@ -229,7 +230,7 @@ main(int argc, char *argv[]) {
     char buffer[512] = {0};
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       while (expected_index == queue->outindex)
-        std::this_thread::sleep_for(1ms);
+        timer->sleep_for(1ms);
 
       memcpy(buffer,
         queue->outcoming[expected_index].data,
@@ -341,12 +342,13 @@ main(int argc, char *argv[]) {
   };
 
   auto touch_fun = [mail,process_shutdown_event](Queue* queue){
+    auto timer         = platf::create_high_precision_timer();
     auto local_shutdown= mail->event<bool>(mail::shutdown);
     auto touch_port    = mail->event<input::touch_port_t>(mail::touch_port);
 
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       if(!touch_port->peek()) {
-        std::this_thread::sleep_for(100ms);
+        timer->sleep_for(100ms);
       } else {
         auto touch = touch_port->pop();
         if (touch.has_value()) {
@@ -386,13 +388,14 @@ main(int argc, char *argv[]) {
     forward.detach();
   }
 
+  auto timer         = platf::create_high_precision_timer();
   auto local_shutdown= mail->event<bool>(mail::shutdown);
   while (!process_shutdown_event->peek() && !local_shutdown->peek())
-    std::this_thread::sleep_for(100ms);
+    timer->sleep_for(100ms);
 
   BOOST_LOG(info) << "Closed";
   // let other threads to close
-  std::this_thread::sleep_for(1s);
+  timer->sleep_for(1s);
   task_pool.stop();
   task_pool.join();
 
