@@ -194,7 +194,7 @@ main(void) {
 
     auto expected_index = 0;
     auto last_bitrate = 6;
-    char buffer[PACKET_SIZE] = {0};
+    char buffer[OUT_PACKET_SIZE] = {0};
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       while (expected_index == queue->outindex)
         timer->sleep_for(1ms);

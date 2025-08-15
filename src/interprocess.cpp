@@ -203,7 +203,7 @@ HANDLE IVSHMEM::getHandle()
 }
 
 void
-copy_to_packet(Packet* packet,void* data, size_t size) {
+copy_to_packet(InPacket* packet,void* data, size_t size) {
   memcpy(packet->data+packet->size,data,size);
   packet->size += size;
 }

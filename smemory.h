@@ -5,7 +5,8 @@
 
 #define MAX_DISPLAY 3
 #define TAG_SIZE 8192
-#define PACKET_SIZE 5 * 1024 * 1024
+#define IN_PACKET_SIZE 5 * 1024 * 1024
+#define OUT_PACKET_SIZE 256
 
 typedef struct {
     int active;
@@ -21,14 +22,18 @@ typedef struct {
 
 typedef struct {
 	int size;
-    char data[PACKET_SIZE];
-} Packet;
+    char data[IN_PACKET_SIZE];
+} InPacket;
+typedef struct {
+	int size;
+    char data[OUT_PACKET_SIZE];
+} OutPacket;
 
 typedef struct _Queue{
 	int inindex;
 	int outindex;
-    Packet incoming[IN_QUEUE_SIZE];
-    Packet outgoing[OUT_QUEUE_SIZE];
+    InPacket incoming[IN_QUEUE_SIZE];
+    OutPacket outgoing[OUT_QUEUE_SIZE];
 }Queue;
 
 typedef struct _DisplayQueue{
