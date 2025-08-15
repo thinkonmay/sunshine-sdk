@@ -1,3 +1,5 @@
+#ifndef __SMEMORY__
+#define __SMEMORY__
 #define OUT_QUEUE_SIZE 8
 #define IN_QUEUE_SIZE 8
 
@@ -38,7 +40,10 @@ typedef struct _Memory {
 	DisplayQueue video[MAX_DISPLAY];
 	Queue audio;
 	Queue data;
+	Queue logging;
 
 
 	char worker_info[TAG_SIZE];
 }Memory;
+
+#endif

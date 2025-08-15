@@ -22,6 +22,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include <windows.h>
 #include <stdbool.h>
 #include <initguid.h>
+#include <smemory.h>
 
 DEFINE_GUID (GUID_DEVINTERFACE_IVSHMEM,
     0xdf576976,0x569d,0x4672,0x95,0xa0,0xf5,0x7e,0x4e,0xa0,0xb2,0x10);
@@ -123,3 +124,7 @@ private:
   UINT64 m_size   ; bool m_gotSize  ;
   void * m_memory ; bool m_gotMemory;
 };
+
+
+void
+copy_to_packet(Packet* packet,void* data, size_t size);

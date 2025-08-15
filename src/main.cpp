@@ -79,11 +79,6 @@ split (std::string s, char delim) {
 }
 
 
-void
-copy_to_packet(Packet* packet,void* data, size_t size) {
-  memcpy(packet->data+packet->size,data,size);
-  packet->size += size;
-}
 
 int
 main(void) {
@@ -99,17 +94,29 @@ main(void) {
 #pragma GCC diagnostic pop
 
   mail::man = std::make_shared<safe::mail_raw_t>();
+  auto ivshmem = new IVSHMEM();
+  ivshmem->Initialize();
+  Memory* memory = NULL;
+  if (ivshmem->GetSize() < (UINT64)sizeof(Memory)) {
+    BOOST_LOG(error) << "Invalid  ivshmem size: "sv << ivshmem->GetSize();
+    BOOST_LOG(error) << "Expected ivshmem size: "sv << sizeof(Memory);
+    memory = (Memory*)malloc(sizeof(Memory));
+  } else {
+    BOOST_LOG(info) << "Found ivshmem shared memory"sv;
+    memory = (Memory*)ivshmem->GetMemory();
+  }
 
-  auto log_deinit_guard = logging::init(config::sunshine.min_log_level);
+  if (memory == NULL) {
+    BOOST_LOG(error) << "Failed to allocate shared memory"sv;
+    return StatusCode::INVALID_IVSHMEM;
+  }
+
+  auto log_deinit_guard = logging::init(config::sunshine.min_log_level,&memory->logging);
   if (!log_deinit_guard) {
     BOOST_LOG(error) << "Logging failed to initialize"sv;
   }
 
-
-
   task_pool.start(1);
-  auto ivshmem = new IVSHMEM();
-  ivshmem->Initialize();
 
   // Create signal handler after logging has been initialized
   auto process_shutdown_event = mail::man->event<bool>(mail::shutdown);
@@ -153,20 +160,6 @@ main(void) {
   auto platf_deinit_guard = platf::init();
 
 
-  Memory* memory = NULL;
-  if (ivshmem->GetSize() < (UINT64)sizeof(Memory)) {
-    BOOST_LOG(error) << "Invalid  ivshmem size: "sv << ivshmem->GetSize();
-    BOOST_LOG(error) << "Expected ivshmem size: "sv << sizeof(Memory);
-    memory = (Memory*)malloc(sizeof(Memory));
-  } else {
-    BOOST_LOG(info) << "Found ivshmem shared memory"sv;
-    memory = (Memory*)ivshmem->GetMemory();
-  }
-
-  if (memory == NULL) {
-    BOOST_LOG(error) << "Failed to allocate shared memory"sv;
-    return StatusCode::INVALID_IVSHMEM;
-  }
 
   if (!platf_deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
@@ -201,7 +194,7 @@ main(void) {
 
     auto expected_index = 0;
     auto last_bitrate = 6;
-    char buffer[512] = {0};
+    char buffer[PACKET_SIZE] = {0};
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       while (expected_index == queue->outindex)
         timer->sleep_for(1ms);
