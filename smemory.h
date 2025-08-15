@@ -1,6 +1,7 @@
 #define OUT_QUEUE_SIZE 8
 #define IN_QUEUE_SIZE 8
 
+#define MAX_DISPLAY 3
 #define TAG_SIZE 8192
 #define PACKET_SIZE 5 * 1024 * 1024
 
@@ -34,7 +35,7 @@ typedef struct _DisplayQueue{
 }DisplayQueue;
 
 typedef struct _Memory {
-	DisplayQueue video;
+	DisplayQueue video[MAX_DISPLAY];
 	Queue audio;
 	Queue data;
 

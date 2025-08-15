@@ -85,18 +85,8 @@ copy_to_packet(Packet* packet,void* data, size_t size) {
   packet->size += size;
 }
 
-/**
- * @brief Main application entry point.
- * @param argc The number of arguments.
- * @param argv The arguments.
- *
- * EXAMPLES:
- * ```cpp
- * main(1, const char* args[] = {"sunshine", nullptr});
- * ```
- */
 int
-main(int argc, char *argv[]) {
+main(void) {
 #ifdef _WIN32
   // Switch default C standard library locale to UTF-8 on Windows 10 1803+
   setlocale(LC_ALL, ".UTF-8");
@@ -108,8 +98,6 @@ main(int argc, char *argv[]) {
   std::locale::global(std::locale(std::locale(), new std::codecvt_utf8<wchar_t>));
 #pragma GCC diagnostic pop
 
-  auto ivshmem = new IVSHMEM();
-  ivshmem->Initialize();
   mail::man = std::make_shared<safe::mail_raw_t>();
 
   auto log_deinit_guard = logging::init(config::sunshine.min_log_level);
@@ -120,6 +108,8 @@ main(int argc, char *argv[]) {
 
 
   task_pool.start(1);
+  auto ivshmem = new IVSHMEM();
+  ivshmem->Initialize();
 
   // Create signal handler after logging has been initialized
   auto process_shutdown_event = mail::man->event<bool>(mail::shutdown);
@@ -136,15 +126,6 @@ main(int argc, char *argv[]) {
     process_shutdown_event->raise(true);
     ivshmem->DeInitialize();
   });
-
-  int codec = 0;
-  std::stringstream ss1; ss1 << argv[1]; 
-  std::string codecs; ss1 >> codecs;
-  if (codecs == "h265")
-    codec = 1;
-  else if (codecs == "av1")
-    codec = 2;
-
 
 
   // Modify relevant NVIDIA control panel settings if the system has corresponding gpu
@@ -381,14 +362,19 @@ main(int argc, char *argv[]) {
 
 
   {
-    auto capture = std::thread{video_capture,mail,"TODO",codec};
-    auto forward = std::thread{push_video,mail,&memory->video.internal};
-    auto touch_thread = std::thread{touch_fun,&memory->video};
-    auto receive = std::thread{pull,&memory->video.internal};
-    receive.detach();
-    touch_thread.detach();
-    capture.detach();
-    forward.detach();
+    auto displays = platf::display_names(platf::mem_type_e::dxgi);
+    for (int i = 0; i < displays.size(); i++)
+    {
+      auto codec = memory->video[i].metadata.codec;
+      auto capture = std::thread{video_capture,mail,displays.at(i),codec};
+      auto forward = std::thread{push_video,mail,&memory->video[i].internal};
+      auto touch_thread = std::thread{touch_fun,&memory->video[i]};
+      auto receive = std::thread{pull,&memory->video[i].internal};
+      receive.detach();
+      touch_thread.detach();
+      capture.detach();
+      forward.detach();
+    }
   } 
 
   {

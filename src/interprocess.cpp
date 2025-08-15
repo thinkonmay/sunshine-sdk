@@ -24,6 +24,8 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include <malloc.h>
 #include "interprocess.h"
 
+#include "logging.h"
+
 IVSHMEM * IVSHMEM::m_instance = NULL;
 
 IVSHMEM::IVSHMEM() :
@@ -57,14 +59,14 @@ bool IVSHMEM::Initialize()
   {
     if (SetupDiEnumDeviceInterfaces(deviceInfoSet, NULL, &GUID_DEVINTERFACE_IVSHMEM, 0, &deviceInterfaceData) == FALSE)
     {
-      DWORD error = GetLastError();
-      if (error == ERROR_NO_MORE_ITEMS)
+      DWORD err = GetLastError();
+      if (err == ERROR_NO_MORE_ITEMS)
       {
-        printf("Unable to enumerate the device, is it attached?");
+        BOOST_LOG(error) << "Unable to enumerate the device, is it attached?";
         break;
       }
 
-      printf("SetupDiEnumDeviceInterfaces failed");
+      BOOST_LOG(error) << ("SetupDiEnumDeviceInterfaces failed");
       break;
     }
 
@@ -72,7 +74,7 @@ bool IVSHMEM::Initialize()
     SetupDiGetDeviceInterfaceDetail(deviceInfoSet, &deviceInterfaceData, NULL, 0, &reqSize, NULL);
     if (!reqSize)
     {
-      printf("SetupDiGetDeviceInterfaceDetail");
+      BOOST_LOG(error) << ("SetupDiGetDeviceInterfaceDetail");
       break;
     }
 
@@ -81,14 +83,14 @@ bool IVSHMEM::Initialize()
     infData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
     if (!SetupDiGetDeviceInterfaceDetail(deviceInfoSet, &deviceInterfaceData, infData, reqSize, NULL, NULL))
     {
-      printf("SetupDiGetDeviceInterfaceDetail");
+      BOOST_LOG(error) << "SetupDiGetDeviceInterfaceDetail";
       break;
     }
 
     m_handle = CreateFile(infData->DevicePath, 0, 0, NULL, OPEN_EXISTING, 0, 0);
     if (m_handle == INVALID_HANDLE_VALUE)
     {
-      printf("CreateFile returned INVALID_HANDLE_VALUE");
+      BOOST_LOG(error) << "CreateFile returned INVALID_HANDLE_VALUE";
       break;
     }
 
@@ -111,7 +113,7 @@ void IVSHMEM::DeInitialize()
   if (m_gotMemory)
   {
     if (!DeviceIoControl(m_handle, IOCTL_IVSHMEM_RELEASE_MMAP, NULL, 0, NULL, 0, NULL, NULL))
-      printf("Deintialize DeviceIoControl failed: %d", (int)GetLastError());
+      BOOST_LOG(error) << "Deintialize DeviceIoControl failed: " <<  (int)GetLastError();
     m_memory = NULL;
   }
 
@@ -140,7 +142,7 @@ UINT64 IVSHMEM::GetSize()
   IVSHMEM_SIZE size;
   if (!DeviceIoControl(m_handle, IOCTL_IVSHMEM_REQUEST_SIZE, NULL, 0, &size, sizeof(IVSHMEM_SIZE), NULL, NULL))
   {
-    printf("GetSize DeviceIoControl Failed: %d", (int)GetLastError());
+    BOOST_LOG(error) << "GetSize DeviceIoControl Failed: " << GetLastError();
     return 0;
   }
 
@@ -181,7 +183,7 @@ void * IVSHMEM::GetMemory()
     &map   , sizeof(IVSHMEM_MMAP       ),
     NULL, NULL))
   {
-    printf("GetMemory DeviceIoControl Failed: %d", (int)GetLastError());
+    BOOST_LOG(error) << "GetMemory DeviceIoControl Failed: " << GetLastError();
     return NULL;
   }
 
