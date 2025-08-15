@@ -20,7 +20,10 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # list(APPEND SUNSHINE_COMPILE_OPTIONS -Wno-uninitialized)
 endif()
 if(BUILD_WERROR)
-    list(APPEND SUNSHINE_COMPILE_OPTIONS -Werror)
+    list(APPEND SUNSHINE_COMPILE_OPTIONS 
+        -Werror
+        -Wno-unused-variable
+    )
 endif()
 
 # setup assets directory
