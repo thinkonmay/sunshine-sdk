@@ -108,6 +108,8 @@ main(int argc, char *argv[]) {
   std::locale::global(std::locale(std::locale(), new std::codecvt_utf8<wchar_t>));
 #pragma GCC diagnostic pop
 
+  auto ivshmem = new IVSHMEM();
+  ivshmem->Initialize();
   mail::man = std::make_shared<safe::mail_raw_t>();
 
   auto log_deinit_guard = logging::init(config::sunshine.min_log_level);
@@ -121,16 +123,18 @@ main(int argc, char *argv[]) {
 
   // Create signal handler after logging has been initialized
   auto process_shutdown_event = mail::man->event<bool>(mail::shutdown);
-  on_signal(SIGINT, [process_shutdown_event]() {
+  on_signal(SIGINT, [process_shutdown_event,ivshmem]() {
     BOOST_LOG(info) << "Interrupt handler called"sv;
     logging::log_flush();
     process_shutdown_event->raise(true);
+    ivshmem->DeInitialize();
   });
 
-  on_signal(SIGTERM, [process_shutdown_event]() {
+  on_signal(SIGTERM, [process_shutdown_event,ivshmem]() {
     BOOST_LOG(info) << "Terminate handler called"sv;
     logging::log_flush();
     process_shutdown_event->raise(true);
+    ivshmem->DeInitialize();
   });
 
   int queuetype = QueueType::Video;
@@ -180,7 +184,6 @@ main(int argc, char *argv[]) {
   auto platf_deinit_guard = platf::init();
 
 
-  IVSHMEM* ivshmem = new IVSHMEM();
   if (ivshmem->GetSize() != (UINT64)sizeof(Queue)) {
     BOOST_LOG(error) << "Invalid ivshmem size: "sv << ivshmem->GetSize();
     return StatusCode::INVALID_IVSHMEM;
