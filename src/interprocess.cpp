@@ -30,7 +30,6 @@ IVSHMEM::IVSHMEM() :
   m_initialized(false),
   m_handle(INVALID_HANDLE_VALUE),
   m_gotSize(false),
-  m_gotPeerID(false),
   m_gotMemory(false)
 {
 
@@ -112,7 +111,7 @@ void IVSHMEM::DeInitialize()
   if (m_gotMemory)
   {
     if (!DeviceIoControl(m_handle, IOCTL_IVSHMEM_RELEASE_MMAP, NULL, 0, NULL, 0, NULL, NULL))
-      printf("DeviceIoControl failed: %d", (int)GetLastError());
+      printf("Deintialize DeviceIoControl failed: %d", (int)GetLastError());
     m_memory = NULL;
   }
 
@@ -122,7 +121,6 @@ void IVSHMEM::DeInitialize()
   m_initialized = false;
   m_handle      = INVALID_HANDLE_VALUE;
   m_gotSize     = false;
-  m_gotPeerID   = false;
   m_gotMemory   = false;
 }
 
@@ -142,7 +140,7 @@ UINT64 IVSHMEM::GetSize()
   IVSHMEM_SIZE size;
   if (!DeviceIoControl(m_handle, IOCTL_IVSHMEM_REQUEST_SIZE, NULL, 0, &size, sizeof(IVSHMEM_SIZE), NULL, NULL))
   {
-    printf("DeviceIoControl Failed: %d", (int)GetLastError());
+    printf("GetSize DeviceIoControl Failed: %d", (int)GetLastError());
     return 0;
   }
 
@@ -151,25 +149,7 @@ UINT64 IVSHMEM::GetSize()
   return m_size;
 }
 
-UINT16 IVSHMEM::GetPeerID()
-{
-  if (!m_initialized)
-    return 0;
 
-  if (m_gotPeerID)
-    return m_peerID;
-
-  IVSHMEM_PEERID peerID;
-  if (!DeviceIoControl(m_handle, IOCTL_IVSHMEM_REQUEST_SIZE, NULL, 0, &peerID, sizeof(IVSHMEM_PEERID), NULL, NULL))
-  {
-    printf("DeviceIoControl Failed: %d", (int)GetLastError());
-    return 0;
-  }
-
-  m_gotPeerID = true;
-  m_peerID    = static_cast<UINT16>(peerID);
-  return m_peerID;
-}
 
 
 void * IVSHMEM::GetMemory()
@@ -201,15 +181,13 @@ void * IVSHMEM::GetMemory()
     &map   , sizeof(IVSHMEM_MMAP       ),
     NULL, NULL))
   {
-    printf("DeviceIoControl Failed: %d", (int)GetLastError());
+    printf("GetMemory DeviceIoControl Failed: %d", (int)GetLastError());
     return NULL;
   }
 
   m_gotSize    = true;
-  m_gotPeerID  = true;
   m_gotMemory  = true;
   m_size       = static_cast<UINT64>(map.size   );
-  m_peerID     = static_cast<UINT16>(map.peerID );
   m_memory     = map.ptr;
 
   return m_memory;

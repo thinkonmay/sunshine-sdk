@@ -110,7 +110,6 @@ public:
   bool IsInitialized();
 
   UINT64 GetSize();
-  UINT16 GetPeerID();
   void * GetMemory();
   HANDLE getHandle();
 
@@ -122,6 +121,5 @@ private:
   bool   m_initialized;
   HANDLE m_handle;
   UINT64 m_size   ; bool m_gotSize  ;
-  UINT16 m_peerID ; bool m_gotPeerID;
   void * m_memory ; bool m_gotMemory;
 };

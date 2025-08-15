@@ -137,71 +137,64 @@ main(int argc, char *argv[]) {
     ivshmem->DeInitialize();
   });
 
-  int queuetype = QueueType::Video;
-  std::stringstream ss0; ss0 << argv[1]; 
-  std::string target; ss0 >> target;
-  if (target == "audio")
-    queuetype = QueueType::Audio;
-  
   int codec = 0;
-  if (argc == 3) {
-    std::stringstream ss1; ss1 << argv[2]; 
-    std::string codecs; ss1 >> codecs;
-    if (codecs == "h265")
-      codec = 1;
-    else if (codecs == "av1")
-      codec = 2;
-  } 
+  std::stringstream ss1; ss1 << argv[1]; 
+  std::string codecs; ss1 >> codecs;
+  if (codecs == "h265")
+    codec = 1;
+  else if (codecs == "av1")
+    codec = 2;
 
 
 
-  if(queuetype == QueueType::Video) {
-#ifdef _WIN32
-    // Modify relevant NVIDIA control panel settings if the system has corresponding gpu
-    if (nvprefs_instance.load()) {
-      // Restore global settings to the undo file left by improper termination of sunshine.exe
-      nvprefs_instance.restore_from_and_delete_undo_file_if_exists();
-      // Modify application settings for sunshine.exe
-      nvprefs_instance.modify_application_profile();
-      // Modify global settings, undo file is produced in the process to restore after improper termination
-      nvprefs_instance.modify_global_profile();
-      // Unload dynamic library to survive driver re-installation
-      nvprefs_instance.unload();
-    }
-
-    // Wait as long as possible to terminate Sunshine.exe during logoff/shutdown
-    SetProcessShutdownParameters(0x100, SHUTDOWN_NORETRY);
-
-    // We must create a hidden window to receive shutdown notifications since we load gdi32.dll
-    std::promise<HWND> session_monitor_hwnd_promise;
-    auto session_monitor_hwnd_future = session_monitor_hwnd_promise.get_future();
-    std::promise<void> session_monitor_join_thread_promise;
-    auto session_monitor_join_thread_future = session_monitor_join_thread_promise.get_future();
-#endif
+  // Modify relevant NVIDIA control panel settings if the system has corresponding gpu
+  if (nvprefs_instance.load()) {
+    // Restore global settings to the undo file left by improper termination of sunshine.exe
+    nvprefs_instance.restore_from_and_delete_undo_file_if_exists();
+    // Modify application settings for sunshine.exe
+    nvprefs_instance.modify_application_profile();
+    // Modify global settings, undo file is produced in the process to restore after improper termination
+    nvprefs_instance.modify_global_profile();
+    // Unload dynamic library to survive driver re-installation
+    nvprefs_instance.unload();
   }
+
+  // Wait as long as possible to terminate Sunshine.exe during logoff/shutdown
+  SetProcessShutdownParameters(0x100, SHUTDOWN_NORETRY);
+
+  // We must create a hidden window to receive shutdown notifications since we load gdi32.dll
+  std::promise<HWND> session_monitor_hwnd_promise;
+  auto session_monitor_hwnd_future = session_monitor_hwnd_promise.get_future();
+  std::promise<void> session_monitor_join_thread_promise;
+  auto session_monitor_join_thread_future = session_monitor_join_thread_promise.get_future();
 
 
   auto platf_deinit_guard = platf::init();
 
 
-  if (ivshmem->GetSize() != (UINT64)sizeof(Queue)) {
-    BOOST_LOG(error) << "Invalid ivshmem size: "sv << ivshmem->GetSize();
+  Memory* memory = NULL;
+  if (ivshmem->GetSize() < (UINT64)sizeof(Memory)) {
+    BOOST_LOG(error) << "Invalid  ivshmem size: "sv << ivshmem->GetSize();
+    BOOST_LOG(error) << "Expected ivshmem size: "sv << sizeof(Memory);
+    memory = (Memory*)malloc(sizeof(Memory));
+  } else {
+    BOOST_LOG(info) << "Found ivshmem shared memory"sv;
+    memory = (Memory*)ivshmem->GetMemory();
+  }
+
+  if (memory == NULL) {
+    BOOST_LOG(error) << "Failed to allocate shared memory"sv;
     return StatusCode::INVALID_IVSHMEM;
   }
 
-  auto queue = (Queue*)ivshmem->GetMemory();
   if (!platf_deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
-  } else if(queuetype == QueueType::Video && video::probe_encoders()) {
+  } else if(video::probe_encoders()) {
     BOOST_LOG(error) << "Video failed to find working encoder"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
-  } else if (queue == nullptr) {
-    BOOST_LOG(error) << "Failed to find shared memory"sv;
-    queue = (Queue*)malloc(sizeof(Queue));
   }
   
-  memset(queue,0,sizeof(Queue));
   auto video_capture = [&](safe::mail_t mail, std::string displayin,int codec){
     video::capture(mail,video::config_t{
       displayin, 1920, 1080, 60, 6000, 1, 0, 1, codec, 0
@@ -218,7 +211,7 @@ main(int argc, char *argv[]) {
 
   auto mail          = std::make_shared<safe::mail_raw_t>();
 
-  auto pull = [process_shutdown_event,queue,mail](){
+  auto pull = [process_shutdown_event,mail](Queue* queue){
     auto timer         = platf::create_high_precision_timer();
     auto local_shutdown= mail->event<bool>(mail::shutdown);
     auto bitrate       = mail->event<int>(mail::bitrate);
@@ -233,12 +226,12 @@ main(int argc, char *argv[]) {
         timer->sleep_for(1ms);
 
       memcpy(buffer,
-        queue->outcoming[expected_index].data,
-        queue->outcoming[expected_index].size
+        queue->outgoing[expected_index].data,
+        queue->outgoing[expected_index].size
       );
 
       expected_index++;
-      if (expected_index >= QUEUE_SIZE)
+      if (expected_index >= OUT_QUEUE_SIZE)
         expected_index = 0;
       
       switch (buffer[0]) {
@@ -281,7 +274,7 @@ main(int argc, char *argv[]) {
   };
 
 
-  auto push = [process_shutdown_event](safe::mail_t mail, Queue* queue, QueueType queue_type){
+  auto push_video = [process_shutdown_event](safe::mail_t mail, Queue* queue){
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown= mail->event<bool>(mail::shutdown);
@@ -294,54 +287,70 @@ main(int argc, char *argv[]) {
 
     uint32_t findex = 0;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
-      if (queue_type == QueueType::Video) {
-        do {
-          auto packet = video_packets->pop();
-          char* ptr = (char*)packet->data();
-          size_t size = packet->data_size();
-          uint64_t utimestamp = packet->frame_timestamp.value().time_since_epoch().count();
+      do {
+        auto packet = video_packets->pop();
+        char* ptr = (char*)packet->data();
+        size_t size = packet->data_size();
+        uint64_t utimestamp = packet->frame_timestamp.value().time_since_epoch().count();
 
-          auto updated = queue->inindex + 1;
-          if (updated >= QUEUE_SIZE)
-            updated = 0;
+        auto updated = queue->inindex + 1;
+        if (updated >= IN_QUEUE_SIZE)
+          updated = 0;
 
-          findex++;
-          uint16_t sum = 0;
-          queue->incoming[updated].size = 0;
-          copy_to_packet(&queue->incoming[updated],&findex,sizeof(uint32_t));
-          copy_to_packet(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
-          copy_to_packet(&queue->incoming[updated],&sum,sizeof(uint16_t));
-          copy_to_packet(&queue->incoming[updated],ptr,size);
-          queue->inindex = updated;
-        } while (video_packets->peek());
-      } else if (queue_type == QueueType::Audio) {
-        do {
-          auto packet = audio_packets->pop();
-          char* ptr = (char*)packet->second.begin();
-          size_t size = packet->second.size();
-          uint64_t utimestamp = std::chrono::steady_clock::now().time_since_epoch().count();
-
-          auto updated = queue->inindex + 1;
-          if (updated >= QUEUE_SIZE)
-            updated = 0;
-
-          findex++;
-          uint16_t sum = 0;
-          queue->incoming[updated].size = 0;
-          copy_to_packet(&queue->incoming[updated],&findex,sizeof(uint32_t));
-          copy_to_packet(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
-          copy_to_packet(&queue->incoming[updated],&sum,sizeof(uint16_t));
-          copy_to_packet(&queue->incoming[updated],ptr,size);
-          queue->inindex = updated;
-        } while (audio_packets->peek());
-      }
+        findex++;
+        uint16_t sum = 0;
+        queue->incoming[updated].size = 0;
+        copy_to_packet(&queue->incoming[updated],&findex,sizeof(uint32_t));
+        copy_to_packet(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
+        copy_to_packet(&queue->incoming[updated],&sum,sizeof(uint16_t));
+        copy_to_packet(&queue->incoming[updated],ptr,size);
+        queue->inindex = updated;
+      } while (video_packets->peek());
     }
 
     if (!local_shutdown->peek())
       local_shutdown->raise(true);
   };
 
-  auto touch_fun = [mail,process_shutdown_event](Queue* queue){
+  auto push_audio = [process_shutdown_event](safe::mail_t mail, Queue* queue){
+    auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
+    auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
+    auto local_shutdown= mail->event<bool>(mail::shutdown);
+    auto touch_port    = mail->event<input::touch_port_t>(mail::touch_port);
+
+
+#ifdef _WIN32 
+    platf::adjust_thread_priority(platf::thread_priority_e::critical);
+#endif
+
+    uint32_t findex = 0;
+    while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
+      do {
+        auto packet = audio_packets->pop();
+        char* ptr = (char*)packet->second.begin();
+        size_t size = packet->second.size();
+        uint64_t utimestamp = std::chrono::steady_clock::now().time_since_epoch().count();
+
+        auto updated = queue->inindex + 1;
+        if (updated >= IN_QUEUE_SIZE)
+          updated = 0;
+
+        findex++;
+        uint16_t sum = 0;
+        queue->incoming[updated].size = 0;
+        copy_to_packet(&queue->incoming[updated],&findex,sizeof(uint32_t));
+        copy_to_packet(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
+        copy_to_packet(&queue->incoming[updated],&sum,sizeof(uint16_t));
+        copy_to_packet(&queue->incoming[updated],ptr,size);
+        queue->inindex = updated;
+      } while (audio_packets->peek());
+    }
+
+    if (!local_shutdown->peek())
+      local_shutdown->raise(true);
+  };
+
+  auto touch_fun = [mail,process_shutdown_event](DisplayQueue* queue){
     auto timer         = platf::create_high_precision_timer();
     auto local_shutdown= mail->event<bool>(mail::shutdown);
     auto touch_port    = mail->event<input::touch_port_t>(mail::touch_port);
@@ -371,19 +380,20 @@ main(int argc, char *argv[]) {
   };
 
 
-  BOOST_LOG(info) << "Starting capture on channel " << queuetype;
-  if (queuetype == QueueType::Video) {
-    auto capture = std::thread{video_capture,mail,target,codec};
-    auto forward = std::thread{push,mail,queue,(QueueType)queuetype};
-    auto touch_thread = std::thread{touch_fun,queue};
-    auto receive = std::thread{pull};
+  {
+    auto capture = std::thread{video_capture,mail,"TODO",codec};
+    auto forward = std::thread{push_video,mail,&memory->video.internal};
+    auto touch_thread = std::thread{touch_fun,&memory->video};
+    auto receive = std::thread{pull,&memory->video.internal};
     receive.detach();
     touch_thread.detach();
     capture.detach();
     forward.detach();
-  } else if (queuetype == QueueType::Audio) {
+  } 
+
+  {
     auto capture = std::thread{audio_capture,mail};
-    auto forward = std::thread{push,mail,queue,(QueueType)queuetype};
+    auto forward = std::thread{push_audio,mail,&memory->audio};
     capture.detach();
     forward.detach();
   }
