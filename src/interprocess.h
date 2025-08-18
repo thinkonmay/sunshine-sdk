@@ -96,20 +96,11 @@ IVSHMEM_EVENT, *PIVSHMEM_EVENT;
 class IVSHMEM 
 {
 public:
-    IVSHMEM();
-    ~IVSHMEM();
-
-    static IVSHMEM * Get()
-  {
-    if (!m_instance)
-      m_instance = new IVSHMEM();
-    return m_instance;
-  }
+  IVSHMEM(char* path);
+  ~IVSHMEM();
 
   bool Initialize();
   void DeInitialize();
-  bool IsInitialized();
-
   UINT64 GetSize();
   void * GetMemory();
   HANDLE getHandle();
@@ -119,6 +110,8 @@ protected:
 
 private:
   static IVSHMEM * m_instance;
+
+  char   m_devPath[512];
   bool   m_initialized;
   HANDLE m_handle;
   UINT64 m_size   ; bool m_gotSize  ;
@@ -127,4 +120,7 @@ private:
 
 
 void
-copy_to_packet(InPacket* packet,void* data, size_t size);
+copy_to_packet(MediaPacket* packet,void* data, size_t size);
+
+void
+copy_to_dpacket(DataPacket* packet,void* data, size_t size);

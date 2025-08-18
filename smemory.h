@@ -5,8 +5,9 @@
 
 #define MAX_DISPLAY 3
 #define TAG_SIZE 8192
-#define IN_PACKET_SIZE 5 * 1024 * 1024
-#define OUT_PACKET_SIZE 256
+
+#define MEDIA_PACKET_SIZE 5 * 1024 * 1024
+#define DATA_PACKET_SIZE 1024
 
 typedef struct {
     int active;
@@ -22,33 +23,46 @@ typedef struct {
 
 typedef struct {
 	int size;
-    char data[IN_PACKET_SIZE];
-} InPacket;
+    char data[MEDIA_PACKET_SIZE];
+} MediaPacket;
 typedef struct {
 	int size;
-    char data[OUT_PACKET_SIZE];
-} OutPacket;
+    char data[DATA_PACKET_SIZE];
+} DataPacket;
 
-typedef struct _Queue{
+typedef struct _MediaQueue{
 	int inindex;
 	int outindex;
-    InPacket incoming[IN_QUEUE_SIZE];
-    OutPacket outgoing[OUT_QUEUE_SIZE];
-}Queue;
+    MediaPacket incoming[IN_QUEUE_SIZE];
+    DataPacket outgoing[OUT_QUEUE_SIZE];
+}MediaQueue;
+
+typedef struct _DataQueue{
+	int inindex;
+	int outindex;
+    DataPacket incoming[IN_QUEUE_SIZE];
+    DataPacket outgoing[OUT_QUEUE_SIZE];
+}DataQueue;
 
 typedef struct _DisplayQueue{
-	Queue internal;
+	MediaQueue internal;
     QueueMetadata metadata;
 }DisplayQueue;
 
-typedef struct _Memory {
+typedef struct _HIDQueue{
+	DataQueue internal;
+    QueueMetadata metadata[MAX_DISPLAY];
+}HIDQueue;
+
+typedef struct _MediaMemory {
 	DisplayQueue video[MAX_DISPLAY];
-	Queue audio;
-	Queue data;
-	Queue logging;
+	DataQueue audio;
+}MediaMemory;
 
-
+typedef struct _DataMemory {
+	DataQueue audio;
+	HIDQueue data;
 	char worker_info[TAG_SIZE];
-}Memory;
+}DataMemory;
 
 #endif

@@ -72,7 +72,7 @@ namespace logging {
    * ```
    */
   [[nodiscard]] std::unique_ptr<deinit_t>
-  init(int min_log_level, Queue* queue) {
+  init(int min_log_level) {
     if (sink) {
       // Deinitialize the logging system before reinitializing it. This can probably only ever be hit in tests.
       deinit();
@@ -86,7 +86,7 @@ namespace logging {
     sink->locked_backend()->add_stream(stream);
     sink->set_filter(severity >= min_log_level);
 
-    sink->set_formatter([queue](const bl::record_view &view, bl::formatting_ostream &os) {
+    sink->set_formatter([](const bl::record_view &view, bl::formatting_ostream &os) {
       constexpr const char *message = "Message";
       constexpr const char *severity = "Severity";
       constexpr int DATE_BUFFER_SIZE = 21 + 2 + 1;  // Full string plus ": \0"
@@ -116,14 +116,6 @@ namespace logging {
       };
 
       os << log_type << view.attribute_values()[message].extract<std::string>();
-      auto updated = queue->inindex + 1;
-      if (updated >= IN_QUEUE_SIZE)
-        updated = 0;
-
-      copy_to_packet(&queue->incoming[updated],(void*)log_type.cbegin(),log_type.size());
-      auto msg = view.attribute_values()[message].extract<std::string>();
-      copy_to_packet(&queue->incoming[updated],(void*)msg->c_str(),msg->size());
-      queue->inindex = updated;
     });
 
     // Flush after each log record to ensure log file contents on disk isn't stale.

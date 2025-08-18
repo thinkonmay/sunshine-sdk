@@ -14,7 +14,6 @@
 #include "globals.h"
 #include "interprocess.h"
 #include "logging.h"
-#include "main.h"
 #include "version.h"
 #include "video.h"
 #include "audio.h"
@@ -81,7 +80,7 @@ split (std::string s, char delim) {
 
 
 int
-main(void) {
+main(int argc, char *argv[]) {
 #ifdef _WIN32
   // Switch default C standard library locale to UTF-8 on Windows 10 1803+
   setlocale(LC_ALL, ".UTF-8");
@@ -94,24 +93,19 @@ main(void) {
 #pragma GCC diagnostic pop
 
   mail::man = std::make_shared<safe::mail_raw_t>();
-  auto ivshmem = new IVSHMEM();
+  auto ivshmem = new IVSHMEM(argv[1]);
   ivshmem->Initialize();
-  Memory* memory = NULL;
-  if (ivshmem->GetSize() < (UINT64)sizeof(Memory)) {
+  MediaMemory* memory = NULL;
+  if (ivshmem->GetSize() < (UINT64)sizeof(MediaMemory)) {
     BOOST_LOG(error) << "Invalid  ivshmem size: "sv << ivshmem->GetSize();
-    BOOST_LOG(error) << "Expected ivshmem size: "sv << sizeof(Memory);
-    memory = (Memory*)malloc(sizeof(Memory));
+    BOOST_LOG(error) << "Expected ivshmem size: "sv << sizeof(MediaMemory);
+    memory = (MediaMemory*)malloc(sizeof(MediaMemory));
   } else {
     BOOST_LOG(info) << "Found ivshmem shared memory"sv;
-    memory = (Memory*)ivshmem->GetMemory();
+    memory = (MediaMemory*)ivshmem->GetMemory();
   }
 
-  if (memory == NULL) {
-    BOOST_LOG(error) << "Failed to allocate shared memory"sv;
-    return StatusCode::INVALID_IVSHMEM;
-  }
-
-  auto log_deinit_guard = logging::init(config::sunshine.min_log_level,&memory->logging);
+  auto log_deinit_guard = logging::init(config::sunshine.min_log_level);
   if (!log_deinit_guard) {
     BOOST_LOG(error) << "Logging failed to initialize"sv;
   }
@@ -185,7 +179,7 @@ main(void) {
 
   auto mail          = std::make_shared<safe::mail_raw_t>();
 
-  auto pull = [process_shutdown_event,mail](Queue* queue){
+  auto pull = [process_shutdown_event,mail](MediaQueue* queue){
     auto timer         = platf::create_high_precision_timer();
     auto local_shutdown= mail->event<bool>(mail::shutdown);
     auto bitrate       = mail->event<int>(mail::bitrate);
@@ -194,7 +188,7 @@ main(void) {
 
     auto expected_index = 0;
     auto last_bitrate = 6;
-    char buffer[OUT_PACKET_SIZE] = {0};
+    char buffer[DATA_PACKET_SIZE] = {0};
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       while (expected_index == queue->outindex)
         timer->sleep_for(1ms);
@@ -248,7 +242,7 @@ main(void) {
   };
 
 
-  auto push_video = [process_shutdown_event](safe::mail_t mail, Queue* queue){
+  auto push_video = [process_shutdown_event](safe::mail_t mail, MediaQueue* queue){
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown= mail->event<bool>(mail::shutdown);
@@ -286,7 +280,7 @@ main(void) {
       local_shutdown->raise(true);
   };
 
-  auto push_audio = [process_shutdown_event](safe::mail_t mail, Queue* queue){
+  auto push_audio = [process_shutdown_event](safe::mail_t mail, DataQueue* queue){
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown= mail->event<bool>(mail::shutdown);
@@ -312,10 +306,10 @@ main(void) {
         findex++;
         uint16_t sum = 0;
         queue->incoming[updated].size = 0;
-        copy_to_packet(&queue->incoming[updated],&findex,sizeof(uint32_t));
-        copy_to_packet(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
-        copy_to_packet(&queue->incoming[updated],&sum,sizeof(uint16_t));
-        copy_to_packet(&queue->incoming[updated],ptr,size);
+        copy_to_dpacket(&queue->incoming[updated],&findex,sizeof(uint32_t));
+        copy_to_dpacket(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
+        copy_to_dpacket(&queue->incoming[updated],&sum,sizeof(uint16_t));
+        copy_to_dpacket(&queue->incoming[updated],ptr,size);
         queue->inindex = updated;
       } while (audio_packets->peek());
     }

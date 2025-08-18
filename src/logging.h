@@ -9,7 +9,6 @@
 // lib includes
 #include <boost/log/common.hpp>
 #include <boost/log/sinks.hpp>
-#include <smemory.h>
 
 using text_sink = boost::log::sinks::asynchronous_sink<boost::log::sinks::text_ostream_backend>;
 
@@ -29,7 +28,7 @@ namespace logging {
   void
   deinit();
   [[nodiscard]] std::unique_ptr<deinit_t>
-  init(int min_log_level,Queue* queue);
+  init(int min_log_level);
   void
   setup_av_logging(int min_log_level);
   void

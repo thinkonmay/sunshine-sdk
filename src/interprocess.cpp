@@ -28,13 +28,14 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 
 IVSHMEM * IVSHMEM::m_instance = NULL;
 
-IVSHMEM::IVSHMEM() :
+IVSHMEM::IVSHMEM(char* path) :
   m_initialized(false),
   m_handle(INVALID_HANDLE_VALUE),
   m_gotSize(false),
   m_gotMemory(false)
 {
-
+  memset(m_devPath,0,512);
+  memcpy(m_devPath,path,strlen(path));
 }
 
 IVSHMEM::~IVSHMEM()
@@ -47,61 +48,14 @@ bool IVSHMEM::Initialize()
   if (m_initialized)
     DeInitialize();
 
-  HDEVINFO deviceInfoSet;
-  PSP_DEVICE_INTERFACE_DETAIL_DATA infData = NULL;
-  SP_DEVICE_INTERFACE_DATA deviceInterfaceData;
-
-  deviceInfoSet = SetupDiGetClassDevs(NULL, NULL, NULL, DIGCF_PRESENT | DIGCF_ALLCLASSES | DIGCF_DEVICEINTERFACE);
-  ZeroMemory(&deviceInterfaceData, sizeof(SP_DEVICE_INTERFACE_DATA));
-  deviceInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-
-  while (true)
+  m_handle = CreateFileA(m_devPath, 0, 0, NULL, OPEN_EXISTING, 0, 0);
+  if (m_handle == INVALID_HANDLE_VALUE)
   {
-    if (SetupDiEnumDeviceInterfaces(deviceInfoSet, NULL, &GUID_DEVINTERFACE_IVSHMEM, 0, &deviceInterfaceData) == FALSE)
-    {
-      DWORD err = GetLastError();
-      if (err == ERROR_NO_MORE_ITEMS)
-      {
-        BOOST_LOG(error) << "Unable to enumerate the device, is it attached?";
-        break;
-      }
-
-      BOOST_LOG(error) << ("SetupDiEnumDeviceInterfaces failed");
-      break;
-    }
-
-    DWORD reqSize = 0;
-    SetupDiGetDeviceInterfaceDetail(deviceInfoSet, &deviceInterfaceData, NULL, 0, &reqSize, NULL);
-    if (!reqSize)
-    {
-      BOOST_LOG(error) << ("SetupDiGetDeviceInterfaceDetail");
-      break;
-    }
-
-    infData = static_cast<PSP_DEVICE_INTERFACE_DETAIL_DATA>(malloc(reqSize));
-    ZeroMemory(infData, reqSize);
-    infData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-    if (!SetupDiGetDeviceInterfaceDetail(deviceInfoSet, &deviceInterfaceData, infData, reqSize, NULL, NULL))
-    {
-      BOOST_LOG(error) << "SetupDiGetDeviceInterfaceDetail";
-      break;
-    }
-
-    m_handle = CreateFile(infData->DevicePath, 0, 0, NULL, OPEN_EXISTING, 0, 0);
-    if (m_handle == INVALID_HANDLE_VALUE)
-    {
-      BOOST_LOG(error) << "CreateFile returned INVALID_HANDLE_VALUE";
-      break;
-    }
-
-    m_initialized = true;
-    break;
+    BOOST_LOG(error) << "CreateFile returned INVALID_HANDLE_VALUE";
+    return false;
   }
 
-  if (infData)
-    free(infData);
-
-  SetupDiDestroyDeviceInfoList(deviceInfoSet);
+  m_initialized = true;
   return m_initialized;
 }
 
@@ -124,11 +78,6 @@ void IVSHMEM::DeInitialize()
   m_handle      = INVALID_HANDLE_VALUE;
   m_gotSize     = false;
   m_gotMemory   = false;
-}
-
-bool IVSHMEM::IsInitialized()
-{
-  return m_initialized;
 }
 
 UINT64 IVSHMEM::GetSize()
@@ -203,7 +152,12 @@ HANDLE IVSHMEM::getHandle()
 }
 
 void
-copy_to_packet(InPacket* packet,void* data, size_t size) {
+copy_to_packet(MediaPacket* packet,void* data, size_t size) {
+  memcpy(packet->data+packet->size,data,size);
+  packet->size += size;
+}
+void
+copy_to_dpacket(DataPacket* packet,void* data, size_t size) {
   memcpy(packet->data+packet->size,data,size);
   packet->size += size;
 }
