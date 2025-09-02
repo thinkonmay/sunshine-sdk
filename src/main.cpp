@@ -186,7 +186,7 @@ main(int argc, char *argv[]) {
     auto framerate     = mail->event<int>(mail::framerate);
     auto idr           = mail->event<bool>(mail::idr);
 
-    auto expected_index = 0;
+    auto expected_index = queue->outindex;
     auto last_bitrate = 6;
     char buffer[DATA_PACKET_SIZE] = {0};
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
@@ -267,11 +267,11 @@ main(int argc, char *argv[]) {
 
         findex++;
         uint16_t sum = 0;
-        queue->incoming[updated].size = 0;
-        copy_to_packet(&queue->incoming[updated],&findex,sizeof(uint32_t));
-        copy_to_packet(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
-        copy_to_packet(&queue->incoming[updated],&sum,sizeof(uint16_t));
-        copy_to_packet(&queue->incoming[updated],ptr,size);
+        queue->incoming[queue->inindex].size = 0;
+        copy_to_packet(&queue->incoming[queue->inindex],&findex,sizeof(uint32_t));
+        copy_to_packet(&queue->incoming[queue->inindex],&utimestamp,sizeof(uint64_t));
+        copy_to_packet(&queue->incoming[queue->inindex],&sum,sizeof(uint16_t));
+        copy_to_packet(&queue->incoming[queue->inindex],ptr,size);
         queue->inindex = updated;
       } while (video_packets->peek());
     }
