@@ -12,9 +12,6 @@ list(APPEND SUNSHINE_COMPILE_OPTIONS -Wno-misleading-indentation)
 # see gcc bug 98723
 add_definitions(-DUSE_BOOST_REGEX)
 
-# extra tools/binaries for audio/display devices
-add_subdirectory(tools)  # todo - this is temporary, only tools for Windows are needed, for now
-
 # nvidia
 include_directories(SYSTEM "${CMAKE_SOURCE_DIR}/third-party/nvapi-open-source-sdk")
 file(GLOB NVPREFS_FILES CONFIGURE_DEPENDS

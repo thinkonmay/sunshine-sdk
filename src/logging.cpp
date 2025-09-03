@@ -89,8 +89,6 @@ namespace logging {
     sink->set_formatter([](const bl::record_view &view, bl::formatting_ostream &os) {
       constexpr const char *message = "Message";
       constexpr const char *severity = "Severity";
-      constexpr int DATE_BUFFER_SIZE = 21 + 2 + 1;  // Full string plus ": \0"
-
       auto log_level = view.attribute_values()[severity].extract<int>().get();
 
       std::string_view log_type;
