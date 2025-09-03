@@ -3,7 +3,7 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -74,36 +74,3 @@ jobs:
             -G "Ninja" \
             ..
           ninja
-
-      - name: Package Windows
-        shell: msys2 {0}
-        run: |
-          mkdir -p artifacts
-          cd build
-
-          # move
-          mv ./sunshine.exe ../artifacts/shmsunshine.exe
-
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: sunshine-windows
-          path: artifacts/
-
-  # release-winget:
-  #   name: Release to WinGet
-  #   needs: [setup_release, build_win]
-  #   if: |
-  #     (github.repository_owner == 'LizardByte' &&
-  #     needs.setup_release.outputs.create_release == 'true' &&
-  #     github.ref == 'refs/heads/master')
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Release to WinGet
-  #       uses: vedantmgoyal2009/winget-releaser@v2
-  #       with:
-  #         identifier: LizardByte.Sunshine
-  #         release-tag: ${{ needs.setup_release.outputs.release_tag }}
-  #         installers-regex: '\.exe$'  # only .exe files
-  #         token: ${{ secrets.GH_BOT_TOKEN }}
