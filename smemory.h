@@ -4,7 +4,7 @@
 #define IN_QUEUE_SIZE 8
 
 #define MAX_DISPLAY 3
-#define TAG_SIZE 8192
+#define TAG_SIZE 32 * 1024
 
 #define MEDIA_PACKET_SIZE 5 * 1024 * 1024
 #define DATA_PACKET_SIZE 1024
