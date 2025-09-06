@@ -7,7 +7,7 @@
 #define TAG_SIZE 32 * 1024
 
 #define MEDIA_PACKET_SIZE 5 * 1024 * 1024
-#define DATA_PACKET_SIZE 1024
+#define DATA_PACKET_SIZE 5 * 1024
 
 typedef struct {
     int active;
@@ -61,6 +61,7 @@ typedef struct _MediaMemory {
 
 typedef struct _DataMemory {
 	DataQueue audio;
+	DataQueue session;
 	HIDQueue data;
 	char worker_info[TAG_SIZE];
 	int worker_info_size;
