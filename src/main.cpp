@@ -318,7 +318,7 @@ main(int argc, char *argv[]) {
       local_shutdown->raise(true);
   };
 
-  auto touch_fun = [mail,process_shutdown_event](DisplayQueue* queue){
+  auto touch_fun = [mail,process_shutdown_event](QueueMetadata* metadata){
     auto timer         = platf::create_high_precision_timer();
     auto local_shutdown= mail->event<bool>(mail::shutdown);
     auto touch_port    = mail->event<input::touch_port_t>(mail::touch_port);
@@ -330,15 +330,15 @@ main(int argc, char *argv[]) {
         auto touch = touch_port->pop();
         if (touch.has_value()) {
           auto value = touch.value();
-          queue->metadata.client_offsetX = value.client_offsetX;
-          queue->metadata.client_offsetY = value.client_offsetY;
-          queue->metadata.offsetX= value.offset_x;
-          queue->metadata.offsetY = value.offset_y;
-          queue->metadata.env_height = value.env_height;
-          queue->metadata.env_width = value.env_width;
-          queue->metadata.height = value.height;
-          queue->metadata.width = value.width;
-          queue->metadata.scalar_inv = value.scalar_inv;
+          metadata->client_offsetX = value.client_offsetX;
+          metadata->client_offsetY = value.client_offsetY;
+          metadata->offsetX = value.offset_x;
+          metadata->offsetY = value.offset_y;
+          metadata->env_height = value.env_height;
+          metadata->env_width = value.env_width;
+          metadata->height = value.height;
+          metadata->width = value.width;
+          metadata->scalar_inv = value.scalar_inv;
         }
       }
     }
@@ -355,7 +355,7 @@ main(int argc, char *argv[]) {
       auto codec = memory->video[i].metadata.codec;
       auto capture = std::thread{video_capture,mail,displays.at(i),codec};
       auto forward = std::thread{push_video,mail,&memory->video[i].internal};
-      auto touch_thread = std::thread{touch_fun,&memory->video[i]};
+      auto touch_thread = std::thread{touch_fun,&memory->video[i].metadata};
       auto receive = std::thread{pull,&memory->video[i].internal};
       receive.detach();
       touch_thread.detach();
