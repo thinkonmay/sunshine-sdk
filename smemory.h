@@ -63,6 +63,7 @@ typedef struct _DataMemory {
 	DataQueue audio;
 	HIDQueue data;
 	char worker_info[TAG_SIZE];
+	int worker_info_size;
 }DataMemory;
 
 #endif
