@@ -78,6 +78,22 @@ split (std::string s, char delim) {
 }
 
 
+std::vector<uint8_t> replace(const std::string_view &original, const std::string_view &old, const std::string_view &_new) {
+  std::vector<uint8_t> replaced;
+  replaced.reserve(original.size() + _new.size() - old.size());
+
+  auto begin = std::begin(original);
+  auto end = std::end(original);
+  auto next = std::search(begin, end, std::begin(old), std::end(old));
+
+  std::copy(begin, next, std::back_inserter(replaced));
+  if (next != end) {
+    std::copy(std::begin(_new), std::end(_new), std::back_inserter(replaced));
+    std::copy(next + old.size(), end, std::back_inserter(replaced));
+  }
+
+  return replaced;
+}
 
 int
 main(int argc, char *argv[]) {
@@ -227,7 +243,7 @@ main(int argc, char *argv[]) {
         framerate->raise(buffer[1]);
         break;
       case EventType::Pointer:
-        BOOST_LOG(debug) << "pointer changed to " << (bool)(buffer[1] != 0);
+        BOOST_LOG(info) << "pointer changed to " << (bool)(buffer[1] != 0);
         display_cursor = buffer[1] != 0;
         break;
       case EventType::Idr:
@@ -235,7 +251,7 @@ main(int argc, char *argv[]) {
         idr->raise(true);
         break;
       default:
-        BOOST_LOG(error) << "invalid message "<< u_int(buffer[0]) << " " << u_int(buffer[1]);
+        BOOST_LOG(info) << "invalid message "<< u_int(buffer[0]) << " " << u_int(buffer[1]);
         break;
       }
     }
@@ -253,25 +269,39 @@ main(int argc, char *argv[]) {
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
 #endif
 
-    uint32_t findex = 0;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       do {
+        uint8_t flags = 0;
         auto packet = video_packets->pop();
-        char* ptr = (char*)packet->data();
-        size_t size = packet->data_size();
+        auto findex = packet->frame_index();
+        std::string_view payload {(char *) packet->data(), packet->data_size()};
+        std::vector<uint8_t> payload_with_replacements;
         uint64_t utimestamp = packet->frame_timestamp.value().time_since_epoch().count();
 
         auto updated = queue->inindex + 1;
         if (updated >= IN_QUEUE_SIZE)
           updated = 0;
 
-        findex++;
-        uint16_t sum = 0;
+        if (packet->is_idr() && packet->replacements) {
+          for (auto &replacement : *packet->replacements) {
+            auto frame_old = replacement.old;
+            auto frame_new = replacement._new;
+
+            payload_with_replacements = replace(payload, frame_old, frame_new);
+            payload = {(char *) payload_with_replacements.data(), payload_with_replacements.size()};
+          }
+        }
+
+        if (packet->is_idr())
+          flags |= (1 << 0);
+        if (packet->after_ref_frame_invalidation)
+          flags |= (1 << 1);
+
         queue->incoming[queue->inindex].size = 0;
-        copy_to_packet(&queue->incoming[queue->inindex],&findex,sizeof(uint32_t));
+        copy_to_packet(&queue->incoming[queue->inindex],&findex,sizeof(uint64_t));
         copy_to_packet(&queue->incoming[queue->inindex],&utimestamp,sizeof(uint64_t));
-        copy_to_packet(&queue->incoming[queue->inindex],&sum,sizeof(uint16_t));
-        copy_to_packet(&queue->incoming[queue->inindex],ptr,size);
+        copy_to_packet(&queue->incoming[queue->inindex],&flags,sizeof(uint8_t));
+        copy_to_packet(&queue->incoming[queue->inindex],(void*)payload.data(),payload.size());
         queue->inindex = updated;
       } while (video_packets->peek());
     }
@@ -291,7 +321,8 @@ main(int argc, char *argv[]) {
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
 #endif
 
-    uint32_t findex = 0;
+    char sum = 0;
+    uint64_t findex = 0;
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       do {
         auto packet = audio_packets->pop();
@@ -304,11 +335,10 @@ main(int argc, char *argv[]) {
           updated = 0;
 
         findex++;
-        uint16_t sum = 0;
         queue->incoming[updated].size = 0;
-        copy_to_dpacket(&queue->incoming[updated],&findex,sizeof(uint32_t));
+        copy_to_dpacket(&queue->incoming[updated],&findex,sizeof(uint64_t));
         copy_to_dpacket(&queue->incoming[updated],&utimestamp,sizeof(uint64_t));
-        copy_to_dpacket(&queue->incoming[updated],&sum,sizeof(uint16_t));
+        copy_to_dpacket(&queue->incoming[updated],&sum,sizeof(uint8_t));
         copy_to_dpacket(&queue->incoming[updated],ptr,size);
         queue->inindex = updated;
       } while (audio_packets->peek());
@@ -392,3 +422,4 @@ main(int argc, char *argv[]) {
 
   return StatusCode::NORMAL_EXIT;
 }
+
