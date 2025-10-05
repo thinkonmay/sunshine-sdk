@@ -278,10 +278,6 @@ main(int argc, char *argv[]) {
         std::vector<uint8_t> payload_with_replacements;
         uint64_t utimestamp = packet->frame_timestamp.value().time_since_epoch().count();
 
-        auto updated = queue->inindex + 1;
-        if (updated >= IN_QUEUE_SIZE)
-          updated = 0;
-
         if (packet->is_idr() && packet->replacements) {
           for (auto &replacement : *packet->replacements) {
             auto frame_old = replacement.old;
@@ -296,6 +292,10 @@ main(int argc, char *argv[]) {
           flags |= (1 << 0);
         if (packet->after_ref_frame_invalidation)
           flags |= (1 << 1);
+
+        auto updated = queue->inindex + 1;
+        if (updated >= IN_QUEUE_SIZE)
+          updated = 0;
 
         queue->incoming[queue->inindex].size = 0;
         copy_to_packet(&queue->incoming[queue->inindex],&findex,sizeof(uint64_t));
