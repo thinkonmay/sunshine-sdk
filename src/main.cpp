@@ -250,6 +250,10 @@ main(int argc, char *argv[]) {
         BOOST_LOG(debug) << "IDR";
         idr->raise(true);
         break;
+      case EventType::Stop:
+        BOOST_LOG(debug) << "Received shutdown event from shm";
+        process_shutdown_event->raise(true);
+        break;
       default:
         BOOST_LOG(info) << "invalid message "<< u_int(buffer[0]) << " " << u_int(buffer[1]);
         break;
