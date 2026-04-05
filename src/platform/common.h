@@ -149,7 +149,6 @@ struct touch_port_t {
   int width, height;
 };
 
-
 class deinit_t {
 public:
   virtual ~deinit_t() = default;

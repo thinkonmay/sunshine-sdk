@@ -654,11 +654,7 @@ encoder_t amdvce{
     },
     PARALLEL_ENCODING};
 
-static const std::vector<encoder_t *> encoders{
-    &nvenc,
-    &quicksync,
-    &amdvce
-};
+static const std::vector<encoder_t *> encoders{&nvenc, &quicksync, &amdvce};
 
 static encoder_t *chosen_encoder;
 int active_hevc_mode;
@@ -2462,7 +2458,6 @@ int probe_encoders() {
   return 0;
 }
 
-
 util::Either<avcodec_buffer_t, int>
 cuda_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *encode_device) {
   avcodec_buffer_t hw_device_buf;
@@ -2478,7 +2473,6 @@ cuda_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *encode_d
 
   return hw_device_buf;
 }
-
 
 #ifdef _WIN32
 }
