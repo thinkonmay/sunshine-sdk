@@ -31,11 +31,6 @@
 namespace fs = std::filesystem;
 using namespace std::literals;
 
-#define CA_DIR "credentials"
-#define PRIVATE_KEY_FILE CA_DIR "/cakey.pem"
-#define CERTIFICATE_FILE CA_DIR "/cacert.pem"
-
-#define APPS_JSON_PATH platf::appdata().string() + "/apps.json"
 namespace config {
 
 namespace nv {
@@ -227,44 +222,6 @@ std::optional<int> coder_from_view(const std::string_view &coder) {
 }
 
 } // namespace qsv
-
-namespace vt {
-
-enum coder_e : int { _auto = 0, cabac, cavlc };
-
-int coder_from_view(const std::string_view &coder) {
-  if (coder == "auto"sv)
-    return _auto;
-  if (coder == "cabac"sv || coder == "ac"sv)
-    return cabac;
-  if (coder == "cavlc"sv || coder == "vlc"sv)
-    return cavlc;
-
-  return -1;
-}
-
-int allow_software_from_view(const std::string_view &software) {
-  if (software == "allowed"sv || software == "forced")
-    return 1;
-
-  return 0;
-}
-
-int force_software_from_view(const std::string_view &software) {
-  if (software == "forced")
-    return 1;
-
-  return 0;
-}
-
-int rt_from_view(const std::string_view &rt) {
-  if (rt == "disabled" || rt == "off" || rt == "0")
-    return 0;
-
-  return 1;
-}
-
-} // namespace vt
 
 video_t video{
     28, // qp
