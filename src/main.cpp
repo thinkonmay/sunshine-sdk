@@ -126,7 +126,6 @@ main(int argc, char *argv[]) {
     BOOST_LOG(error) << "Logging failed to initialize"sv;
   }
 
-  task_pool.start(1);
 
   // Create signal handler after logging has been initialized
   auto process_shutdown_event = mail::man->event<bool>(mail::shutdown);
@@ -413,8 +412,6 @@ main(int argc, char *argv[]) {
   BOOST_LOG(info) << "Closed";
   // let other threads to close
   timer->sleep_for(1s);
-  task_pool.stop();
-  task_pool.join();
 
 #ifdef _WIN32
   // Restore global NVIDIA control panel settings
