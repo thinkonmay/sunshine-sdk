@@ -14,9 +14,3 @@ safe::mail_t mail::man;
  */
 bool display_cursor = false;
 
-#ifdef _WIN32
-/**
- * @brief A global singleton used for NVIDIA control panel modifications.
- */
-nvprefs::nvprefs_interface nvprefs_instance;
-#endif

@@ -16,8 +16,7 @@ add_definitions(-DUSE_BOOST_REGEX)
 include_directories(SYSTEM "${CMAKE_SOURCE_DIR}/third-party/nvapi-open-source-sdk")
 file(GLOB NVPREFS_FILES CONFIGURE_DEPENDS
         "${CMAKE_SOURCE_DIR}/third-party/nvapi-open-source-sdk/*.h"
-        "${CMAKE_SOURCE_DIR}/src/platform/windows/nvprefs/*.cpp"
-        "${CMAKE_SOURCE_DIR}/src/platform/windows/nvprefs/*.h")
+        )
 
 set(PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/platform/windows/misc.h"
