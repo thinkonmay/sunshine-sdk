@@ -1,0 +1,14 @@
+# Dependencies
+node_modules
+build
+third-party
+
+# C/C++ files (handled by clang-format)
+**/*.c
+**/*.h
+**/*.cpp
+**/*.hpp
+**/*.cc
+**/*.cxx
+**/*.hh
+**/*.hxx

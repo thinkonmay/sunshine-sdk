@@ -20,19 +20,14 @@ extern boost::log::sources::severity_logger<int> error;
 extern boost::log::sources::severity_logger<int> fatal;
 
 namespace logging {
-  class deinit_t {
-  public:
-    ~deinit_t();
-  };
+class deinit_t {
+public:
+  ~deinit_t();
+};
 
-  void
-  deinit();
-  [[nodiscard]] std::unique_ptr<deinit_t>
-  init(int min_log_level);
-  void
-  setup_av_logging(int min_log_level);
-  void
-  log_flush();
-  void
-  print_help(const char *name);
-}  // namespace logging
+void deinit();
+[[nodiscard]] std::unique_ptr<deinit_t> init(int min_log_level);
+void setup_av_logging(int min_log_level);
+void log_flush();
+void print_help(const char *name);
+} // namespace logging

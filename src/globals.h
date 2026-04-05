@@ -8,29 +8,27 @@
 
 extern bool display_cursor;
 
-
-
 namespace mail {
-#define MAIL(x)                         \
-  constexpr auto x = std::string_view { \
-    #x                                  \
+#define MAIL(x)                                                                                    \
+  constexpr auto x = std::string_view {                                                            \
+#x                                                                                             \
   }
 
-  extern safe::mail_t man;
+extern safe::mail_t man;
 
-  // Global mail
-  MAIL(shutdown);
-  MAIL(video_packets);
-  MAIL(audio_packets);
-  MAIL(bitrate);
-  MAIL(framerate);
+// Global mail
+MAIL(shutdown);
+MAIL(video_packets);
+MAIL(audio_packets);
+MAIL(bitrate);
+MAIL(framerate);
 
-  // Local mail
-  MAIL(touch_port);
-  MAIL(idr);
-  MAIL(invalidate_ref_frames);
-  MAIL(gamepad_feedback);
-  MAIL(hdr);
+// Local mail
+MAIL(touch_port);
+MAIL(idr);
+MAIL(invalidate_ref_frames);
+MAIL(gamepad_feedback);
+MAIL(hdr);
 #undef MAIL
 
-}  // namespace mail
+} // namespace mail

@@ -13,4 +13,3 @@ safe::mail_t mail::man;
  * @brief A boolean flag to indicate whether the cursor should be displayed.
  */
 bool display_cursor = false;
-

@@ -17,40 +17,33 @@ this program; if not, write to the Free Software Foundation, Inc., 59 Temple
 Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
-#include <windows.h>
+#include "interprocess.h"
 #include <SetupAPI.h>
+#include <malloc.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <malloc.h>
-#include "interprocess.h"
+#include <windows.h>
 
 #include "logging.h"
 
-IVSHMEM * IVSHMEM::m_instance = NULL;
+IVSHMEM *IVSHMEM::m_instance = NULL;
 
-IVSHMEM::IVSHMEM(char* path) :
-  m_initialized(false),
-  m_handle(INVALID_HANDLE_VALUE),
-  m_gotSize(false),
-  m_gotMemory(false)
-{
-  memset(m_devPath,0,512);
-  memcpy(m_devPath,path,strlen(path));
+IVSHMEM::IVSHMEM(char *path)
+    : m_initialized(false), m_handle(INVALID_HANDLE_VALUE), m_gotSize(false), m_gotMemory(false) {
+  memset(m_devPath, 0, 512);
+  memcpy(m_devPath, path, strlen(path));
 }
 
-IVSHMEM::~IVSHMEM()
-{
+IVSHMEM::~IVSHMEM() {
   DeInitialize();
 }
 
-bool IVSHMEM::Initialize()
-{
+bool IVSHMEM::Initialize() {
   if (m_initialized)
     DeInitialize();
 
   m_handle = CreateFileA(m_devPath, 0, 0, NULL, OPEN_EXISTING, 0, 0);
-  if (m_handle == INVALID_HANDLE_VALUE)
-  {
+  if (m_handle == INVALID_HANDLE_VALUE) {
     BOOST_LOG(error) << "CreateFile returned INVALID_HANDLE_VALUE";
     return false;
   }
@@ -59,15 +52,13 @@ bool IVSHMEM::Initialize()
   return m_initialized;
 }
 
-void IVSHMEM::DeInitialize()
-{
+void IVSHMEM::DeInitialize() {
   if (!m_initialized)
     return;
 
-  if (m_gotMemory)
-  {
+  if (m_gotMemory) {
     if (!DeviceIoControl(m_handle, IOCTL_IVSHMEM_RELEASE_MMAP, NULL, 0, NULL, 0, NULL, NULL))
-      BOOST_LOG(error) << "Deintialize DeviceIoControl failed: " <<  (int)GetLastError();
+      BOOST_LOG(error) << "Deintialize DeviceIoControl failed: " << (int)GetLastError();
     m_memory = NULL;
   }
 
@@ -75,13 +66,12 @@ void IVSHMEM::DeInitialize()
     CloseHandle(m_handle);
 
   m_initialized = false;
-  m_handle      = INVALID_HANDLE_VALUE;
-  m_gotSize     = false;
-  m_gotMemory   = false;
+  m_handle = INVALID_HANDLE_VALUE;
+  m_gotSize = false;
+  m_gotMemory = false;
 }
 
-UINT64 IVSHMEM::GetSize()
-{
+UINT64 IVSHMEM::GetSize() {
   if (!m_initialized)
     return 0;
 
@@ -89,22 +79,18 @@ UINT64 IVSHMEM::GetSize()
     return m_size;
 
   IVSHMEM_SIZE size;
-  if (!DeviceIoControl(m_handle, IOCTL_IVSHMEM_REQUEST_SIZE, NULL, 0, &size, sizeof(IVSHMEM_SIZE), NULL, NULL))
-  {
+  if (!DeviceIoControl(m_handle, IOCTL_IVSHMEM_REQUEST_SIZE, NULL, 0, &size, sizeof(IVSHMEM_SIZE),
+                       NULL, NULL)) {
     BOOST_LOG(error) << "GetSize DeviceIoControl Failed: " << GetLastError();
     return 0;
   }
 
   m_gotSize = true;
-  m_size    = static_cast<UINT64>(size);
+  m_size = static_cast<UINT64>(size);
   return m_size;
 }
 
-
-
-
-void * IVSHMEM::GetMemory()
-{
+void *IVSHMEM::GetMemory() {
   if (!m_initialized)
     return NULL;
 
@@ -121,43 +107,34 @@ void * IVSHMEM::GetMemory()
 
   IVSHMEM_MMAP map;
   ZeroMemory(&map, sizeof(IVSHMEM_MMAP));
-  if (!DeviceIoControl(
-    m_handle,
-    IOCTL_IVSHMEM_REQUEST_MMAP,
+  if (!DeviceIoControl(m_handle, IOCTL_IVSHMEM_REQUEST_MMAP,
 #if defined(IVSHMEM_CACHE_WRITECOMBINED)
-    &config, sizeof(IVSHMEM_MMAP_CONFIG),
+                       &config, sizeof(IVSHMEM_MMAP_CONFIG),
 #else
-    NULL   , 0,
+                       NULL, 0,
 #endif
-    &map   , sizeof(IVSHMEM_MMAP       ),
-    NULL, NULL))
-  {
+                       &map, sizeof(IVSHMEM_MMAP), NULL, NULL)) {
     BOOST_LOG(error) << "GetMemory DeviceIoControl Failed: " << GetLastError();
     return NULL;
   }
 
-  m_gotSize    = true;
-  m_gotMemory  = true;
-  m_size       = static_cast<UINT64>(map.size   );
-  m_memory     = map.ptr;
+  m_gotSize = true;
+  m_gotMemory = true;
+  m_size = static_cast<UINT64>(map.size);
+  m_memory = map.ptr;
 
   return m_memory;
 }
 
-
-
-HANDLE IVSHMEM::getHandle()
-{
-    return m_handle;
+HANDLE IVSHMEM::getHandle() {
+  return m_handle;
 }
 
-void
-copy_to_packet(MediaPacket* packet,void* data, size_t size) {
-  memcpy(packet->data+packet->size,data,size);
+void copy_to_packet(MediaPacket *packet, void *data, size_t size) {
+  memcpy(packet->data + packet->size, data, size);
   packet->size += size;
 }
-void
-copy_to_dpacket(DataPacket* packet,void* data, size_t size) {
-  memcpy(packet->data+packet->size,data,size);
+void copy_to_dpacket(DataPacket *packet, void *data, size_t size) {
+  memcpy(packet->data + packet->size, data, size);
   packet->size += size;
 }
