@@ -14,9 +14,6 @@ add_definitions(-DUSE_BOOST_REGEX)
 
 # nvidia
 include_directories(SYSTEM "${CMAKE_SOURCE_DIR}/third-party/nvapi-open-source-sdk")
-file(GLOB NVPREFS_FILES CONFIGURE_DEPENDS
-        "${CMAKE_SOURCE_DIR}/third-party/nvapi-open-source-sdk/*.h"
-        )
 
 set(PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/platform/windows/misc.h"
@@ -26,8 +23,7 @@ set(PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/platform/windows/display_vram.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/windows/display_wgc.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/windows/display_ram.cpp"
-        "${CMAKE_SOURCE_DIR}/src/platform/windows/audio.cpp"
-        ${NVPREFS_FILES})
+        "${CMAKE_SOURCE_DIR}/src/platform/windows/audio.cpp")
 
 set(OPENSSL_LIBRARIES
         libssl.a

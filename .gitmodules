@@ -2,23 +2,7 @@
 	path = third-party/build-deps
 	url = https://github.com/LizardByte/build-deps.git
 	branch = dist
-[submodule "third-party/nv-codec-headers"]
-	path = third-party/nv-codec-headers
-	url = https://github.com/FFmpeg/nv-codec-headers
-	branch = sdk/12.0
 [submodule "third-party/nvapi-open-source-sdk"]
 	path = third-party/nvapi-open-source-sdk
 	url = https://github.com/LizardByte/nvapi-open-source-sdk
 	branch = sdk
-[submodule "third-party/TPCircularBuffer"]
-	path = third-party/TPCircularBuffer
-	url = https://github.com/michaeltyson/TPCircularBuffer
-	branch = master
-[submodule "third-party/wayland-protocols"]
-	path = third-party/wayland-protocols
-	url = https://gitlab.freedesktop.org/wayland/wayland-protocols
-	branch = main
-[submodule "third-party/wlr-protocols"]
-	path = third-party/wlr-protocols
-	url = https://gitlab.freedesktop.org/wlroots/wlr-protocols
-	branch = master
