@@ -34,14 +34,6 @@ endif()
 # platform specific compile definitions
 if(WIN32)
     include(${CMAKE_MODULE_PATH}/compile_definitions/windows.cmake)
-elseif(UNIX)
-    include(${CMAKE_MODULE_PATH}/compile_definitions/unix.cmake)
-
-    if(APPLE)
-        include(${CMAKE_MODULE_PATH}/compile_definitions/macos.cmake)
-    else()
-        include(${CMAKE_MODULE_PATH}/compile_definitions/linux.cmake)
-    endif()
 endif()
 
 include_directories(SYSTEM "${CMAKE_SOURCE_DIR}/third-party/nv-codec-headers/include")

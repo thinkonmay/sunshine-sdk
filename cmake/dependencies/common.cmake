@@ -11,8 +11,6 @@ find_package(Threads REQUIRED)
 if(NOT DEFINED FFMPEG_PREPARED_BINARIES)
     if(WIN32)
         set(FFMPEG_PLATFORM_LIBRARIES mfplat ole32 strmiids mfuuid vpl)
-    elseif(UNIX AND NOT APPLE)
-        set(FFMPEG_PLATFORM_LIBRARIES numa va va-drm va-x11 X11)
     endif()
     set(FFMPEG_PREPARED_BINARIES
             "${CMAKE_SOURCE_DIR}/third-party/build-deps/dist/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
@@ -55,12 +53,4 @@ set(FFMPEG_INCLUDE_DIRS
 # platform specific dependencies
 if(WIN32)
     include("${CMAKE_MODULE_PATH}/dependencies/windows.cmake")
-elseif(UNIX)
-    include("${CMAKE_MODULE_PATH}/dependencies/unix.cmake")
-
-    if(APPLE)
-        include("${CMAKE_MODULE_PATH}/dependencies/macos.cmake")
-    else()
-        include("${CMAKE_MODULE_PATH}/dependencies/linux.cmake")
-    endif()
 endif()

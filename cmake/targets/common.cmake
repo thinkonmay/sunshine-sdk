@@ -6,14 +6,6 @@ add_executable(sunshine ${SUNSHINE_TARGET_FILES})
 # platform specific target definitions
 if(WIN32)
     include(${CMAKE_MODULE_PATH}/targets/windows.cmake)
-elseif(UNIX)
-    include(${CMAKE_MODULE_PATH}/targets/unix.cmake)
-
-    if(APPLE)
-        include(${CMAKE_MODULE_PATH}/targets/macos.cmake)
-    else()
-        include(${CMAKE_MODULE_PATH}/targets/linux.cmake)
-    endif()
 endif()
 
 # todo - is this necessary? ... for anything except linux?
