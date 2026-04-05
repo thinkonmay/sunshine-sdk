@@ -67,8 +67,6 @@ set(SUNSHINE_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/audio.h"
         "${CMAKE_SOURCE_DIR}/src/platform/common.h"
         "${CMAKE_SOURCE_DIR}/src/move_by_copy.h"
-        "${CMAKE_SOURCE_DIR}/src/task_pool.h"
-        "${CMAKE_SOURCE_DIR}/src/thread_pool.h"
         "${CMAKE_SOURCE_DIR}/src/thread_safe.h"
         "${CMAKE_SOURCE_DIR}/src/sync.h"
         "${CMAKE_SOURCE_DIR}/src/round_robin.h"

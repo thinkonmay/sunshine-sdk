@@ -159,13 +159,6 @@ main(int argc, char *argv[]) {
   // Wait as long as possible to terminate Sunshine.exe during logoff/shutdown
   SetProcessShutdownParameters(0x100, SHUTDOWN_NORETRY);
 
-  // We must create a hidden window to receive shutdown notifications since we load gdi32.dll
-  std::promise<HWND> session_monitor_hwnd_promise;
-  auto session_monitor_hwnd_future = session_monitor_hwnd_promise.get_future();
-  std::promise<void> session_monitor_join_thread_promise;
-  auto session_monitor_join_thread_future = session_monitor_join_thread_promise.get_future();
-
-
   auto platf_deinit_guard = platf::init();
 
 

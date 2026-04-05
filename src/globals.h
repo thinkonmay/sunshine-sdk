@@ -4,7 +4,6 @@
  */
 #pragma once
 
-#include "thread_pool.h"
 #include "thread_safe.h"
 
 extern bool display_cursor;
