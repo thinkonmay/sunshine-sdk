@@ -12,7 +12,6 @@
 
 #include "src/config.h"
 #include "src/logging.h"
-#include "src/stat_trackers.h"
 #include "src/thread_safe.h"
 #include "src/utility.h"
 #include "src/video_colorspace.h"

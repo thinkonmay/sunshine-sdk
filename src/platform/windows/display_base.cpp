@@ -16,7 +16,6 @@ typedef long NTSTATUS;
 #include "src/config.h"
 #include "src/logging.h"
 #include "src/platform/common.h"
-#include "src/stat_trackers.h"
 #include "src/video.h"
 
 namespace platf {
