@@ -99,76 +99,6 @@ constexpr std::uint32_t PADDLE4 = 0x080000;
 constexpr std::uint32_t TOUCHPAD_BUTTON = 0x100000;
 constexpr std::uint32_t MISC_BUTTON = 0x200000;
 
-enum class gamepad_feedback_e {
-  rumble,
-  rumble_triggers,
-  set_motion_event_state,
-  set_rgb_led,
-};
-
-struct gamepad_feedback_msg_t {
-  static gamepad_feedback_msg_t make_rumble(std::uint16_t id, std::uint16_t lowfreq,
-                                            std::uint16_t highfreq) {
-    gamepad_feedback_msg_t msg;
-    msg.type = gamepad_feedback_e::rumble;
-    msg.id = id;
-    msg.data.rumble = {lowfreq, highfreq};
-    return msg;
-  }
-
-  static gamepad_feedback_msg_t make_rumble_triggers(std::uint16_t id, std::uint16_t left,
-                                                     std::uint16_t right) {
-    gamepad_feedback_msg_t msg;
-    msg.type = gamepad_feedback_e::rumble_triggers;
-    msg.id = id;
-    msg.data.rumble_triggers = {left, right};
-    return msg;
-  }
-
-  static gamepad_feedback_msg_t make_motion_event_state(std::uint16_t id, std::uint8_t motion_type,
-                                                        std::uint16_t report_rate) {
-    gamepad_feedback_msg_t msg;
-    msg.type = gamepad_feedback_e::set_motion_event_state;
-    msg.id = id;
-    msg.data.motion_event_state.motion_type = motion_type;
-    msg.data.motion_event_state.report_rate = report_rate;
-    return msg;
-  }
-
-  static gamepad_feedback_msg_t make_rgb_led(std::uint16_t id, std::uint8_t r, std::uint8_t g,
-                                             std::uint8_t b) {
-    gamepad_feedback_msg_t msg;
-    msg.type = gamepad_feedback_e::set_rgb_led;
-    msg.id = id;
-    msg.data.rgb_led = {r, g, b};
-    return msg;
-  }
-
-  gamepad_feedback_e type;
-  std::uint16_t id;
-  union {
-    struct {
-      std::uint16_t lowfreq;
-      std::uint16_t highfreq;
-    } rumble;
-    struct {
-      std::uint16_t left_trigger;
-      std::uint16_t right_trigger;
-    } rumble_triggers;
-    struct {
-      std::uint16_t report_rate;
-      std::uint8_t motion_type;
-    } motion_event_state;
-    struct {
-      std::uint8_t r;
-      std::uint8_t g;
-      std::uint8_t b;
-    } rgb_led;
-  } data;
-};
-
-using feedback_queue_t = safe::mail_raw_t::queue_t<gamepad_feedback_msg_t>;
-
 namespace speaker {
 enum speaker_e {
   FRONT_LEFT,
@@ -219,90 +149,6 @@ struct touch_port_t {
   int width, height;
 };
 
-// These values must match Limelight-internal.h's SS_FF_* constants!
-namespace platform_caps {
-typedef uint32_t caps_t;
-
-constexpr caps_t pen_touch = 0x01;        // Pen and touch events
-constexpr caps_t controller_touch = 0x02; // Controller touch events
-};                                        // namespace platform_caps
-
-struct gamepad_state_t {
-  std::uint32_t buttonFlags;
-  std::uint8_t lt;
-  std::uint8_t rt;
-  std::int16_t lsX;
-  std::int16_t lsY;
-  std::int16_t rsX;
-  std::int16_t rsY;
-};
-
-struct gamepad_id_t {
-  // The global index is used when looking up gamepads in the platform's
-  // gamepad array. It identifies gamepads uniquely among all clients.
-  int globalIndex;
-
-  // The client-relative index is the controller number as reported by the
-  // client. It must be used when communicating back to the client via
-  // the input feedback queue.
-  std::uint8_t clientRelativeIndex;
-};
-
-struct gamepad_arrival_t {
-  std::uint8_t type;
-  std::uint16_t capabilities;
-  std::uint32_t supportedButtons;
-};
-
-struct gamepad_touch_t {
-  gamepad_id_t id;
-  std::uint8_t eventType;
-  std::uint32_t pointerId;
-  float x;
-  float y;
-  float pressure;
-};
-
-struct gamepad_motion_t {
-  gamepad_id_t id;
-  std::uint8_t motionType;
-
-  // Accel: m/s^2
-  // Gyro: deg/s
-  float x;
-  float y;
-  float z;
-};
-
-struct gamepad_battery_t {
-  gamepad_id_t id;
-  std::uint8_t state;
-  std::uint8_t percentage;
-};
-
-struct touch_input_t {
-  std::uint8_t eventType;
-  std::uint16_t rotation; // Degrees (0..360) or LI_ROT_UNKNOWN
-  std::uint32_t pointerId;
-  float x;
-  float y;
-  float pressureOrDistance; // Distance for hover and pressure for contact
-  float contactAreaMajor;
-  float contactAreaMinor;
-};
-
-struct pen_input_t {
-  std::uint8_t eventType;
-  std::uint8_t toolType;
-  std::uint8_t penButtons;
-  std::uint8_t tilt;      // Degrees (0..90) or LI_TILT_UNKNOWN
-  std::uint16_t rotation; // Degrees (0..360) or LI_ROT_UNKNOWN
-  float x;
-  float y;
-  float pressureOrDistance; // Distance for hover and pressure for contact
-  float contactAreaMajor;
-  float contactAreaMinor;
-};
 
 class deinit_t {
 public:
@@ -529,15 +375,6 @@ struct high_precision_timer : private boost::noncopyable {
  */
 std::unique_ptr<high_precision_timer> create_high_precision_timer();
 
-void freeInput(void *);
-
-std::filesystem::path appdata();
-
-std::string get_mac_address(const std::string_view &address);
-
-std::string from_sockaddr(const sockaddr *const);
-std::pair<std::uint16_t, std::string> from_sockaddr_ex(const sockaddr *const);
-
 std::unique_ptr<audio_control_t> audio_control();
 
 /**
@@ -563,78 +400,6 @@ bool needs_encoder_reenumeration();
 
 enum class thread_priority_e : int { low, normal, high, critical };
 void adjust_thread_priority(thread_priority_e priority);
-
-void restart();
-
-struct batched_send_info_t {
-  const char *buffer;
-  size_t block_size;
-  size_t block_count;
-
-  std::uintptr_t native_socket;
-  boost::asio::ip::address &target_address;
-  uint16_t target_port;
-  boost::asio::ip::address &source_address;
-};
-bool send_batch(batched_send_info_t &send_info);
-
-struct send_info_t {
-  const char *buffer;
-  size_t size;
-
-  std::uintptr_t native_socket;
-  boost::asio::ip::address &target_address;
-  uint16_t target_port;
-  boost::asio::ip::address &source_address;
-};
-bool send(send_info_t &send_info);
-
-enum class qos_data_type_e : int { audio, video };
-
-/**
- * @brief Enables QoS on the given socket for traffic to the specified destination.
- * @param native_socket The native socket handle.
- * @param address The destination address for traffic sent on this socket.
- * @param port The destination port for traffic sent on this socket.
- * @param data_type The type of traffic sent on this socket.
- * @param dscp_tagging Specifies whether to enable DSCP tagging on outgoing traffic.
- */
-std::unique_ptr<deinit_t> enable_socket_qos(uintptr_t native_socket,
-                                            boost::asio::ip::address &address, uint16_t port,
-                                            qos_data_type_e data_type, bool dscp_tagging);
-
-/**
- * @brief Open a url in the default web browser.
- * @param url The url to open.
- */
-void open_url(const std::string &url);
-
-/**
- * @brief Attempt to gracefully terminate a process group.
- * @param native_handle The native handle of the process group.
- * @return true if termination was successfully requested.
- */
-bool request_process_group_exit(std::uintptr_t native_handle);
-
-/**
- * @brief Checks if a process group still has running children.
- * @param native_handle The native handle of the process group.
- * @return true if processes are still running.
- */
-bool process_group_running(std::uintptr_t native_handle);
-
-/**
- * @brief Returns the supported platform capabilities to advertise to the client.
- * @return Capability flags.
- */
-platform_caps::caps_t get_capabilities();
-
-#define SERVICE_NAME "Sunshine"
-#define SERVICE_TYPE "_nvstream._tcp"
-
-namespace publish {
-[[nodiscard]] std::unique_ptr<deinit_t> start();
-}
 
 [[nodiscard]] std::unique_ptr<deinit_t> init();
 } // namespace platf

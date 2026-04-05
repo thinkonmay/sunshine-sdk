@@ -17,7 +17,6 @@
 #include <boost/property_tree/ptree.hpp>
 
 #include "config.h"
-#include "file_handler.h"
 #include "logging.h"
 #include "utility.h"
 

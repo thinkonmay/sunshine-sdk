@@ -27,7 +27,6 @@ MAIL(framerate);
 MAIL(touch_port);
 MAIL(idr);
 MAIL(invalidate_ref_frames);
-MAIL(gamepad_feedback);
 MAIL(hdr);
 #undef MAIL
 

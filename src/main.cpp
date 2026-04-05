@@ -13,7 +13,6 @@
 // local includes
 #include "audio.h"
 #include "config.h"
-#include "file_handler.h"
 #include "globals.h"
 #include "input.h"
 #include "interprocess.h"
