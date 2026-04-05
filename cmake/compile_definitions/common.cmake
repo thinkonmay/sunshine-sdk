@@ -66,10 +66,8 @@ set(SUNSHINE_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/audio.cpp"
         "${CMAKE_SOURCE_DIR}/src/audio.h"
         "${CMAKE_SOURCE_DIR}/src/platform/common.h"
-        "${CMAKE_SOURCE_DIR}/src/move_by_copy.h"
         "${CMAKE_SOURCE_DIR}/src/thread_safe.h"
         "${CMAKE_SOURCE_DIR}/src/sync.h"
-        "${CMAKE_SOURCE_DIR}/src/round_robin.h"
         ${PLATFORM_TARGET_FILES})
 
 if(NOT SUNSHINE_ASSETS_DIR_DEF)
