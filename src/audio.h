@@ -5,6 +5,7 @@
 #pragma once
 
 #include "thread_safe.h"
+#include <bitset>
 #include "utility.h"
 namespace audio {
 enum stream_config_e : int {
