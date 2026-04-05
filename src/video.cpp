@@ -85,11 +85,7 @@ enum class profile_av1_e : int {
 util::Either<avcodec_buffer_t, int>
 dxgi_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *);
 util::Either<avcodec_buffer_t, int>
-vaapi_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *);
-util::Either<avcodec_buffer_t, int>
 cuda_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *);
-util::Either<avcodec_buffer_t, int>
-vt_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *);
 
 class avcodec_software_encode_device_t : public platf::avcodec_encode_device_t {
 public:
@@ -447,7 +443,6 @@ auto capture_thread_async =
 auto capture_thread_sync =
     safe::make_shared<capture_thread_sync_ctx_t>(start_capture_sync, end_capture_sync);
 
-#ifdef _WIN32
 encoder_t nvenc{
     "nvenc"sv,
     std::make_unique<encoder_platform_formats_nvenc>(
@@ -481,95 +476,7 @@ encoder_t nvenc{
     },
     PARALLEL_ENCODING | REF_FRAMES_INVALIDATION // flags
 };
-#elif !defined(__APPLE__)
-encoder_t nvenc{"nvenc"sv,
-                std::make_unique<encoder_platform_formats_avcodec>(
-#ifdef _WIN32
-                    AV_HWDEVICE_TYPE_D3D11VA, AV_HWDEVICE_TYPE_NONE, AV_PIX_FMT_D3D11,
-#else
-                    AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_NONE, AV_PIX_FMT_CUDA,
-#endif
-                    AV_PIX_FMT_NV12, AV_PIX_FMT_P010, AV_PIX_FMT_NONE, AV_PIX_FMT_NONE,
-#ifdef _WIN32
-                    dxgi_init_avcodec_hardware_input_buffer
-#else
-                    cuda_init_avcodec_hardware_input_buffer
-#endif
-                    ),
-                {
-                    // Common options
-                    {
-                        {"delay"s, 0},
-                        {"forced-idr"s, 1},
-                        {"zerolatency"s, 1},
-                        {"surfaces"s, 1},
-                        {"filler_data"s, false},
-                        {"preset"s, &config::video.nv_legacy.preset},
-                        {"tune"s, NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY},
-                        {"rc"s, NV_ENC_PARAMS_RC_CBR},
-                        {"multipass"s, &config::video.nv_legacy.multipass},
-                        {"aq"s, &config::video.nv_legacy.aq},
-                    },
-                    {}, // SDR-specific options
-                    {}, // HDR-specific options
-                    {}, // YUV444 SDR-specific options
-                    {}, // YUV444 HDR-specific options
-                    {}, // Fallback options
-                    "av1_nvenc"s,
-                },
-                {
-                    // Common options
-                    {
-                        {"delay"s, 0},
-                        {"forced-idr"s, 1},
-                        {"zerolatency"s, 1},
-                        {"surfaces"s, 1},
-                        {"preset"s, &config::video.nv_legacy.preset},
-                        {"tune"s, NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY},
-                        {"rc"s, NV_ENC_PARAMS_RC_CBR},
-                        {"multipass"s, &config::video.nv_legacy.multipass},
-                        {"aq"s, &config::video.nv_legacy.aq},
-                    },
-                    {
-                        // SDR-specific options
-                        {"profile"s, (int)nv::profile_hevc_e::main},
-                    },
-                    {
-                        // HDR-specific options
-                        {"profile"s, (int)nv::profile_hevc_e::main_10},
-                    },
-                    {}, // YUV444 SDR-specific options
-                    {}, // YUV444 HDR-specific options
-                    {}, // Fallback options
-                    "hevc_nvenc"s,
-                },
-                {
-                    {
-                        {"delay"s, 0},
-                        {"forced-idr"s, 1},
-                        {"zerolatency"s, 1},
-                        {"surfaces"s, 1},
-                        {"preset"s, &config::video.nv_legacy.preset},
-                        {"tune"s, NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY},
-                        {"rc"s, NV_ENC_PARAMS_RC_CBR},
-                        {"coder"s, &config::video.nv_legacy.h264_coder},
-                        {"multipass"s, &config::video.nv_legacy.multipass},
-                        {"aq"s, &config::video.nv_legacy.aq},
-                    },
-                    {
-                        // SDR-specific options
-                        {"profile"s, (int)nv::profile_h264_e::high},
-                    },
-                    {}, // HDR-specific options
-                    {}, // YUV444 SDR-specific options
-                    {}, // YUV444 HDR-specific options
-                    {}, // Fallback options
-                    "h264_nvenc"s,
-                },
-                PARALLEL_ENCODING};
-#endif
 
-#ifdef _WIN32
 encoder_t quicksync{
     "quicksync"sv,
     std::make_unique<encoder_platform_formats_avcodec>(
@@ -746,124 +653,11 @@ encoder_t amdvce{
         "h264_amf"s,
     },
     PARALLEL_ENCODING};
-#endif
-
-#ifdef __linux__
-encoder_t vaapi{"vaapi"sv,
-                std::make_unique<encoder_platform_formats_avcodec>(
-                    AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_NONE, AV_PIX_FMT_VAAPI,
-                    AV_PIX_FMT_NV12, AV_PIX_FMT_P010, AV_PIX_FMT_NONE, AV_PIX_FMT_NONE,
-                    vaapi_init_avcodec_hardware_input_buffer),
-                {
-                    // Common options
-                    {
-                        {"async_depth"s, 1},
-                        {"idr_interval"s, std::numeric_limits<int>::max()},
-                    },
-                    {}, // SDR-specific options
-                    {}, // HDR-specific options
-                    {}, // YUV444 SDR-specific options
-                    {}, // YUV444 HDR-specific options
-                    {}, // Fallback options
-                    "av1_vaapi"s,
-                },
-                {
-                    // Common options
-                    {
-                        {"async_depth"s, 1},
-                        {"sei"s, 0},
-                        {"idr_interval"s, std::numeric_limits<int>::max()},
-                    },
-                    {}, // SDR-specific options
-                    {}, // HDR-specific options
-                    {}, // YUV444 SDR-specific options
-                    {}, // YUV444 HDR-specific options
-                    {}, // Fallback options
-                    "hevc_vaapi"s,
-                },
-                {
-                    // Common options
-                    {
-                        {"async_depth"s, 1},
-                        {"sei"s, 0},
-                        {"idr_interval"s, std::numeric_limits<int>::max()},
-                    },
-                    {}, // SDR-specific options
-                    {}, // HDR-specific options
-                    {}, // YUV444 SDR-specific options
-                    {}, // YUV444 HDR-specific options
-                    {}, // Fallback options
-                    "h264_vaapi"s,
-                },
-                LIMITED_GOP_SIZE | PARALLEL_ENCODING | SINGLE_SLICE_ONLY | NO_RC_BUF_LIMIT};
-#endif
-
-#ifdef __APPLE__
-encoder_t videotoolbox{"videotoolbox"sv,
-                       std::make_unique<encoder_platform_formats_avcodec>(
-                           AV_HWDEVICE_TYPE_VIDEOTOOLBOX, AV_HWDEVICE_TYPE_NONE,
-                           AV_PIX_FMT_VIDEOTOOLBOX, AV_PIX_FMT_NV12, AV_PIX_FMT_P010,
-                           AV_PIX_FMT_NONE, AV_PIX_FMT_NONE, vt_init_avcodec_hardware_input_buffer),
-                       {
-                           // Common options
-                           {
-                               {"allow_sw"s, &config::video.vt.vt_allow_sw},
-                               {"require_sw"s, &config::video.vt.vt_require_sw},
-                               {"realtime"s, &config::video.vt.vt_realtime},
-                               {"prio_speed"s, 1},
-                           },
-                           {}, // SDR-specific options
-                           {}, // HDR-specific options
-                           {}, // Fallback options
-                           std::nullopt,
-                           "av1_videotoolbox"s,
-                       },
-                       {
-                           // Common options
-                           {
-                               {"allow_sw"s, &config::video.vt.vt_allow_sw},
-                               {"require_sw"s, &config::video.vt.vt_require_sw},
-                               {"realtime"s, &config::video.vt.vt_realtime},
-                               {"prio_speed"s, 1},
-                           },
-                           {}, // SDR-specific options
-                           {}, // HDR-specific options
-                           {}, // Fallback options
-                           std::nullopt,
-                           "hevc_videotoolbox"s,
-                       },
-                       {
-                           // Common options
-                           {
-                               {"allow_sw"s, &config::video.vt.vt_allow_sw},
-                               {"require_sw"s, &config::video.vt.vt_require_sw},
-                               {"realtime"s, &config::video.vt.vt_realtime},
-                               {"prio_speed"s, 1},
-                           },
-                           {}, // SDR-specific options
-                           {}, // HDR-specific options
-                           {}, // Fallback options
-                           std::nullopt,
-                           "h264_videotoolbox"s,
-                       },
-                       DEFAULT};
-#endif
 
 static const std::vector<encoder_t *> encoders{
-#ifndef __APPLE__
     &nvenc,
-#endif
-#ifdef _WIN32
     &quicksync,
     &amdvce
-#endif
-#ifdef __linux__
-        &vaapi
-#endif
-#ifdef __APPLE__
-            &videotoolbox
-#endif
-
 };
 
 static encoder_t *chosen_encoder;
@@ -1582,12 +1376,10 @@ make_avcodec_encode_session(platf::display_t *disp, const encoder_t &encoder,
       } else {
         ctx->rc_buffer_size = bitrate / config.framerate;
 
-#ifndef __APPLE__
         if (encoder.name == "nvenc" && config::video.nv_legacy.vbv_percentage_increase > 0) {
           ctx->rc_buffer_size +=
               ctx->rc_buffer_size * config::video.nv_legacy.vbv_percentage_increase / 100;
         }
-#endif
       }
     }
 
@@ -2670,38 +2462,6 @@ int probe_encoders() {
   return 0;
 }
 
-// Linux only declaration
-typedef int (*vaapi_init_avcodec_hardware_input_buffer_fn)(
-    platf::avcodec_encode_device_t *encode_device, AVBufferRef **hw_device_buf);
-
-util::Either<avcodec_buffer_t, int>
-vaapi_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *encode_device) {
-  avcodec_buffer_t hw_device_buf;
-
-  // If an egl hwdevice
-  if (encode_device->data) {
-    if (((vaapi_init_avcodec_hardware_input_buffer_fn)encode_device->data)(encode_device,
-                                                                           &hw_device_buf)) {
-      return -1;
-    }
-
-    return hw_device_buf;
-  }
-
-  auto render_device =
-      config::video.adapter_name.empty() ? nullptr : config::video.adapter_name.c_str();
-
-  auto status =
-      av_hwdevice_ctx_create(&hw_device_buf, AV_HWDEVICE_TYPE_VAAPI, render_device, nullptr, 0);
-  if (status < 0) {
-    char string[AV_ERROR_MAX_STRING_SIZE];
-    BOOST_LOG(error) << "Failed to create a VAAPI device: "sv
-                     << av_make_error_string(string, AV_ERROR_MAX_STRING_SIZE, status);
-    return -1;
-  }
-
-  return hw_device_buf;
-}
 
 util::Either<avcodec_buffer_t, int>
 cuda_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *encode_device) {
@@ -2719,21 +2479,6 @@ cuda_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *encode_d
   return hw_device_buf;
 }
 
-util::Either<avcodec_buffer_t, int>
-vt_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *encode_device) {
-  avcodec_buffer_t hw_device_buf;
-
-  auto status =
-      av_hwdevice_ctx_create(&hw_device_buf, AV_HWDEVICE_TYPE_VIDEOTOOLBOX, nullptr, nullptr, 0);
-  if (status < 0) {
-    char string[AV_ERROR_MAX_STRING_SIZE];
-    BOOST_LOG(error) << "Failed to create a VideoToolbox device: "sv
-                     << av_make_error_string(string, AV_ERROR_MAX_STRING_SIZE, status);
-    return -1;
-  }
-
-  return hw_device_buf;
-}
 
 #ifdef _WIN32
 }

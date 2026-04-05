@@ -200,22 +200,9 @@ struct encode_session_t {
   virtual void invalidate_ref_frames(int64_t first_frame, int64_t last_frame) = 0;
 };
 
-#if !defined(__APPLE__)
 extern encoder_t nvenc; // available for windows and linux
-#endif
-
-#ifdef _WIN32
 extern encoder_t amdvce;
 extern encoder_t quicksync;
-#endif
-
-#ifdef __linux__
-extern encoder_t vaapi;
-#endif
-
-#ifdef __APPLE__
-extern encoder_t videotoolbox;
-#endif
 
 struct packet_raw_t {
   virtual ~packet_raw_t() = default;
