@@ -188,10 +188,6 @@ int main(int argc, char *argv[]) {
         BOOST_LOG(info) << "framerate changed to " << (int)(buffer[1]);
         framerate->raise(buffer[1]);
         break;
-      case EventType::Pointer:
-        BOOST_LOG(info) << "pointer changed to " << (bool)(buffer[1] != 0);
-        display_cursor = buffer[1] != 0;
-        break;
       case EventType::Idr:
         BOOST_LOG(debug) << "IDR";
         idr->raise(true);
@@ -201,7 +197,6 @@ int main(int argc, char *argv[]) {
         process_shutdown_event->raise(true);
         break;
       default:
-        BOOST_LOG(info) << "invalid message " << u_int(buffer[0]) << " " << u_int(buffer[1]);
         break;
       }
     }
