@@ -18,7 +18,6 @@
 #include "interprocess.h"
 #include "logging.h"
 #include "platform/common.h"
-#include "version.h"
 #include "video.h"
 
 #ifdef _WIN32
