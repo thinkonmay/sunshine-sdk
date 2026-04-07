@@ -6,9 +6,11 @@
 // standard includes
 #include <codecvt>
 #include <csignal>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <smemory.h>
+#include <sstream>
 
 // local includes
 #include "audio.h"
@@ -87,21 +89,25 @@ int main(int argc, char *argv[]) {
 #pragma GCC diagnostic pop
 
   mail::man = std::make_shared<safe::mail_raw_t>();
-  auto ivshmem = new IVSHMEM(argv[1]);
-  ivshmem->Initialize();
   MediaMemory *memory = NULL;
-  if (ivshmem->GetSize() < (UINT64)sizeof(MediaMemory)) {
-    BOOST_LOG(error) << "Invalid  ivshmem size: "sv << ivshmem->GetSize();
-    BOOST_LOG(error) << "Expected ivshmem size: "sv << sizeof(MediaMemory);
-    memory = (MediaMemory *)malloc(sizeof(MediaMemory));
-  } else {
-    BOOST_LOG(info) << "Found ivshmem shared memory"sv;
-    memory = (MediaMemory *)ivshmem->GetMemory();
+  IVSHMEM *ivshmem = NULL;
+  if (argc >= 2) {
+    ivshmem = new IVSHMEM(argv[1]);
+    ivshmem->Initialize();
+    if (ivshmem->GetSize() >= (UINT64)sizeof(MediaMemory)) {
+      BOOST_LOG(info) << "Found ivshmem shared memory"sv;
+      memory = (MediaMemory *)ivshmem->GetMemory();
+    }
   }
 
   auto log_deinit_guard = logging::init(config::sunshine.min_log_level);
   if (!log_deinit_guard) {
     BOOST_LOG(error) << "Logging failed to initialize"sv;
+  }
+
+  if (memory == NULL) {
+    BOOST_LOG(info) << "ivshmem shared memory not available, using mockup memory block"sv;
+    memory = (MediaMemory *)calloc(1, sizeof(MediaMemory));
   }
 
   // Create signal handler after logging has been initialized
@@ -110,14 +116,16 @@ int main(int argc, char *argv[]) {
     BOOST_LOG(info) << "Interrupt handler called"sv;
     logging::log_flush();
     process_shutdown_event->raise(true);
-    ivshmem->DeInitialize();
+    if (ivshmem)
+      ivshmem->DeInitialize();
   });
 
   on_signal(SIGTERM, [process_shutdown_event, ivshmem]() {
     BOOST_LOG(info) << "Terminate handler called"sv;
     logging::log_flush();
     process_shutdown_event->raise(true);
-    ivshmem->DeInitialize();
+    if (ivshmem)
+      ivshmem->DeInitialize();
   });
 
   // Wait as long as possible to terminate Sunshine.exe during logoff/shutdown
