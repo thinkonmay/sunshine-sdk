@@ -200,6 +200,9 @@ struct encode_session_t {
   virtual void invalidate_ref_frames(int64_t first_frame, int64_t last_frame) = 0;
 };
 
+// encoders
+extern encoder_t software;
+
 extern encoder_t nvenc; // available for windows and linux
 extern encoder_t amdvce;
 extern encoder_t quicksync;

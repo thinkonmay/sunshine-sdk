@@ -33,8 +33,6 @@ extern "C" {
 }
 #endif
 
-// #define ALLOW_SW_ENCODER
-
 using namespace std::literals;
 namespace video {
 
@@ -654,7 +652,69 @@ encoder_t amdvce{
     },
     PARALLEL_ENCODING};
 
-static const std::vector<encoder_t *> encoders{&nvenc, &quicksync, &amdvce};
+encoder_t software{
+    "software"sv,
+    std::make_unique<encoder_platform_formats_avcodec>(
+        AV_HWDEVICE_TYPE_NONE, AV_HWDEVICE_TYPE_NONE, AV_PIX_FMT_NONE, AV_PIX_FMT_YUV420P,
+        AV_PIX_FMT_YUV420P10, AV_PIX_FMT_YUV444P, AV_PIX_FMT_YUV444P10, nullptr),
+    {
+        // libsvtav1 takes different presets than libx264/libx265.
+        // We set an infinite GOP length, use a low delay prediction structure,
+        // force I frames to be key frames, and set max bitrate to default to work
+        // around a FFmpeg bug with CBR mode.
+        {
+            {"svtav1-params"s, "keyint=-1:pred-struct=1:force-key-frames=1:mbr=0"s},
+            {"preset"s, &config::video.sw.svtav1_preset},
+        },
+        {}, // SDR-specific options
+        {}, // HDR-specific options
+        {}, // YUV444 SDR-specific options
+        {}, // YUV444 HDR-specific options
+        {}, // Fallback options
+
+#ifdef ENABLE_BROKEN_AV1_ENCODER
+            // Due to bugs preventing on-demand IDR frames from working and very poor
+            // real-time encoding performance, we do not enable libsvtav1 by default.
+            // It is only suitable for testing AV1 until the IDR frame issue is fixed.
+        "libsvtav1"s,
+#else
+        {},
+#endif
+    },
+    {
+        // x265's Info SEI is so long that it causes the IDR picture data to be
+        // kicked to the 2nd packet in the frame, breaking Moonlight's parsing logic.
+        // It also looks like gop_size isn't passed on to x265, so we have to set
+        // 'keyint=-1' in the parameters ourselves.
+        {
+            {"forced-idr"s, 1},
+            {"x265-params"s, "info=0:keyint=-1"s},
+            {"preset"s, &config::video.sw.sw_preset},
+            {"tune"s, &config::video.sw.sw_tune},
+        },
+        {}, // SDR-specific options
+        {}, // HDR-specific options
+        {}, // YUV444 SDR-specific options
+        {}, // YUV444 HDR-specific options
+        {}, // Fallback options
+        "libx265"s,
+    },
+    {
+        // Common options
+        {
+            {"preset"s, &config::video.sw.sw_preset},
+            {"tune"s, &config::video.sw.sw_tune},
+        },
+        {}, // SDR-specific options
+        {}, // HDR-specific options
+        {}, // YUV444 SDR-specific options
+        {}, // YUV444 HDR-specific options
+        {}, // Fallback options
+        "libx264"s,
+    },
+    H264_ONLY | PARALLEL_ENCODING | ALWAYS_REPROBE | YUV444_SUPPORT};
+
+static const std::vector<encoder_t *> encoders{&nvenc, &quicksync, &amdvce, &software};
 
 static encoder_t *chosen_encoder;
 int active_hevc_mode;
@@ -932,8 +992,8 @@ void captureThread(std::shared_ptr<safe::queue_t<capture_ctx_t>> capture_ctx_que
       // New displays will only be created in this thread.
       while (display_wp->use_count() != 1) {
         // Free images that weren't consumed by the encoders. These can reference the display and
-        // prevent the ref count from reaching 1. We do this here rather than on the encoder thread
-        // to avoid race conditions where the encoding loop might free a good frame after
+        // prevent the ref count from reaching 1. We do this here rather than on the encoder
+        // thread to avoid race conditions where the encoding loop might free a good frame after
         // reinitializing if we capture a new frame here before the encoder has finished
         // reinitializing.
         KITTY_WHILE_LOOP(auto capture_ctx = std::begin(capture_ctxs),
@@ -2120,8 +2180,8 @@ bool validate_encoder(encoder_t &encoder, bool expect_failure) {
     return false;
   }
 
-  // If we're expecting failure, use the autoselect ref config first since that will always succeed
-  // if the encoder is available.
+  // If we're expecting failure, use the autoselect ref config first since that will always
+  // succeed if the encoder is available.
   auto max_ref_frames_h264 =
       expect_failure ? -1 : validate_config(disp, encoder, config_max_ref_frames);
   auto autoselect_h264 = max_ref_frames_h264 >= 0
@@ -2264,6 +2324,10 @@ bool validate_encoder(encoder_t &encoder, bool expect_failure) {
 int probe_encoders() {
   auto encoder_list = encoders;
 
+  if (config::sunshine.flags[config::flag::FORCE_SOFTWARE_ENCODER]) {
+    encoder_list = {&software};
+  }
+
   // If we already have a good encoder, check to see if another probe is required
   if (chosen_encoder && !(chosen_encoder->flags & ALWAYS_REPROBE) &&
       !platf::needs_encoder_reenumeration()) {
@@ -2382,8 +2446,8 @@ int probe_encoders() {
         continue;
       }
 
-      // We will return an encoder here even if it fails one of the codec requirements specified by
-      // the user
+      // We will return an encoder here even if it fails one of the codec requirements specified
+      // by the user
       adjust_encoder_constraints(encoder);
 
       chosen_encoder = encoder;

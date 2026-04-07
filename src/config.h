@@ -96,6 +96,7 @@ enum flag_e : std::size_t {
   FORCE_VIDEO_HEADER_REPLACE, // force replacing headers inside video data
   UPNP,                       // Try Universal Plug 'n Play
   CONST_PIN,                  // Use "universal" pin
+  FORCE_SOFTWARE_ENCODER,     // Force software encoding
   FLAG_SIZE
 };
 }

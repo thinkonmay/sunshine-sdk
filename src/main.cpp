@@ -11,6 +11,7 @@
 #include <iostream>
 #include <smemory.h>
 #include <sstream>
+#include <string_view>
 
 // local includes
 #include "audio.h"
@@ -91,12 +92,17 @@ int main(int argc, char *argv[]) {
   mail::man = std::make_shared<safe::mail_raw_t>();
   MediaMemory *memory = NULL;
   IVSHMEM *ivshmem = NULL;
-  if (argc >= 2) {
-    ivshmem = new IVSHMEM(argv[1]);
-    ivshmem->Initialize();
-    if (ivshmem->GetSize() >= (UINT64)sizeof(MediaMemory)) {
-      BOOST_LOG(info) << "Found ivshmem shared memory"sv;
-      memory = (MediaMemory *)ivshmem->GetMemory();
+  for (int i = 1; i < argc; ++i) {
+    std::string arg = argv[i];
+    if (arg == "--force-sw"sv || arg == "-fsw"sv) {
+      config::sunshine.flags.set(config::flag::FORCE_SOFTWARE_ENCODER);
+    } else if (!ivshmem) {
+      ivshmem = new IVSHMEM(argv[i]);
+      ivshmem->Initialize();
+      if (ivshmem->GetSize() >= (UINT64)sizeof(MediaMemory)) {
+        BOOST_LOG(info) << "Found ivshmem shared memory"sv;
+        memory = (MediaMemory *)ivshmem->GetMemory();
+      }
     }
   }
 
