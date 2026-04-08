@@ -187,6 +187,7 @@ int main(int argc, char *argv[]) {
     auto framerate = mail->event<int>(mail::framerate);
     auto idr = mail->event<bool>(mail::idr);
 
+    int new_framerate;
     auto expected_index = queue->outindex;
     char buffer[DATA_PACKET_SIZE] = {0};
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
@@ -208,11 +209,12 @@ int main(int argc, char *argv[]) {
         bitrate->raise(buffer[1] * 1000);
         break;
       case EventType::Framerate:
-        if (buffer[1] < 20)
+        new_framerate = buffer[1] * 2;
+        if (new_framerate < 20)
           break;
 
-        BOOST_LOG(info) << "framerate changed to " << (int)(buffer[1]);
-        framerate->raise(buffer[1]);
+        BOOST_LOG(info) << "framerate changed to " << new_framerate;
+        framerate->raise(new_framerate);
         break;
       case EventType::Idr:
         idr->raise(true);
