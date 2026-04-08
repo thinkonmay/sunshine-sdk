@@ -213,8 +213,10 @@ int main(int argc, char *argv[]) {
         framerate->raise(buffer[1]);
         break;
       case EventType::Idr:
-        BOOST_LOG(debug) << "IDR";
         idr->raise(true);
+        break;
+      case EventType::Pointer:
+        display_cursor = buffer[1] != 0;
         break;
       default:
         break;
