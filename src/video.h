@@ -307,6 +307,6 @@ extern bool last_encoder_probe_supported_ref_frames_invalidation;
 
 void capture(safe::mail_t mail, config_t config, void *channel_data);
 
-bool validate_encoder(encoder_t &encoder, bool expect_failure);
 int probe_encoders();
+
 } // namespace video

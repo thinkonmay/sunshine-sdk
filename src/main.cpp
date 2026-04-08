@@ -235,9 +235,7 @@ int main(int argc, char *argv[]) {
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown = mail->event<bool>(mail::shutdown);
 
-#ifdef _WIN32
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
-#endif
 
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       do {
@@ -286,9 +284,7 @@ int main(int argc, char *argv[]) {
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown = mail->event<bool>(mail::shutdown);
 
-#ifdef _WIN32
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
-#endif
 
     char sum = 0;
     uint64_t findex = 0;
