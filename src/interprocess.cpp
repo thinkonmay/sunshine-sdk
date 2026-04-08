@@ -22,6 +22,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include <malloc.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <windows.h>
 
 #include <initguid.h>
@@ -96,7 +97,7 @@ typedef struct IVSHMEM_EVENT {
 
 IVSHMEM *IVSHMEM::m_instance = NULL;
 
-IVSHMEM::IVSHMEM(char *path)
+IVSHMEM::IVSHMEM(const char *path)
     : m_initialized(false), m_handle(INVALID_HANDLE_VALUE), m_gotSize(false), m_gotMemory(false) {
   memset(m_devPath, 0, 512);
   memcpy(m_devPath, path, strlen(path));
@@ -205,4 +206,58 @@ void copy_to_packet(MediaPacket *packet, void *data, size_t size) {
 void copy_to_dpacket(DataPacket *packet, void *data, size_t size) {
   memcpy(packet->data + packet->size, data, size);
   packet->size += size;
+}
+
+SharedMemory::SharedMemory(const char *name, size_t size)
+    : m_size(size), m_handle(NULL), m_memory(NULL), m_initialized(false) {
+  memset(m_name, 0, 512);
+  if (name) {
+    strncpy(m_name, name, 511);
+  }
+}
+
+SharedMemory::~SharedMemory() {
+  DeInitialize();
+}
+
+bool SharedMemory::Initialize() {
+  if (m_initialized)
+    DeInitialize();
+
+  m_handle = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, m_name);
+  if (m_handle == NULL) {
+    BOOST_LOG(error) << "OpenFileMappingA failed for " << m_name << ": " << GetLastError();
+    return false;
+  }
+
+  m_memory = MapViewOfFile(m_handle, FILE_MAP_ALL_ACCESS, 0, 0, m_size);
+  if (m_memory == NULL) {
+    BOOST_LOG(error) << "MapViewOfFile failed: " << GetLastError();
+    CloseHandle(m_handle);
+    m_handle = NULL;
+    return false;
+  }
+
+  m_initialized = true;
+  return true;
+}
+
+void SharedMemory::DeInitialize() {
+  if (m_memory) {
+    UnmapViewOfFile(m_memory);
+    m_memory = NULL;
+  }
+  if (m_handle) {
+    CloseHandle(m_handle);
+    m_handle = NULL;
+  }
+  m_initialized = false;
+}
+
+size_t SharedMemory::GetSize() {
+  return m_size;
+}
+
+void *SharedMemory::GetMemory() {
+  return m_memory;
 }

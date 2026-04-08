@@ -4,14 +4,15 @@
  */
 
 // standard includes
+#include "smemory.h"
 #include <codecvt>
 #include <csignal>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
-#include "smemory.h"
 #include <sstream>
 #include <string_view>
+
 
 // local includes
 #include "audio.h"
@@ -92,17 +93,19 @@ int main(int argc, char *argv[]) {
   mail::man = std::make_shared<safe::mail_raw_t>();
   MediaMemory *memory = NULL;
   IVSHMEM *ivshmem = NULL;
+  SharedMemory *shm = NULL;
+
+  std::string ivshmem_path;
+  std::string shm_name;
+
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
     if (arg == "--force-sw"sv || arg == "-fsw"sv) {
       config::sunshine.flags.set(config::flag::FORCE_SOFTWARE_ENCODER);
-    } else if (!ivshmem) {
-      ivshmem = new IVSHMEM(argv[i]);
-      ivshmem->Initialize();
-      if (ivshmem->GetSize() >= (UINT64)sizeof(MediaMemory)) {
-        BOOST_LOG(info) << "Found ivshmem shared memory"sv;
-        memory = (MediaMemory *)ivshmem->GetMemory();
-      }
+    } else if (arg == "--ivshmem"sv && i + 1 < argc) {
+      ivshmem_path = argv[++i];
+    } else if (arg == "--shm"sv && i + 1 < argc) {
+      shm_name = argv[++i];
     }
   }
 
@@ -111,27 +114,45 @@ int main(int argc, char *argv[]) {
     BOOST_LOG(error) << "Logging failed to initialize"sv;
   }
 
+  if (!ivshmem_path.empty()) {
+    ivshmem = new IVSHMEM(ivshmem_path.c_str());
+    if (ivshmem->Initialize() && ivshmem->GetSize() >= sizeof(MediaMemory)) {
+      BOOST_LOG(info) << "Found ivshmem shared memory"sv;
+      memory = (MediaMemory *)ivshmem->GetMemory();
+    }
+  } else if (!shm_name.empty()) {
+    shm = new SharedMemory(shm_name.c_str(), sizeof(MediaMemory));
+    if (shm->Initialize()) {
+      BOOST_LOG(info) << "Found named shared memory: " << shm_name;
+      memory = (MediaMemory *)shm->GetMemory();
+    }
+  }
+
   if (memory == NULL) {
-    BOOST_LOG(info) << "ivshmem shared memory not available, using mockup memory block"sv;
+    BOOST_LOG(info) << "IPC shared memory not available, using mockup memory block"sv;
     memory = (MediaMemory *)calloc(1, sizeof(MediaMemory));
   }
 
   // Create signal handler after logging has been initialized
   auto process_shutdown_event = mail::man->event<bool>(mail::shutdown);
-  on_signal(SIGINT, [process_shutdown_event, ivshmem]() {
+  on_signal(SIGINT, [process_shutdown_event, ivshmem, shm]() {
     BOOST_LOG(info) << "Interrupt handler called"sv;
     logging::log_flush();
     process_shutdown_event->raise(true);
     if (ivshmem)
       ivshmem->DeInitialize();
+    if (shm)
+      shm->DeInitialize();
   });
 
-  on_signal(SIGTERM, [process_shutdown_event, ivshmem]() {
+  on_signal(SIGTERM, [process_shutdown_event, ivshmem, shm]() {
     BOOST_LOG(info) << "Terminate handler called"sv;
     logging::log_flush();
     process_shutdown_event->raise(true);
     if (ivshmem)
       ivshmem->DeInitialize();
+    if (shm)
+      shm->DeInitialize();
   });
 
   // Wait as long as possible to terminate Sunshine.exe during logoff/shutdown

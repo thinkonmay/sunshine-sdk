@@ -25,7 +25,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 
 class IVSHMEM {
 public:
-  IVSHMEM(char *path);
+  IVSHMEM(const char *path);
   ~IVSHMEM();
 
   bool Initialize();
@@ -45,6 +45,24 @@ private:
   bool m_gotSize;
   void *m_memory;
   bool m_gotMemory;
+};
+
+class SharedMemory {
+public:
+  SharedMemory(const char *name, size_t size);
+  ~SharedMemory();
+
+  bool Initialize();
+  void DeInitialize();
+  size_t GetSize();
+  void *GetMemory();
+
+private:
+  char m_name[512];
+  size_t m_size;
+  HANDLE m_handle;
+  void *m_memory;
+  bool m_initialized;
 };
 
 void copy_to_packet(MediaPacket *packet, void *data, size_t size);
