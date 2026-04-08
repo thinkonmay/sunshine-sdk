@@ -5,6 +5,8 @@
 
 // standard includes
 #include "smemory.h"
+#include <atomic>
+#include <chrono>
 #include <codecvt>
 #include <csignal>
 #include <cstdlib>
@@ -13,12 +15,10 @@
 #include <sstream>
 #include <string_view>
 
-
 // local includes
 #include "audio.h"
 #include "config.h"
 #include "globals.h"
-#include "input.h"
 #include "interprocess.h"
 #include "logging.h"
 #include "platform/common.h"
@@ -28,7 +28,7 @@
 #include <Windows.h>
 #endif
 
-enum StatusCode { NORMAL_EXIT, INVALID_IVSHMEM, NO_ENCODER_AVAILABLE };
+enum StatusCode { NORMAL_EXIT, NO_ENCODER_AVAILABLE };
 enum QueueType {
   Video,
   Audio,
@@ -36,6 +36,8 @@ enum QueueType {
 enum EventType { Pointer, Bitrate, Framerate, Idr, Hdr, Stop, BufferOverflow, EventMax };
 
 using namespace std::literals;
+using namespace std::chrono_literals;
+using namespace std::chrono;
 
 std::map<int, std::function<void()>> signal_handlers;
 void on_signal_forwarder(int sig) {
@@ -224,11 +226,14 @@ int main(int argc, char *argv[]) {
     }
   };
 
-  auto push_video = [process_shutdown_event](safe::mail_t mail, MediaQueue *queue) {
+  auto last_video_packet_time =
+      std::make_shared<std::atomic<uint64_t>>(steady_clock::now().time_since_epoch().count());
+
+  auto push_video = [process_shutdown_event, last_video_packet_time](safe::mail_t mail,
+                                                                     MediaQueue *queue) {
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown = mail->event<bool>(mail::shutdown);
-    auto touch_port = mail->event<input::touch_port_t>(mail::touch_port);
 
 #ifdef _WIN32
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
@@ -238,6 +243,7 @@ int main(int argc, char *argv[]) {
       do {
         uint8_t flags = 0;
         auto packet = video_packets->pop();
+        last_video_packet_time->store(steady_clock::now().time_since_epoch().count());
         auto findex = packet->frame_index();
         std::string_view payload{(char *)packet->data(), packet->data_size()};
         std::vector<uint8_t> payload_with_replacements;
@@ -279,7 +285,6 @@ int main(int argc, char *argv[]) {
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown = mail->event<bool>(mail::shutdown);
-    auto touch_port = mail->event<input::touch_port_t>(mail::touch_port);
 
 #ifdef _WIN32
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
@@ -292,7 +297,7 @@ int main(int argc, char *argv[]) {
         auto packet = audio_packets->pop();
         char *ptr = (char *)packet->second.begin();
         size_t size = packet->second.size();
-        uint64_t utimestamp = std::chrono::steady_clock::now().time_since_epoch().count();
+        uint64_t utimestamp = steady_clock::now().time_since_epoch().count();
 
         auto updated = queue->inindex + 1;
         if (updated >= IN_QUEUE_SIZE)
@@ -312,45 +317,14 @@ int main(int argc, char *argv[]) {
       local_shutdown->raise(true);
   };
 
-  auto touch_fun = [mail, process_shutdown_event](QueueMetadata *metadata) {
-    auto timer = platf::create_high_precision_timer();
-    auto local_shutdown = mail->event<bool>(mail::shutdown);
-    auto touch_port = mail->event<input::touch_port_t>(mail::touch_port);
-
-    while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
-      if (!touch_port->peek()) {
-        timer->sleep_for(100ms);
-      } else {
-        auto touch = touch_port->pop();
-        if (touch.has_value()) {
-          auto value = touch.value();
-          metadata->client_offsetX = value.client_offsetX;
-          metadata->client_offsetY = value.client_offsetY;
-          metadata->offsetX = value.offset_x;
-          metadata->offsetY = value.offset_y;
-          metadata->env_height = value.env_height;
-          metadata->env_width = value.env_width;
-          metadata->height = value.height;
-          metadata->width = value.width;
-          metadata->scalar_inv = value.scalar_inv;
-        }
-      }
-    }
-
-    if (!local_shutdown->peek())
-      local_shutdown->raise(true);
-  };
-
   {
     auto displays = platf::display_names(platf::mem_type_e::dxgi);
     for (int i = 0; i < displays.size(); i++) {
       auto codec = memory->video[i].metadata.codec;
       auto capture = std::thread{video_capture, mail, displays.at(i), codec};
       auto forward = std::thread{push_video, mail, &memory->video[i].internal};
-      auto touch_thread = std::thread{touch_fun, &memory->video[i].metadata};
       auto receive = std::thread{pull, &memory->video[i].internal};
       receive.detach();
-      touch_thread.detach();
       capture.detach();
       forward.detach();
     }
@@ -365,11 +339,18 @@ int main(int argc, char *argv[]) {
 
   auto timer = platf::create_high_precision_timer();
   auto local_shutdown = mail->event<bool>(mail::shutdown);
-  while (!process_shutdown_event->peek() && !local_shutdown->peek())
+  while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
+    auto now = steady_clock::now().time_since_epoch().count();
+    auto last = last_video_packet_time->load();
+    if (now - last > duration_cast<nanoseconds>(seconds(10)).count()) {
+      BOOST_LOG(error) << "No video packets received for 10 seconds. Exiting...";
+      local_shutdown->raise(true);
+      break;
+    }
     timer->sleep_for(100ms);
+  }
 
   BOOST_LOG(info) << "Closed";
-  // let other threads to close
   timer->sleep_for(1s);
 
   return StatusCode::NORMAL_EXIT;
