@@ -143,11 +143,7 @@ inline std::string_view from_pix_fmt(pix_fmt_e pix_fmt) {
   return "unknown"sv;
 }
 
-// Dimensions for touchscreen input
-struct touch_port_t {
-  int offset_x, offset_y;
-  int width, height;
-};
+
 
 class deinit_t {
 public:
