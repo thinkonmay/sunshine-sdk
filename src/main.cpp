@@ -165,7 +165,6 @@ int main(int argc, char *argv[]) {
     auto idr = mail->event<bool>(mail::idr);
 
     auto expected_index = queue->outindex;
-    auto last_bitrate = 6;
     char buffer[DATA_PACKET_SIZE] = {0};
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       while (expected_index == queue->outindex)
@@ -182,17 +181,8 @@ int main(int argc, char *argv[]) {
         if (buffer[1] == 0)
           break;
 
-        last_bitrate = buffer[1];
         BOOST_LOG(info) << "bitrate changed to " << (buffer[1] * 1000);
         bitrate->raise(buffer[1] * 1000);
-        break;
-      case EventType::BufferOverflow:
-        if (last_bitrate <= 1)
-          break;
-
-        last_bitrate--;
-        BOOST_LOG(info) << "overflow, bitrate changed to " << (last_bitrate * 1000);
-        bitrate->raise(last_bitrate * 1000);
         break;
       case EventType::Framerate:
         if (buffer[1] < 20)
@@ -204,10 +194,6 @@ int main(int argc, char *argv[]) {
       case EventType::Idr:
         BOOST_LOG(debug) << "IDR";
         idr->raise(true);
-        break;
-      case EventType::Stop:
-        BOOST_LOG(debug) << "Received shutdown event from shm";
-        process_shutdown_event->raise(true);
         break;
       default:
         break;
