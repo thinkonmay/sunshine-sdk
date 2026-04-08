@@ -46,7 +46,7 @@ opus_stream_config_t stream_configs[MAX_STREAM_CONFIG]{
         1,
         1,
         platf::speaker::map_stereo,
-        96000,
+        160000,
     },
     {
         SAMPLE_RATE,
@@ -62,7 +62,7 @@ opus_stream_config_t stream_configs[MAX_STREAM_CONFIG]{
         4,
         2,
         platf::speaker::map_surround51,
-        256000,
+        384000,
     },
     {
         SAMPLE_RATE,
@@ -78,7 +78,7 @@ opus_stream_config_t stream_configs[MAX_STREAM_CONFIG]{
         5,
         3,
         platf::speaker::map_surround71,
-        450000,
+        512000,
     },
     {
         SAMPLE_RATE,
@@ -104,7 +104,8 @@ void encodeThread(safe::mail_t mail, sample_queue_t samples, config_t config, vo
       stream->mapping, OPUS_APPLICATION_RESTRICTED_LOWDELAY, nullptr)};
 
   opus_multistream_encoder_ctl(opus.get(), OPUS_SET_BITRATE(stream->bitrate));
-  opus_multistream_encoder_ctl(opus.get(), OPUS_SET_VBR(0));
+  opus_multistream_encoder_ctl(opus.get(), OPUS_SET_VBR(1));
+  opus_multistream_encoder_ctl(opus.get(), OPUS_SET_COMPLEXITY(10));
 
   auto timer = platf::create_high_precision_timer();
   auto packet_duration = std::chrono::milliseconds(config.packetDuration);
