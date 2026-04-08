@@ -143,8 +143,6 @@ inline std::string_view from_pix_fmt(pix_fmt_e pix_fmt) {
   return "unknown"sv;
 }
 
-
-
 class deinit_t {
 public:
   virtual ~deinit_t() = default;

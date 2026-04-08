@@ -1586,25 +1586,19 @@ void encode_run(int &frame_nr, // Store progress of the frame number
     }
   }
 
-#ifdef _WIN32
-  auto timer = CreateWaitableTimerEx(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
-                                     TIMER_ALL_ACCESS);
-  if (!timer)
-    timer = CreateWaitableTimerEx(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
-#endif
-
+  auto timer = platf::create_high_precision_timer();
   std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
   auto last_frametimestamp = frame_timestamp;
 
   auto last_encode_timestamp = std::chrono::steady_clock::now();
   auto encode_timestamp = last_encode_timestamp;
 
-  while (true) {
-    if (shutdown_event->peek() || reinit_event.peek() || !images->running()) {
-      break;
-    }
+  auto frame_duration_ns = std::chrono::nanoseconds(1s / config->framerate).count();
 
-    bool requested_idr_frame = false;
+  bool requested_idr_frame = true;
+  while (true) {
+    if (shutdown_event->peek() || reinit_event.peek() || !images->running())
+      break;
 
     while (invalidate_ref_frames_events->peek()) {
       if (auto frames = invalidate_ref_frames_events->pop(0ms)) {
@@ -1618,27 +1612,25 @@ void encode_run(int &frame_nr, // Store progress of the frame number
     } else if (framerate_events->peek()) {
       config->framerate = framerate_events->pop().value();
       break;
-    }
-
-    if (idr_events->peek()) {
+    } else if (idr_events->peek()) {
       requested_idr_frame = true;
       idr_events->pop();
     }
 
     if (requested_idr_frame) {
       session->request_idr_frame();
+      requested_idr_frame = false;
     }
 
-    if (!requested_idr_frame || images->peek()) {
-      if (auto img = images->pop(1ms)) {
+    if (images->peek()) {
+      if (auto img = images->pop(0ms)) {
         frame_timestamp = img->frame_timestamp;
         if (session->convert(*img)) {
           BOOST_LOG(error) << "Could not convert image"sv;
           return;
         }
-      } else if (!images->running()) {
+      } else if (!images->running())
         break;
-      }
     }
 
     // use encode timestamp instead of frame timestamp in case
@@ -1648,21 +1640,11 @@ void encode_run(int &frame_nr, // Store progress of the frame number
     last_frametimestamp = frame_timestamp;
 
     encode_timestamp = std::chrono::steady_clock::now();
-    auto sleep_period = std::chrono::nanoseconds(1s).count() / config->framerate -
-                        (encode_timestamp - last_encode_timestamp).count();
-
+    auto sleep_period = frame_duration_ns - (encode_timestamp - last_encode_timestamp).count();
     last_encode_timestamp = encode_timestamp;
 
-    if (sleep_period > 0) {
-#ifdef _WIN32
-      LARGE_INTEGER due_time;
-      due_time.QuadPart = sleep_period / -100;
-      SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, false);
-      WaitForSingleObject(timer, INFINITE);
-#else
+    if (sleep_period > 0)
       timer->sleep_for(sleep_period * 1ns);
-#endif
-    }
 
     if (encode(frame_nr++, *session, packets, channel_data, frame_timestamp)) {
       BOOST_LOG(error) << "Could not encode video packet"sv;
@@ -1694,7 +1676,7 @@ make_encode_device(platf::display_t &disp, const encoder_t &encoder, const confi
   return result;
 }
 
-void capture_async(safe::mail_t mail, config_t &config, void *channel_data) {
+void capture(safe::mail_t mail, config_t config, void *channel_data) {
   auto shutdown_event = mail->event<bool>(mail::shutdown);
 
   auto images = std::make_shared<img_event_t::element_type>();
@@ -1732,42 +1714,29 @@ void capture_async(safe::mail_t mail, config_t &config, void *channel_data) {
     std::shared_ptr<platf::display_t> display;
     {
       auto lg = ref->display_wp.lock();
-      if (ref->display_wp->expired()) {
+      if (ref->display_wp->expired())
         continue;
-      }
-
       display = ref->display_wp->lock();
     }
 
     auto &encoder = *chosen_encoder;
-
     auto encode_device = make_encode_device(*display, encoder, config);
-    if (!encode_device) {
+    if (!encode_device)
       return;
-    }
 
     // Update client with our current HDR display state
     hdr_info_t hdr_info = std::make_unique<hdr_info_raw_t>(false);
-    if (colorspace_is_hdr(encode_device->colorspace)) {
-      if (display->get_hdr_metadata(hdr_info->metadata)) {
+    if (colorspace_is_hdr(encode_device->colorspace))
+      if (display->get_hdr_metadata(hdr_info->metadata))
         hdr_info->enabled = true;
-      } else {
+      else
         BOOST_LOG(error) << "Couldn't get display hdr metadata when colorspace selection indicates "
                             "it should have one";
-      }
-    }
     hdr_event->raise(std::move(hdr_info));
 
     encode_run(frame_nr, mail, images, &config, display, std::move(encode_device),
                ref->reinit_event, *ref->encoder_p, channel_data);
   }
-}
-
-void capture(safe::mail_t mail, config_t config, void *channel_data) {
-  auto idr_events = mail->event<bool>(mail::idr);
-
-  idr_events->raise(true);
-  capture_async(std::move(mail), config, channel_data);
 }
 
 enum validate_flag_e {

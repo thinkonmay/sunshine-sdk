@@ -9,7 +9,10 @@
 extern bool display_cursor;
 
 namespace mail {
-#define MAIL(x) constexpr auto x = std::string_view {#x}
+#define MAIL(x)                                                                                    \
+  constexpr auto x = std::string_view {                                                            \
+#x                                                                                             \
+  }
 
 extern safe::mail_t man;
 
