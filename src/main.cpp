@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
-#include <smemory.h>
+#include "smemory.h"
 #include <sstream>
 #include <string_view>
 
