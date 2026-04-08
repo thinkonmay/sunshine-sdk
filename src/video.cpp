@@ -1590,10 +1590,8 @@ void encode_run(int &frame_nr, // Store progress of the frame number
   std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
   auto last_frametimestamp = frame_timestamp;
 
-  auto last_encode_timestamp = std::chrono::steady_clock::now();
-  auto encode_timestamp = last_encode_timestamp;
-
-  auto frame_duration_ns = std::chrono::nanoseconds(1s / config->framerate).count();
+  auto frame_duration = std::chrono::nanoseconds(1s) / config->framerate;
+  auto next_frame_time = std::chrono::steady_clock::now();
 
   bool requested_idr_frame = true;
   while (true) {
@@ -1639,16 +1637,20 @@ void encode_run(int &frame_nr, // Store progress of the frame number
       frame_timestamp = std::chrono::steady_clock::now();
     last_frametimestamp = frame_timestamp;
 
-    encode_timestamp = std::chrono::steady_clock::now();
-    auto sleep_period = frame_duration_ns - (encode_timestamp - last_encode_timestamp).count();
-    last_encode_timestamp = encode_timestamp;
-
-    if (sleep_period > 0)
-      timer->sleep_for(sleep_period * 1ns);
-
     if (encode(frame_nr++, *session, packets, channel_data, frame_timestamp)) {
       BOOST_LOG(error) << "Could not encode video packet"sv;
       return;
+    }
+
+    // Calculate sleep period based on absolute target
+    next_frame_time += frame_duration;
+    auto now = std::chrono::steady_clock::now();
+
+    if (next_frame_time > now) {
+      timer->sleep_for(next_frame_time - now);
+    } else if (now - next_frame_time > 1s) {
+      // Reset target if we fall more than 1s behind
+      next_frame_time = now;
     }
 
     session->request_normal_frame();
