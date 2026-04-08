@@ -1647,9 +1647,17 @@ void encode_run(int &frame_nr, // Store progress of the frame number
     auto now = std::chrono::steady_clock::now();
 
     if (next_frame_time > now) {
-      timer->sleep_for(next_frame_time - now);
-    } else if (now - next_frame_time > 1s) {
-      // Reset target if we fall more than 1s behind
+      auto duration = next_frame_time - now;
+      if (duration > 100ms) {
+        // Safety cap and recover from future jumps
+        duration = 100ms;
+        if (next_frame_time - now > 1s) {
+          next_frame_time = now + 100ms;
+        }
+      }
+      timer->sleep_for(duration);
+    } else if (now - next_frame_time > 100ms) {
+      // Reset target if we fall more than 100ms behind to avoid massive bursts
       next_frame_time = now;
     }
 

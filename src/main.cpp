@@ -241,6 +241,9 @@ int main(int argc, char *argv[]) {
       do {
         uint8_t flags = 0;
         auto packet = video_packets->pop();
+        if (!packet)
+          break;
+
         last_video_packet_time->store(steady_clock::now().time_since_epoch().count());
         auto findex = packet->frame_index();
         std::string_view payload{(char *)packet->data(), packet->data_size()};
@@ -291,6 +294,9 @@ int main(int argc, char *argv[]) {
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       do {
         auto packet = audio_packets->pop();
+        if (!packet)
+          break;
+
         char *ptr = (char *)packet->second.begin();
         size_t size = packet->second.size();
         uint64_t utimestamp = steady_clock::now().time_since_epoch().count();

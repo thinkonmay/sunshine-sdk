@@ -106,6 +106,10 @@ void encodeThread(safe::mail_t mail, sample_queue_t samples, config_t config, vo
   opus_multistream_encoder_ctl(opus.get(), OPUS_SET_BITRATE(stream->bitrate));
   opus_multistream_encoder_ctl(opus.get(), OPUS_SET_VBR(0));
 
+  auto timer = platf::create_high_precision_timer();
+  auto packet_duration = std::chrono::milliseconds(config.packetDuration);
+  auto next_packet_time = std::chrono::steady_clock::now();
+
   auto frame_size = config.packetDuration * stream->sampleRate / 1000;
   while (auto sample = samples->pop()) {
     buffer_t packet{1400};
@@ -121,6 +125,25 @@ void encodeThread(safe::mail_t mail, sample_queue_t samples, config_t config, vo
 
     packet.fake_resize(bytes);
     packets->raise(channel_data, std::move(packet));
+
+    // Calculate sleep period based on absolute target
+    next_packet_time += packet_duration;
+    auto now = std::chrono::steady_clock::now();
+
+    if (next_packet_time > now) {
+      auto duration = next_packet_time - now;
+      if (duration > 100ms) {
+        // Safety cap and recover from future jumps
+        duration = 100ms;
+        if (next_packet_time - now > 1s) {
+          next_packet_time = now + 100ms;
+        }
+      }
+      timer->sleep_for(duration);
+    } else if (now - next_packet_time > 100ms) {
+      // Reset target if we fall more than 100ms behind to avoid massive bursts
+      next_packet_time = now;
+    }
   }
 }
 
