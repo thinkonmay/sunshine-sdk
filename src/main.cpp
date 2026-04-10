@@ -228,11 +228,7 @@ int main(int argc, char *argv[]) {
     }
   };
 
-  auto last_video_packet_time =
-      std::make_shared<std::atomic<uint64_t>>(steady_clock::now().time_since_epoch().count());
-
-  auto push_video = [process_shutdown_event, last_video_packet_time](safe::mail_t mail,
-                                                                     MediaQueue *queue) {
+  auto push_video = [process_shutdown_event](safe::mail_t mail, MediaQueue *queue) {
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown = mail->event<bool>(mail::shutdown);
@@ -246,7 +242,6 @@ int main(int argc, char *argv[]) {
         if (!packet)
           break;
 
-        last_video_packet_time->store(steady_clock::now().time_since_epoch().count());
         auto findex = packet->frame_index();
         std::string_view payload{(char *)packet->data(), packet->data_size()};
         std::vector<uint8_t> payload_with_replacements;
@@ -341,18 +336,8 @@ int main(int argc, char *argv[]) {
     forward.detach();
   }
 
-  auto timer = platf::create_high_precision_timer();
-  auto local_shutdown = mail->event<bool>(mail::shutdown);
-  while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
-    auto now = steady_clock::now().time_since_epoch().count();
-    auto last = last_video_packet_time->load();
-    if (now - last > duration_cast<nanoseconds>(seconds(10)).count()) {
-      BOOST_LOG(error) << "No video packets received for 10 seconds. Exiting...";
-      local_shutdown->raise(true);
-      break;
-    }
+  while (!process_shutdown_event->peek() && !local_shutdown->peek()) 
     timer->sleep_for(100ms);
-  }
 
   BOOST_LOG(info) << "Closed";
   timer->sleep_for(1s);
