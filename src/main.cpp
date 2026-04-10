@@ -336,7 +336,8 @@ int main(int argc, char *argv[]) {
     forward.detach();
   }
 
-  while (!process_shutdown_event->peek() && !local_shutdown->peek()) 
+  auto local_shutdown= mail->event<bool>(mail::shutdown);
+  while (!process_shutdown_event->peek() && !local_shutdown->peek())
     timer->sleep_for(100ms);
 
   BOOST_LOG(info) << "Closed";
