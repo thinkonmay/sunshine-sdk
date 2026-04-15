@@ -1,4 +1,6 @@
 #include "nvenc_base.h"
+#include <algorithm>
+
 
 #include "src/config.h"
 #include "src/logging.h"
@@ -106,6 +108,7 @@ bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_
   encoder_params.height = client_config.height;
   encoder_params.buffer_format = buffer_format;
   encoder_params.rfi = true;
+  encoder_params.intra_refresh = client_config.enableIntraRefresh;
 
   NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS session_params = {
       min_struct_version(NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS_VER)};
@@ -266,6 +269,12 @@ bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_
       format_config.chromaFormatIDC = 3;
     }
     format_config.enableFillerDataInsertion = config.insert_filler_data;
+
+    if (client_config.enableIntraRefresh) {
+      format_config.enableIntraRefresh = 1;
+      format_config.intraRefreshPeriod = std::max(1, (client_config.framerate * 200) / 1000);
+      format_config.intraRefreshCnt = format_config.intraRefreshPeriod - 1;
+    }
   };
 
   auto set_ref_frames = [&](uint32_t &ref_frames_option, NV_ENC_NUM_REF_FRAMES &L0_option,
@@ -344,6 +353,13 @@ bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_
     format_config.idrPeriod = NVENC_INFINITE_GOPLENGTH;
     format_config.chromaFormatIDC = 1; // YUV444 not supported by NVENC yet
     format_config.enableBitstreamPadding = config.insert_filler_data;
+
+    if (client_config.enableIntraRefresh) {
+      format_config.enableIntraRefresh = 1;
+      format_config.intraRefreshPeriod = std::max(1, (client_config.framerate * 200) / 1000);
+      format_config.intraRefreshCnt = format_config.intraRefreshPeriod - 1;
+    }
+
     if (buffer_is_10bit()) {
       format_config.inputPixelBitDepthMinus8 = 2;
       format_config.pixelBitDepthMinus8 = 2;

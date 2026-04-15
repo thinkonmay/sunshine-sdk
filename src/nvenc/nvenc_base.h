@@ -66,6 +66,7 @@ protected:
     NV_ENC_BUFFER_FORMAT buffer_format = NV_ENC_BUFFER_FORMAT_UNDEFINED;
     uint32_t ref_frames_in_dpb = 0;
     bool rfi = false;
+    bool intra_refresh = false;
   } encoder_params;
 
   // Derived classes set these variables
