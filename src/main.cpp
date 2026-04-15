@@ -171,11 +171,31 @@ int main(int argc, char *argv[]) {
   }
 
   auto video_capture = [&](safe::mail_t mail, std::string displayin, int codec) {
-    video::capture(mail, video::config_t{displayin, 1920, 1080, 60, 6000, 1, 0, 1, codec, 0}, NULL);
+    video::config_t config;
+    config.display = displayin;
+    config.width = 1920;
+    config.height = 1080;
+    config.framerate = 60;
+    config.bitrate = 6000;
+    config.slicesPerFrame = 1;
+    config.numRefFrames = 0;
+    config.encoderCscMode = 1;
+    config.videoFormat = codec;
+    config.dynamicRange = 0;
+    config.chromaSamplingType = 0;
+    config.enableIntraRefresh = 0;
+
+    video::capture(mail, config, NULL);
   };
 
   auto audio_capture = [&](safe::mail_t mail) {
-    audio::capture(mail, audio::config_t{10, 2, 3, 0}, NULL);
+    audio::config_t config;
+    config.packetDuration = 10;
+    config.channels = 2;
+    config.mask = 3;
+    config.flags = 0;
+
+    audio::capture(mail, config, NULL);
   };
 
   auto mail = std::make_shared<safe::mail_raw_t>();
@@ -337,7 +357,7 @@ int main(int argc, char *argv[]) {
   }
 
   auto timer = platf::create_high_precision_timer();
-  auto local_shutdown= mail->event<bool>(mail::shutdown);
+  auto local_shutdown = mail->event<bool>(mail::shutdown);
   while (!process_shutdown_event->peek() && !local_shutdown->peek())
     timer->sleep_for(100ms);
 
