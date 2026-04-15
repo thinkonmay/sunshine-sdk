@@ -106,6 +106,7 @@ bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_
   encoder_params.height = client_config.height;
   encoder_params.buffer_format = buffer_format;
   encoder_params.rfi = true;
+  encoder_params.intra_refresh = client_config.enableIntraRefresh;
 
   NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS session_params = {
       min_struct_version(NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS_VER)};
@@ -266,6 +267,12 @@ bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_
       format_config.chromaFormatIDC = 3;
     }
     format_config.enableFillerDataInsertion = config.insert_filler_data;
+
+    if (client_config.enableIntraRefresh) {
+      format_config.enableIntraRefresh = 1;
+      format_config.intraRefreshPeriod = client_config.framerate;
+      format_config.intraRefreshCnt = format_config.intraRefreshPeriod - 1;
+    }
   };
 
   auto set_ref_frames = [&](uint32_t &ref_frames_option, NV_ENC_NUM_REF_FRAMES &L0_option,
@@ -344,6 +351,13 @@ bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_
     format_config.idrPeriod = NVENC_INFINITE_GOPLENGTH;
     format_config.chromaFormatIDC = 1; // YUV444 not supported by NVENC yet
     format_config.enableBitstreamPadding = config.insert_filler_data;
+
+    if (client_config.enableIntraRefresh) {
+      format_config.enableIntraRefresh = 1;
+      format_config.intraRefreshPeriod = client_config.framerate;
+      format_config.intraRefreshCnt = format_config.intraRefreshPeriod - 1;
+    }
+
     if (buffer_is_10bit()) {
       format_config.inputPixelBitDepthMinus8 = 2;
       format_config.pixelBitDepthMinus8 = 2;
@@ -471,7 +485,8 @@ nvenc_encoded_frame nvenc_base::encode_frame(uint64_t frame_index, bool force_id
   NV_ENC_PIC_PARAMS pic_params = {min_struct_version(NV_ENC_PIC_PARAMS_VER, 4, 6)};
   pic_params.inputWidth = encoder_params.width;
   pic_params.inputHeight = encoder_params.height;
-  pic_params.encodePicFlags = force_idr ? NV_ENC_PIC_FLAG_FORCEIDR : 0;
+  pic_params.encodePicFlags =
+      (force_idr && !encoder_params.intra_refresh) ? NV_ENC_PIC_FLAG_FORCEIDR : 0;
   pic_params.inputTimeStamp = frame_index;
   pic_params.pictureStruct = NV_ENC_PIC_STRUCT_FRAME;
   pic_params.inputBuffer = mapped_input_buffer.mappedResource;
