@@ -225,7 +225,6 @@ int main(int argc, char *argv[]) {
         if (buffer[1] == 0)
           break;
 
-        BOOST_LOG(info) << "bitrate changed to " << (buffer[1] * 1000);
         bitrate->raise(buffer[1] * 1000);
         break;
       case EventType::Framerate:
@@ -233,7 +232,6 @@ int main(int argc, char *argv[]) {
         if (new_framerate < 20)
           break;
 
-        BOOST_LOG(info) << "framerate changed to " << new_framerate;
         framerate->raise(new_framerate);
         break;
       case EventType::Idr:

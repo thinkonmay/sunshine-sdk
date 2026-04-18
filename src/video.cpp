@@ -332,6 +332,26 @@ public:
     request_idr_frame();
   }
 
+  void set_bitrate(int bitrate, int framerate) override {
+    auto expected_bitrate = bitrate * 1000;
+    avcodec_ctx->rc_max_rate = expected_bitrate;
+    avcodec_ctx->bit_rate = expected_bitrate;
+    avcodec_ctx->rc_min_rate = expected_bitrate;
+
+    if (framerate > 0) {
+      avcodec_ctx->framerate = AVRational{framerate, 1};
+      avcodec_ctx->time_base = AVRational{1, framerate};
+    }
+
+    if (framerate > 0 && avcodec_ctx->rc_buffer_size > 0) {
+      if (!device && (avcodec_ctx->slices > 1 || avcodec_ctx->codec_id == AV_CODEC_ID_H265)) {
+        avcodec_ctx->rc_buffer_size = expected_bitrate / ((framerate * 10) / 15);
+      } else {
+        avcodec_ctx->rc_buffer_size = expected_bitrate / framerate;
+      }
+    }
+  }
+
   avcodec_ctx_t avcodec_ctx;
   std::unique_ptr<platf::avcodec_encode_device_t> device;
 
@@ -370,6 +390,12 @@ public:
 
     if (!device->nvenc->invalidate_ref_frames(first_frame, last_frame)) {
       force_idr = true;
+    }
+  }
+
+  void set_bitrate(int bitrate, int framerate) override {
+    if (device && device->nvenc) {
+      device->nvenc->set_bitrate(bitrate, framerate);
     }
   }
 
@@ -1606,10 +1632,11 @@ void encode_run(int &frame_nr, // Store progress of the frame number
 
     if (bitrate_events->peek()) {
       config->bitrate = bitrate_events->pop().value();
-      break;
+      session->set_bitrate(config->bitrate, config->framerate);
     } else if (framerate_events->peek()) {
       config->framerate = framerate_events->pop().value();
-      break;
+      frame_duration = std::chrono::nanoseconds(1s) / config->framerate;
+      session->set_bitrate(config->bitrate, config->framerate);
     } else if (idr_events->peek()) {
       requested_idr_frame = true;
       idr_events->pop();

@@ -27,6 +27,8 @@ public:
 
   bool invalidate_ref_frames(uint64_t first_frame, uint64_t last_frame);
 
+  void set_bitrate(int bitrate, int framerate);
+
 protected:
   virtual bool init_library() = 0;
 
@@ -74,6 +76,9 @@ protected:
   void *async_event_handle = nullptr;
 
   std::string last_error_string;
+
+  NV_ENC_INITIALIZE_PARAMS initialize_params{};
+  NV_ENC_CONFIG encode_config{};
 
 private:
   NV_ENC_OUTPUT_PTR output_bitstream = nullptr;

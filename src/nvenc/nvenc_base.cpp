@@ -1,7 +1,6 @@
 #include "nvenc_base.h"
 #include <algorithm>
 
-
 #include "src/config.h"
 #include "src/logging.h"
 #include "src/utility.h"
@@ -391,6 +390,10 @@ bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_
     return false;
   }
 
+  initialize_params = init_params;
+  encode_config = enc_config;
+  initialize_params.encodeConfig = &encode_config;
+
   if (async_event_handle) {
     NV_ENC_EVENT_PARAMS event_params = {min_struct_version(NV_ENC_EVENT_PARAMS_VER)};
     event_params.completionEvent = async_event_handle;
@@ -578,6 +581,32 @@ bool nvenc_base::invalidate_ref_frames(uint64_t first_frame, uint64_t last_frame
   }
 
   return true;
+}
+
+void nvenc_base::set_bitrate(int bitrate, int framerate) {
+  if (!encoder)
+    return;
+
+  if (framerate > 0) {
+    initialize_params.frameRateNum = framerate;
+  }
+
+  encode_config.rcParams.averageBitRate = bitrate * 1000;
+  if (encode_config.rcParams.vbvBufferSize > 0 && framerate > 0) {
+    encode_config.rcParams.vbvBufferSize = bitrate * 1000 / framerate;
+  }
+
+  NV_ENC_RECONFIGURE_PARAMS reconfigure_params = {
+      min_struct_version(NV_ENC_RECONFIGURE_PARAMS_VER)};
+  reconfigure_params.resetEncoder = 0;
+  reconfigure_params.forceIDR = 0;
+  reconfigure_params.reInitEncodeParams = initialize_params;
+
+  if (nvenc_failed(nvenc->nvEncReconfigureEncoder(encoder, &reconfigure_params))) {
+    BOOST_LOG(error) << "NvEncReconfigureEncoder failed: " << last_error_string;
+  } else {
+    BOOST_LOG(info) << "NvEnc: dynamically updated bitrate to " << bitrate << " kbps";
+  }
 }
 
 bool nvenc_base::nvenc_failed(NVENCSTATUS status) {

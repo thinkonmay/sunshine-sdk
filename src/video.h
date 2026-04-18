@@ -197,6 +197,8 @@ struct encode_session_t {
   virtual void request_normal_frame() = 0;
 
   virtual void invalidate_ref_frames(int64_t first_frame, int64_t last_frame) = 0;
+
+  virtual void set_bitrate(int bitrate, int framerate) = 0;
 };
 
 // encoders
