@@ -343,6 +343,11 @@ public:
       avcodec_ctx->time_base = AVRational{1, framerate};
     }
 
+    if (avcodec_ctx->priv_data) {
+      av_opt_set_int(avcodec_ctx->priv_data, "b", expected_bitrate, 0);
+      av_opt_set_int(avcodec_ctx->priv_data, "maxrate", expected_bitrate, 0);
+    }
+
     if (framerate > 0 && avcodec_ctx->rc_buffer_size > 0) {
       if (!device && (avcodec_ctx->slices > 1 || avcodec_ctx->codec_id == AV_CODEC_ID_H265)) {
         avcodec_ctx->rc_buffer_size = expected_bitrate / ((framerate * 10) / 15);
