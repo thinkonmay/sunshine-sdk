@@ -207,6 +207,7 @@ int main(int argc, char *argv[]) {
     auto framerate = mail->event<int>(mail::framerate);
     auto idr = mail->event<bool>(mail::idr);
 
+    int cached_bitrate = 6000; // kbps, matches default config.bitrate
     int new_framerate;
     auto expected_index = queue->outindex;
     char buffer[DATA_PACKET_SIZE] = {0};
@@ -221,12 +222,18 @@ int main(int argc, char *argv[]) {
         expected_index = 0;
 
       switch (buffer[0]) {
-      case EventType::Bitrate:
+      case EventType::Bitrate: {
         if (buffer[1] == 0)
           break;
 
-        bitrate->raise(buffer[1] * 1000);
+        int new_bitrate = buffer[1] * 1000; // kbps
+        if (std::abs(new_bitrate - cached_bitrate) >= 3000) { // only change if delta >= 3 Mbps
+          cached_bitrate = new_bitrate;
+          bitrate->raise(new_bitrate);
+          idr->raise(true);
+        }
         break;
+      }
       case EventType::Framerate:
         new_framerate = buffer[1] * 2;
         if (new_framerate < 20)
