@@ -33,7 +33,7 @@ enum QueueType {
   Video,
   Audio,
 };
-enum EventType { Pointer, Bitrate, Framerate, Idr, Hdr, Stop, BufferOverflow, EventMax };
+enum EventType { Pointer, Bitrate, Framerate, Idr, Hdr, Stop, BufferOverflow, Resolution, EventMax };
 
 using namespace std::literals;
 using namespace std::chrono_literals;
@@ -206,6 +206,7 @@ int main(int argc, char *argv[]) {
     auto bitrate = mail->event<int>(mail::bitrate);
     auto framerate = mail->event<int>(mail::framerate);
     auto idr = mail->event<bool>(mail::idr);
+    auto resolution = mail->event<std::pair<int, int>>(mail::resolution);
 
     int cached_bitrate = 6000; // kbps, matches default config.bitrate
     int new_framerate;
@@ -227,10 +228,9 @@ int main(int argc, char *argv[]) {
           break;
 
         int new_bitrate = buffer[1] * 1000; // kbps
-        if (std::abs(new_bitrate - cached_bitrate) >= 3000) { // only change if delta >= 3 Mbps
+        if (std::abs(new_bitrate - cached_bitrate) >= 1000) { // only change if delta >= 1 Mbps
           cached_bitrate = new_bitrate;
           bitrate->raise(new_bitrate);
-          idr->raise(true);
         }
         break;
       }
@@ -247,6 +247,16 @@ int main(int argc, char *argv[]) {
       case EventType::Pointer:
         display_cursor = buffer[1] != 0;
         break;
+      case EventType::Resolution: {
+        int new_width = (uint8_t)buffer[1] * 20;
+        int new_height = (uint8_t)buffer[2] * 20;
+        if (new_width > 0 && new_height > 0) {
+          BOOST_LOG(info) << "Resolution change requested: " << new_width << "x" << new_height;
+          resolution->raise(std::make_pair(new_width, new_height));
+          idr->raise(true);
+        }
+        break;
+      }
       default:
         break;
       }

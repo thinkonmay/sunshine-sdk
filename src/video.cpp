@@ -1605,6 +1605,7 @@ void encode_run(int &frame_nr, // Store progress of the frame number
   auto idr_events = mail->event<bool>(mail::idr);
   auto invalidate_ref_frames_events =
       mail->event<std::pair<int64_t, int64_t>>(mail::invalidate_ref_frames);
+  auto resolution_events = mail->event<std::pair<int, int>>(mail::resolution);
 
   {
     // Load a dummy image into the AVFrame to ensure we have something to encode
@@ -1632,6 +1633,21 @@ void encode_run(int &frame_nr, // Store progress of the frame number
     while (invalidate_ref_frames_events->peek()) {
       if (auto frames = invalidate_ref_frames_events->pop(0ms)) {
         session->invalidate_ref_frames(frames->first, frames->second);
+      }
+    }
+
+    if (resolution_events->peek()) {
+      auto res = resolution_events->pop().value();
+      auto new_width = res.first;
+      auto new_height = res.second;
+      if (new_width != config->width || new_height != config->height) {
+        BOOST_LOG(info) << "Resolution changed to " << new_width << "x" << new_height
+                        << ", reinitializing encoder"sv;
+        config->width = new_width;
+        config->height = new_height;
+        // Return from encode_run to force the outer capture() loop to
+        // re-create the encoder session with the new resolution
+        return;
       }
     }
 
