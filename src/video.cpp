@@ -1670,7 +1670,6 @@ void encode_run(int &frame_nr, // Store progress of the frame number
 
     if (images->peek()) {
       if (auto img = images->pop(0ms)) {
-        frame_timestamp = img->frame_timestamp;
         if (session->convert(*img)) {
           BOOST_LOG(error) << "Could not convert image"sv;
           return;
@@ -1679,10 +1678,9 @@ void encode_run(int &frame_nr, // Store progress of the frame number
         break;
     }
 
-    // use encode timestamp instead of frame timestamp in case
-    // we are re using the last frame
-    if (frame_timestamp == last_frametimestamp)
-      frame_timestamp = std::chrono::steady_clock::now();
+    // Force perfectly paced monotonic timestamps for WebRTC client stability
+    // ignoring the capture DWM jitter entirely.
+    frame_timestamp = next_frame_time;
     last_frametimestamp = frame_timestamp;
 
     if (encode(frame_nr++, *session, packets, channel_data, frame_timestamp)) {
