@@ -82,6 +82,7 @@ std::vector<uint8_t> replace(const std::string_view &original, const std::string
 
 int main(int argc, char *argv[]) {
 #ifdef _WIN32
+  timeBeginPeriod(1);
   // Switch default C standard library locale to UTF-8 on Windows 10 1803+
   setlocale(LC_ALL, ".UTF-8");
 #endif
