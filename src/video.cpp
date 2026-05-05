@@ -352,7 +352,8 @@ public:
       if (!device && (avcodec_ctx->slices > 1 || avcodec_ctx->codec_id == AV_CODEC_ID_H265)) {
         avcodec_ctx->rc_buffer_size = expected_bitrate / ((framerate * 10) / 15);
       } else {
-        avcodec_ctx->rc_buffer_size = expected_bitrate / framerate;
+        // Enforce strict VBV tuning by shrinking the hardware encoder's buffer to exactly 0.5s of data.
+        avcodec_ctx->rc_buffer_size = expected_bitrate / (framerate * 2);
       }
     }
   }
@@ -1428,7 +1429,8 @@ make_avcodec_encode_session(platf::display_t *disp, const encoder_t &encoder,
         // buffer by 1.5x for software HEVC encoding.
         ctx->rc_buffer_size = bitrate / ((config.framerate * 10) / 15);
       } else {
-        ctx->rc_buffer_size = bitrate / config.framerate;
+        // Enforce strict VBV tuning by shrinking the hardware encoder's buffer to exactly 0.5s of data.
+        ctx->rc_buffer_size = bitrate / (config.framerate * 2);
 
         if (encoder.name == "nvenc" && config::video.nv_legacy.vbv_percentage_increase > 0) {
           ctx->rc_buffer_size +=
