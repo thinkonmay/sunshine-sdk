@@ -112,7 +112,6 @@ int duplication_t::init(display_base_t *display, const ::video::config_t &config
         (double)display->display_refresh_rate.Numerator / display->display_refresh_rate.Denominator;
   }
   BOOST_LOG(info) << "Display refresh rate [" << display_refresh_rate_decimal << "Hz]";
-  BOOST_LOG(info) << "Requested frame rate [" << display->client_frame_rate << "fps]";
   display->display_refresh_rate_rounded = lround(display_refresh_rate_decimal);
   return 0;
 }
@@ -191,27 +190,7 @@ duplication_t::~duplication_t() {
 
 capture_e display_base_t::capture(const push_captured_image_cb_t &push_captured_image_cb,
                                   const pull_free_image_cb_t &pull_free_image_cb, bool *cursor) {
-  auto adjust_client_frame_rate = [&]() -> DXGI_RATIONAL {
-    // Adjust capture frame interval when display refresh rate is not integral but very close to requested fps.
-    if (display_refresh_rate.Denominator > 1) {
-      DXGI_RATIONAL candidate = display_refresh_rate;
-      if (client_frame_rate % display_refresh_rate_rounded == 0) {
-        candidate.Numerator *= client_frame_rate / display_refresh_rate_rounded;
-      } else if (display_refresh_rate_rounded % client_frame_rate == 0) {
-        candidate.Denominator *= display_refresh_rate_rounded / client_frame_rate;
-      }
-      double candidate_rate = (double) candidate.Numerator / candidate.Denominator;
-      // Can only decrease requested fps, otherwise client may start accumulating frames and suffer increased latency.
-      if (client_frame_rate > candidate_rate && candidate_rate / client_frame_rate > 0.99) {
-        BOOST_LOG(info) << "Adjusted capture rate to " << candidate_rate << "fps to better match display";
-        return candidate;
-      }
-    }
-
-    return {(uint32_t) client_frame_rate, 1};
-  };
-
-  DXGI_RATIONAL client_frame_rate_adjusted = adjust_client_frame_rate();
+  DXGI_RATIONAL client_frame_rate_adjusted = display_refresh_rate;
 
   // Keep the display awake during capture. If the display goes to sleep during
   // capture, best case is that capture stops until it powers back on. However,
@@ -690,7 +669,6 @@ int display_base_t::init(const ::video::config_t &config, const std::string &dis
     }
   }
 
-  client_frame_rate = config.framerate;
   dxgi::output6_t output6{};
   status = output->QueryInterface(IID_IDXGIOutput6, (void **)&output6);
   if (SUCCEEDED(status)) {

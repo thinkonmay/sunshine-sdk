@@ -175,8 +175,6 @@ public:
   int width_before_rotation;
   int height_before_rotation;
 
-  int client_frame_rate;
-
   DXGI_FORMAT capture_format;
   D3D_FEATURE_LEVEL feature_level;
 
