@@ -127,7 +127,7 @@ int wgc_capture_t::init(display_base_t *display, const ::video::config_t &config
     frame_pool = winrt::Direct3D11CaptureFramePool::CreateFreeThreaded(
         uwp_device,
         static_cast<winrt::Windows::Graphics::DirectX::DirectXPixelFormat>(display->capture_format),
-        2, item.Size());
+        4, item.Size());
     capture_session = frame_pool.CreateCaptureSession(item);
     frame_pool.FrameArrived({this, &wgc_capture_t::on_frame_arrived});
   } catch (winrt::hresult_error &e) {

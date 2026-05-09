@@ -256,24 +256,26 @@ capture_e display_base_t::capture(const push_captured_image_cb_t &push_captured_
 
         frame_pacing_group_frames = 1;
       } else if (status == platf::capture_e::timeout) {
-        // The D3D11 device is protected by an unfair lock that is held the entire time that
-        // IDXGIOutputDuplication::AcquireNextFrame() is running. This is normally harmless,
-        // however sometimes the encoding thread needs to interact with our ID3D11Device to
-        // create dummy images or initialize the shared state that is used to pass textures
-        // between the capture and encoding ID3D11Devices.
-        //
-        // When we're in a state where we're not actively receiving frames regularly, we will
-        // spend almost 100% of our time in AcquireNextFrame() holding that critical lock.
-        // Worse still, since it's unfair, we can monopolize it while the encoding thread
-        // is starved. The encoding thread may acquire it for a few moments across a few
-        // ID3D11Device calls before losing it again to us for another long time waiting in
-        // AcquireNextFrame(). The starvation caused by this lock contention causes encoder
-        // reinitialization to take several seconds instead of a fraction of a second.
-        //
-        // To avoid starving the encoding thread, sleep without the lock held for a little
-        // while each time we reach our max frame timeout. This will only happen when nothing
-        // is updating the display, so no visible stutter should be introduced by the sleep.
-        timer->sleep_for(10ms);
+        if (needs_timeout_yield()) {
+          // The D3D11 device is protected by an unfair lock that is held the entire time that
+          // IDXGIOutputDuplication::AcquireNextFrame() is running. This is normally harmless,
+          // however sometimes the encoding thread needs to interact with our ID3D11Device to
+          // create dummy images or initialize the shared state that is used to pass textures
+          // between the capture and encoding ID3D11Devices.
+          //
+          // When we're in a state where we're not actively receiving frames regularly, we will
+          // spend almost 100% of our time in AcquireNextFrame() holding that critical lock.
+          // Worse still, since it's unfair, we can monopolize it while the encoding thread
+          // is starved. The encoding thread may acquire it for a few moments across a few
+          // ID3D11Device calls before losing it again to us for another long time waiting in
+          // AcquireNextFrame(). The starvation caused by this lock contention causes encoder
+          // reinitialization to take several seconds instead of a fraction of a second.
+          //
+          // To avoid starving the encoding thread, sleep without the lock held for a little
+          // while each time we reach our max frame timeout. This will only happen when nothing
+          // is updating the display, so no visible stutter should be introduced by the sleep.
+          timer->sleep_for(10ms);
+        }
       }
     }
 

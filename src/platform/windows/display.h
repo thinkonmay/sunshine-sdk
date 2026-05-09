@@ -245,6 +245,10 @@ protected:
                              std::chrono::milliseconds timeout, bool cursor_visible) = 0;
   virtual capture_e release_snapshot() = 0;
   virtual int complete_img(img_t *img, bool dummy) = 0;
+
+  // DDUP holds an unfair D3D11 device lock during AcquireNextFrame, which starves
+  // the encoder thread on timeout. WGC doesn't have this problem.
+  virtual bool needs_timeout_yield() const { return true; }
 };
 
 class display_ram_t : public display_base_t {
@@ -391,6 +395,7 @@ public:
                      std::shared_ptr<platf::img_t> &img_out, std::chrono::milliseconds timeout,
                      bool cursor_visible) override;
   capture_e release_snapshot() override;
+  bool needs_timeout_yield() const override { return false; }
 };
 
 /**
@@ -405,5 +410,6 @@ public:
                      std::shared_ptr<platf::img_t> &img_out, std::chrono::milliseconds timeout,
                      bool cursor_visible) override;
   capture_e release_snapshot() override;
+  bool needs_timeout_yield() const override { return false; }
 };
 } // namespace platf::dxgi
