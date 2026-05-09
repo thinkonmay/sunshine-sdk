@@ -93,10 +93,10 @@ void adjust_thread_priority(thread_priority_e priority) {
     win32_priority = THREAD_PRIORITY_NORMAL;
     break;
   case thread_priority_e::high:
-    win32_priority = THREAD_PRIORITY_ABOVE_NORMAL;
+    win32_priority = THREAD_PRIORITY_HIGHEST;
     break;
   case thread_priority_e::critical:
-    win32_priority = THREAD_PRIORITY_HIGHEST;
+    win32_priority = THREAD_PRIORITY_TIME_CRITICAL;
     break;
   default:
     BOOST_LOG(error) << "Unknown thread priority: "sv << (int)priority;

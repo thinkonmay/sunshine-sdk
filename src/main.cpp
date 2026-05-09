@@ -320,7 +320,7 @@ int main(int argc, char *argv[]) {
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown = mail->event<bool>(mail::shutdown);
 
-    platf::adjust_thread_priority(platf::thread_priority_e::critical);
+    platf::adjust_thread_priority(platf::thread_priority_e::high);
 
     char sum = 0;
     uint64_t findex = 0;

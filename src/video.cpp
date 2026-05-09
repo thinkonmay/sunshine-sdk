@@ -1758,8 +1758,8 @@ void capture(safe::mail_t mail, config_t config, void *channel_data) {
 
   auto hdr_event = mail->event<hdr_info_t>(mail::hdr);
 
-  // Encoding takes place on this thread
-  platf::adjust_thread_priority(platf::thread_priority_e::high);
+  // Encoding takes place on this thread — use critical priority to match capture thread
+  platf::adjust_thread_priority(platf::thread_priority_e::critical);
   auto timer = platf::create_high_precision_timer();
 
   while (!shutdown_event->peek() && images->running()) {

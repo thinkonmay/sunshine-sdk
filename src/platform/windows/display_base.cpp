@@ -390,6 +390,8 @@ bool test_dxgi_duplication(adapter_t &adapter, output_t &output, bool enumeratio
 }
 
 int display_base_t::init(const ::video::config_t &config, const std::string &display_name) {
+  set_gpu_preference_on_self(2);
+
   std::once_flag windows_cpp_once_flag;
 
   std::call_once(windows_cpp_once_flag, []() {

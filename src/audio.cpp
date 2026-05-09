@@ -217,7 +217,7 @@ void capture(safe::mail_t mail, config_t config, void *channel_data) {
   init_failure_fg.disable();
 
   // Capture takes place on this thread
-  platf::adjust_thread_priority(platf::thread_priority_e::critical);
+  platf::adjust_thread_priority(platf::thread_priority_e::high);
 
   auto samples = std::make_shared<sample_queue_t::element_type>(30);
   std::thread thread{encodeThread, mail, samples, config, channel_data};
