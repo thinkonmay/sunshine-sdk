@@ -19,7 +19,7 @@ struct nvenc_config {
 
   // Use optional preliminary pass for better motion vectors, bitrate distribution and stricter
   // VBV(HRD), uses CUDA cores
-  nvenc_two_pass two_pass = nvenc_two_pass::quarter_resolution;
+  nvenc_two_pass two_pass = nvenc_two_pass::disabled;
 
   // Percentage increase of VBV/HRD from the default single frame, allows low-latency variable
   // bitrate

@@ -42,7 +42,7 @@ nvenc::nvenc_two_pass twopass_from_view(const std::string_view &preset) {
   if (preset == "full_res")
     return nvenc::nvenc_two_pass::full_resolution;
   BOOST_LOG(warning) << "config: unknown nvenc_twopass value: " << preset;
-  return nvenc::nvenc_two_pass::quarter_resolution;
+  return nvenc::nvenc_two_pass::disabled;
 }
 
 } // namespace nv

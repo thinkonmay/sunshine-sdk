@@ -214,13 +214,19 @@ capture_e display_base_t::capture(const push_captured_image_cb_t &push_captured_
     platf::capture_e status = capture_e::ok;
     std::shared_ptr<img_t> img_out;
 
-    // Try to continue frame pacing group, snapshot() is called with zero timeout after waiting for client frame interval
-    if (frame_pacing_group_start && client_frame_rate_adjusted.Numerator > 0 && client_frame_rate_adjusted.Denominator > 0) {
-      const uint32_t seconds = (uint64_t) frame_pacing_group_frames * client_frame_rate_adjusted.Denominator / client_frame_rate_adjusted.Numerator;
-      const uint32_t remainder = (uint64_t) frame_pacing_group_frames * client_frame_rate_adjusted.Denominator % client_frame_rate_adjusted.Numerator;
-      const auto sleep_target = *frame_pacing_group_start +
-                                std::chrono::nanoseconds(1s) * seconds +
-                                std::chrono::nanoseconds(1s) * remainder / client_frame_rate_adjusted.Numerator;
+    // Try to continue frame pacing group, snapshot() is called with zero timeout after waiting for
+    // client frame interval
+    if (frame_pacing_group_start && client_frame_rate_adjusted.Numerator > 0 &&
+        client_frame_rate_adjusted.Denominator > 0) {
+      const uint32_t seconds = (uint64_t)frame_pacing_group_frames *
+                               client_frame_rate_adjusted.Denominator /
+                               client_frame_rate_adjusted.Numerator;
+      const uint32_t remainder = (uint64_t)frame_pacing_group_frames *
+                                 client_frame_rate_adjusted.Denominator %
+                                 client_frame_rate_adjusted.Numerator;
+      const auto sleep_target =
+          *frame_pacing_group_start + std::chrono::nanoseconds(1s) * seconds +
+          std::chrono::nanoseconds(1s) * remainder / client_frame_rate_adjusted.Numerator;
       const auto sleep_period = sleep_target - std::chrono::steady_clock::now();
 
       if (sleep_period <= 0ns) {
@@ -243,7 +249,10 @@ capture_e display_base_t::capture(const push_captured_image_cb_t &push_captured_
     }
 
     // Start new frame pacing group if necessary, snapshot() is called with non-zero timeout
-    if (status == capture_e::timeout || (status == capture_e::ok && (!frame_pacing_group_start || client_frame_rate_adjusted.Numerator == 0 || client_frame_rate_adjusted.Denominator == 0))) {
+    if (status == capture_e::timeout ||
+        (status == capture_e::ok &&
+         (!frame_pacing_group_start || client_frame_rate_adjusted.Numerator == 0 ||
+          client_frame_rate_adjusted.Denominator == 0))) {
       status = snapshot(pull_free_image_cb, img_out, 200ms, *cursor);
 
       if (status == capture_e::ok && img_out) {

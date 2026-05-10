@@ -107,7 +107,7 @@ bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_
   encoder_params.height = client_config.height;
   encoder_params.buffer_format = buffer_format;
   encoder_params.rfi = true;
-  encoder_params.intra_refresh = client_config.enableIntraRefresh;
+  encoder_params.intra_refresh = false;
 
   NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS session_params = {
       min_struct_version(NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS_VER)};
@@ -215,8 +215,7 @@ bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_
   init_params.tuningInfo = NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY;
   init_params.enablePTD = 1;
   init_params.enableEncodeAsync = async_event_handle ? 1 : 0;
-  init_params.enableWeightedPrediction =
-      config.weighted_prediction && get_encoder_cap(NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION);
+  init_params.enableWeightedPrediction = 0;
 
   init_params.encodeWidth = encoder_params.width;
   init_params.darWidth = encoder_params.width;
@@ -238,17 +237,13 @@ bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_
   enc_config.profileGUID = NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID;
   enc_config.gopLength = NVENC_INFINITE_GOPLENGTH;
   enc_config.frameIntervalP = 1;
-  enc_config.rcParams.enableAQ = config.adaptive_quantization;
+  enc_config.rcParams.enableAQ = 0;
   enc_config.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR;
   enc_config.rcParams.zeroReorderDelay = 1;
   enc_config.rcParams.enableLookahead = 0;
   enc_config.rcParams.lowDelayKeyFrameScale = 1;
-  enc_config.rcParams.multiPass =
-      config.two_pass == nvenc_two_pass::quarter_resolution ? NV_ENC_TWO_PASS_QUARTER_RESOLUTION
-      : config.two_pass == nvenc_two_pass::full_resolution  ? NV_ENC_TWO_PASS_FULL_RESOLUTION
-                                                            : NV_ENC_MULTI_PASS_DISABLED;
+  enc_config.rcParams.multiPass = NV_ENC_MULTI_PASS_DISABLED;
 
-  enc_config.rcParams.enableAQ = config.adaptive_quantization;
   enc_config.rcParams.averageBitRate = client_config.bitrate * 1000;
 
   if (get_encoder_cap(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)) {
@@ -268,12 +263,6 @@ bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_
       format_config.chromaFormatIDC = 3;
     }
     format_config.enableFillerDataInsertion = config.insert_filler_data;
-
-    if (client_config.enableIntraRefresh) {
-      format_config.enableIntraRefresh = 1;
-      format_config.intraRefreshPeriod = std::max(1, (client_config.framerate * 200) / 1000);
-      format_config.intraRefreshCnt = format_config.intraRefreshPeriod - 1;
-    }
   };
 
   auto set_ref_frames = [&](uint32_t &ref_frames_option, NV_ENC_NUM_REF_FRAMES &L0_option,
@@ -352,12 +341,6 @@ bool nvenc_base::create_encoder(const nvenc_config &config, const video::config_
     format_config.idrPeriod = NVENC_INFINITE_GOPLENGTH;
     format_config.chromaFormatIDC = 1; // YUV444 not supported by NVENC yet
     format_config.enableBitstreamPadding = config.insert_filler_data;
-
-    if (client_config.enableIntraRefresh) {
-      format_config.enableIntraRefresh = 1;
-      format_config.intraRefreshPeriod = std::max(1, (client_config.framerate * 200) / 1000);
-      format_config.intraRefreshCnt = format_config.intraRefreshPeriod - 1;
-    }
 
     if (buffer_is_10bit()) {
       format_config.inputPixelBitDepthMinus8 = 2;

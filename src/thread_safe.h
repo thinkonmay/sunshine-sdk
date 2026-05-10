@@ -6,12 +6,17 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <vector>
 
+#include "logging.h"
 #include "utility.h"
 
 namespace safe {
@@ -241,8 +246,20 @@ public:
       return;
     }
 
-    if (_queue.size() == _max_elements) {
-      _queue.clear();
+    if (_max_elements == 0) {
+      return;
+    }
+
+    if (_queue.size() >= _max_elements) {
+      _queue.erase(std::begin(_queue));
+      ++_overflow_count;
+
+      auto now = std::chrono::steady_clock::now();
+      if (!_last_overflow_log || now - *_last_overflow_log >= std::chrono::seconds{1}) {
+        BOOST_LOG(warning) << "Dropping oldest item from full queue; dropped " << _overflow_count
+                           << " item(s) so far";
+        _last_overflow_log = now;
+      }
     }
 
     _queue.emplace_back(std::forward<Args>(args)...);
@@ -318,6 +335,8 @@ private:
   std::condition_variable _cv;
 
   std::vector<T> _queue;
+  std::uint64_t _overflow_count{};
+  std::optional<std::chrono::steady_clock::time_point> _last_overflow_log;
 };
 
 template <class T> class shared_t {
