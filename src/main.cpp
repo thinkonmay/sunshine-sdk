@@ -281,7 +281,7 @@ int main(int argc, char *argv[]) {
         auto findex = packet->frame_index();
         std::string_view payload{(char *)packet->data(), packet->data_size()};
         std::vector<uint8_t> payload_with_replacements;
-        uint64_t utimestamp = packet->frame_timestamp.value().time_since_epoch().count();
+        uint64_t rtp_sample_duration = packet->rtp_sample_duration;
 
         if (packet->is_idr() && packet->replacements) {
           for (auto &replacement : *packet->replacements) {
@@ -304,7 +304,7 @@ int main(int argc, char *argv[]) {
 
         queue->incoming[queue->inindex].size = 0;
         copy_to_packet(&queue->incoming[queue->inindex], &findex, sizeof(uint64_t));
-        copy_to_packet(&queue->incoming[queue->inindex], &utimestamp, sizeof(uint64_t));
+        copy_to_packet(&queue->incoming[queue->inindex], &rtp_sample_duration, sizeof(uint64_t));
         copy_to_packet(&queue->incoming[queue->inindex], &flags, sizeof(uint8_t));
         copy_to_packet(&queue->incoming[queue->inindex], (void *)payload.data(), payload.size());
         queue->inindex = updated;
@@ -330,9 +330,9 @@ int main(int argc, char *argv[]) {
         if (!packet)
           break;
 
-        char *ptr = (char *)packet->second.begin();
-        size_t size = packet->second.size();
-        uint64_t utimestamp = steady_clock::now().time_since_epoch().count();
+        char *ptr = (char *)packet->data.begin();
+        size_t size = packet->data.size();
+        uint64_t rtp_sample_duration = packet->rtp_sample_duration;
 
         auto updated = queue->inindex + 1;
         if (updated >= IN_QUEUE_SIZE)
@@ -341,7 +341,7 @@ int main(int argc, char *argv[]) {
         findex++;
         queue->incoming[updated].size = 0;
         copy_to_dpacket(&queue->incoming[updated], &findex, sizeof(uint64_t));
-        copy_to_dpacket(&queue->incoming[updated], &utimestamp, sizeof(uint64_t));
+        copy_to_dpacket(&queue->incoming[updated], &rtp_sample_duration, sizeof(uint64_t));
         copy_to_dpacket(&queue->incoming[updated], &sum, sizeof(uint8_t));
         copy_to_dpacket(&queue->incoming[updated], ptr, size);
         queue->inindex = updated;

@@ -1067,7 +1067,8 @@ void captureThread(std::shared_ptr<safe::queue_t<capture_ctx_t>> capture_ctx_que
 
 int encode_avcodec(int64_t frame_nr, avcodec_encode_session_t &session,
                    safe::mail_raw_t::queue_t<packet_t> &packets, void *channel_data,
-                   std::optional<std::chrono::steady_clock::time_point> frame_timestamp) {
+                   std::optional<std::chrono::steady_clock::time_point> frame_timestamp,
+                   std::uint64_t rtp_sample_duration) {
   auto &frame = session.device->frame;
   frame->pts = frame_nr;
 
@@ -1126,6 +1127,7 @@ int encode_avcodec(int64_t frame_nr, avcodec_encode_session_t &session,
 
     if (av_packet && av_packet->pts == frame_nr) {
       packet->frame_timestamp = frame_timestamp;
+      packet->rtp_sample_duration = rtp_sample_duration;
     }
 
     packet->replacements = &session.replacements;
@@ -1138,7 +1140,8 @@ int encode_avcodec(int64_t frame_nr, avcodec_encode_session_t &session,
 
 int encode_nvenc(int64_t frame_nr, nvenc_encode_session_t &session,
                  safe::mail_raw_t::queue_t<packet_t> &packets, void *channel_data,
-                 std::optional<std::chrono::steady_clock::time_point> frame_timestamp) {
+                 std::optional<std::chrono::steady_clock::time_point> frame_timestamp,
+                 std::uint64_t rtp_sample_duration) {
   auto encoded_frame = session.encode_frame(frame_nr);
   if (encoded_frame.data.empty()) {
     BOOST_LOG(error) << "NvENC returned empty packet";
@@ -1155,6 +1158,7 @@ int encode_nvenc(int64_t frame_nr, nvenc_encode_session_t &session,
   packet->channel_data = channel_data;
   packet->after_ref_frame_invalidation = encoded_frame.after_ref_frame_invalidation;
   packet->frame_timestamp = frame_timestamp;
+  packet->rtp_sample_duration = rtp_sample_duration;
   packets->raise(std::move(packet));
 
   return 0;
@@ -1162,11 +1166,14 @@ int encode_nvenc(int64_t frame_nr, nvenc_encode_session_t &session,
 
 int encode(int64_t frame_nr, encode_session_t &session,
            safe::mail_raw_t::queue_t<packet_t> &packets, void *channel_data,
-           std::optional<std::chrono::steady_clock::time_point> frame_timestamp) {
+           std::optional<std::chrono::steady_clock::time_point> frame_timestamp,
+           std::uint64_t rtp_sample_duration) {
   if (auto avcodec_session = dynamic_cast<avcodec_encode_session_t *>(&session)) {
-    return encode_avcodec(frame_nr, *avcodec_session, packets, channel_data, frame_timestamp);
+    return encode_avcodec(frame_nr, *avcodec_session, packets, channel_data, frame_timestamp,
+                          rtp_sample_duration);
   } else if (auto nvenc_session = dynamic_cast<nvenc_encode_session_t *>(&session)) {
-    return encode_nvenc(frame_nr, *nvenc_session, packets, channel_data, frame_timestamp);
+    return encode_nvenc(frame_nr, *nvenc_session, packets, channel_data, frame_timestamp,
+                        rtp_sample_duration);
   }
 
   return -1;
@@ -1626,6 +1633,8 @@ void encode_run(int &frame_nr, // Store progress of the frame number
 
   auto frame_duration = std::chrono::nanoseconds(1s) / config->framerate;
   auto next_frame_time = std::chrono::steady_clock::now();
+  constexpr std::uint64_t video_rtp_clock_rate = 90000;
+  std::uint64_t video_rtp_remainder = 0;
 
   bool requested_idr_frame = true;
   while (true) {
@@ -1659,6 +1668,7 @@ void encode_run(int &frame_nr, // Store progress of the frame number
     } else if (framerate_events->peek()) {
       config->framerate = framerate_events->pop().value();
       frame_duration = std::chrono::nanoseconds(1s) / config->framerate;
+      video_rtp_remainder = 0;
       session->set_bitrate(config->bitrate, config->framerate);
     } else if (idr_events->peek()) {
       requested_idr_frame = true;
@@ -1684,8 +1694,11 @@ void encode_run(int &frame_nr, // Store progress of the frame number
     // ignoring the capture DWM jitter entirely.
     frame_timestamp = next_frame_time;
     last_frametimestamp = frame_timestamp;
+    video_rtp_remainder += video_rtp_clock_rate;
+    auto rtp_sample_duration = video_rtp_remainder / config->framerate;
+    video_rtp_remainder %= config->framerate;
 
-    if (encode(frame_nr++, *session, packets, channel_data, frame_timestamp)) {
+    if (encode(frame_nr++, *session, packets, channel_data, frame_timestamp, rtp_sample_duration)) {
       BOOST_LOG(error) << "Could not encode video packet"sv;
       return;
     }

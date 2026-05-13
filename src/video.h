@@ -234,6 +234,7 @@ struct packet_raw_t {
   void *channel_data = nullptr;
   bool after_ref_frame_invalidation = false;
   std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
+  std::uint64_t rtp_sample_duration = 0;
 };
 
 struct packet_raw_avcodec : packet_raw_t {

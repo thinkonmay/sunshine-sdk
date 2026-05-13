@@ -7,6 +7,8 @@
 #include "thread_safe.h"
 #include "utility.h"
 #include <bitset>
+#include <cstdint>
+#include <utility>
 namespace audio {
 enum stream_config_e : int {
   STEREO,
@@ -40,6 +42,14 @@ struct config_t {
 };
 
 using buffer_t = util::buffer_t<std::uint8_t>;
-using packet_t = std::pair<void *, buffer_t>;
+struct packet_t {
+  void *channel_data;
+  buffer_t data;
+  std::uint64_t rtp_sample_duration;
+
+  packet_t(void *channel_data, buffer_t &&data, std::uint64_t rtp_sample_duration)
+      : channel_data{channel_data}, data{std::move(data)}, rtp_sample_duration{rtp_sample_duration} {
+  }
+};
 void capture(safe::mail_t mail, config_t config, void *channel_data);
 } // namespace audio

@@ -125,7 +125,7 @@ void encodeThread(safe::mail_t mail, sample_queue_t samples, config_t config, vo
     }
 
     packet.fake_resize(bytes);
-    packets->raise(channel_data, std::move(packet));
+    packets->raise(channel_data, std::move(packet), static_cast<std::uint64_t>(frame_size));
 
     // Calculate sleep period based on absolute target
     next_packet_time += packet_duration;
