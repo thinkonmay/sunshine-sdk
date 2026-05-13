@@ -339,11 +339,11 @@ int main(int argc, char *argv[]) {
           updated = 0;
 
         findex++;
-        queue->incoming[updated].size = 0;
-        copy_to_dpacket(&queue->incoming[updated], &findex, sizeof(uint64_t));
-        copy_to_dpacket(&queue->incoming[updated], &rtp_sample_duration, sizeof(uint64_t));
-        copy_to_dpacket(&queue->incoming[updated], &sum, sizeof(uint8_t));
-        copy_to_dpacket(&queue->incoming[updated], ptr, size);
+        queue->incoming[queue->inindex].size = 0;
+        copy_to_dpacket(&queue->incoming[queue->inindex], &findex, sizeof(uint64_t));
+        copy_to_dpacket(&queue->incoming[queue->inindex], &rtp_sample_duration, sizeof(uint64_t));
+        copy_to_dpacket(&queue->incoming[queue->inindex], &sum, sizeof(uint8_t));
+        copy_to_dpacket(&queue->incoming[queue->inindex], ptr, size);
         queue->inindex = updated;
       } while (audio_packets->peek());
     }
