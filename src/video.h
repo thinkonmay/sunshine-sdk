@@ -8,6 +8,8 @@
 #include "thread_safe.h"
 #include "video_colorspace.h"
 
+#include <cstdint>
+
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>

@@ -1839,7 +1839,7 @@ int validate_config(std::shared_ptr<platf::display_t> disp, const encoder_t &enc
 
   auto packets = mail::man->queue<packet_t>(mail::video_packets);
   while (!packets->peek()) {
-    if (encode(1, *session, packets, nullptr, {})) {
+    if (encode(1, *session, packets, nullptr, {}, 0)) {
       return -1;
     }
   }
