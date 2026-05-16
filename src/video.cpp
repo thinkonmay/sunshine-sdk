@@ -398,6 +398,7 @@ public:
 
   // inject sps/vps data into idr pictures
   int inject;
+  int consecutive_no_packet{};
 };
 
 class nvenc_encode_session_t : public encode_session_t {
@@ -436,8 +437,10 @@ public:
   }
 
   nvenc::nvenc_encoded_frame encode_frame(uint64_t frame_index) {
-    if (!device || !device->nvenc)
+    if (!device || !device->nvenc) {
+      BOOST_LOG(error) << "NvENC encode requested without an active encoder"sv;
       return {};
+    }
 
     auto result = device->nvenc->encode_frame(frame_index, force_idr);
     force_idr = false;
@@ -854,6 +857,7 @@ void captureThread(std::shared_ptr<safe::queue_t<capture_ctx_t>> capture_ctx_que
   auto disp = platf::display(encoder.platform_formats->dev_type, display_names[display_p],
                              *capture_ctxs.front().config);
   if (!disp) {
+    BOOST_LOG(error) << "Failed to initialize capture display"sv;
     return;
   }
   capture_ctxs.front().config->width = disp->width;
@@ -913,6 +917,8 @@ void captureThread(std::shared_ptr<safe::queue_t<capture_ctx_t>> capture_ctx_que
   };
 
   auto timer = platf::create_high_precision_timer();
+  std::optional<std::chrono::steady_clock::time_point> image_pool_wait_start;
+  std::optional<std::chrono::steady_clock::time_point> last_image_pool_wait_log;
   auto pull_free_image_callback = [&](std::shared_ptr<platf::img_t> &img_out) -> bool {
     img_out.reset();
     while (capture_ctx_queue->running()) {
@@ -945,11 +951,26 @@ void captureThread(std::shared_ptr<safe::queue_t<capture_ctx_t>> capture_ctx_que
         }
       }
       if (img_out) {
+        image_pool_wait_start.reset();
+        last_image_pool_wait_log.reset();
         // trim allocated but unused portion of the pool based on timeouts
         trim_imgs();
         img_out->frame_timestamp.reset();
         return true;
       } else {
+        auto now = std::chrono::steady_clock::now();
+        if (!image_pool_wait_start) {
+          image_pool_wait_start = now;
+        }
+        if (now - *image_pool_wait_start >= 1s &&
+            (!last_image_pool_wait_log || now - *last_image_pool_wait_log >= 1s)) {
+          BOOST_LOG(warning) << "Capture image pool exhausted for "
+                             << std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    now - *image_pool_wait_start)
+                                    .count()
+                             << "ms";
+          last_image_pool_wait_log = now;
+        }
         // sleep and retry if image pool is full
         timer->sleep_for(1ms);
       }
@@ -1019,6 +1040,8 @@ void captureThread(std::shared_ptr<safe::queue_t<capture_ctx_t>> capture_ctx_que
       // display_wp is modified in this thread only
       // Wait for the other shared_ptr's of display to be destroyed.
       // New displays will only be created in this thread.
+      auto reinit_ref_wait_start = std::chrono::steady_clock::now();
+      auto last_reinit_ref_wait_log = reinit_ref_wait_start;
       while (display_wp->use_count() != 1) {
         // Free images that weren't consumed by the encoders. These can reference the display and
         // prevent the ref count from reaching 1. We do this here rather than on the encoder
@@ -1039,9 +1062,21 @@ void captureThread(std::shared_ptr<safe::queue_t<capture_ctx_t>> capture_ctx_que
                            ++capture_ctx;
                          });
 
+        auto now = std::chrono::steady_clock::now();
+        if (now - last_reinit_ref_wait_log >= 1s) {
+          BOOST_LOG(warning) << "Waiting "
+                             << std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    now - reinit_ref_wait_start)
+                                    .count()
+                             << "ms for display references to release during reinit; use_count="
+                             << display_wp->use_count();
+          last_reinit_ref_wait_log = now;
+        }
         timer->sleep_for(20ms);
       }
 
+      auto reinit_display_wait_start = std::chrono::steady_clock::now();
+      auto last_reinit_display_wait_log = reinit_display_wait_start;
       while (capture_ctx_queue->running()) {
         // Release the display before reenumerating displays, since some capture backends
         // only support a single display session per device/application.
@@ -1073,8 +1108,18 @@ void captureThread(std::shared_ptr<safe::queue_t<capture_ctx_t>> capture_ctx_que
         if (disp) {
           break;
         }
+        auto now = std::chrono::steady_clock::now();
+        if (now - last_reinit_display_wait_log >= 1s) {
+          BOOST_LOG(warning) << "Waiting "
+                             << std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    now - reinit_display_wait_start)
+                                    .count()
+                             << "ms for display recreation during reinit";
+          last_reinit_display_wait_log = now;
+        }
       }
       if (!disp) {
+        BOOST_LOG(error) << "Display recreation failed because capture context stopped during reinit"sv;
         return;
       }
 
@@ -1118,12 +1163,20 @@ int encode_avcodec(int64_t frame_nr, avcodec_encode_session_t &session,
     return -1;
   }
 
+  bool produced_packet = false;
   while (ret >= 0) {
     auto packet = std::make_unique<packet_raw_avcodec>();
     auto av_packet = packet.get()->av_packet;
 
     ret = avcodec_receive_packet(ctx.get(), av_packet);
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+      if (!produced_packet) {
+        session.consecutive_no_packet++;
+        if (session.consecutive_no_packet == 60 || session.consecutive_no_packet % 300 == 0) {
+          BOOST_LOG(warning) << "Video encoder accepted frames but produced no packet for "
+                             << session.consecutive_no_packet << " consecutive frame(s)";
+        }
+      }
       return 0;
     } else if (ret < 0) {
       return ret;
@@ -1166,6 +1219,8 @@ int encode_avcodec(int64_t frame_nr, avcodec_encode_session_t &session,
     packet->encode_duration_us =
         std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - encode_start)
             .count();
+    session.consecutive_no_packet = 0;
+    produced_packet = true;
     packets->raise(std::move(packet));
   }
 
@@ -1642,6 +1697,7 @@ void encode_run(int &frame_nr, // Store progress of the frame number
   auto session = make_encode_session(disp.get(), encoder, *config, disp->width, disp->height,
                                      std::move(encode_device));
   if (!session) {
+    BOOST_LOG(error) << "Failed to create video encode session"sv;
     return;
   }
 
@@ -1661,6 +1717,7 @@ void encode_run(int &frame_nr, // Store progress of the frame number
     // in a separate scope.
     auto dummy_img = disp->alloc_img();
     if (!dummy_img || disp->dummy_img(dummy_img.get()) || session->convert(*dummy_img)) {
+      BOOST_LOG(error) << "Failed to initialize video encoder with dummy frame"sv;
       return;
     }
   }
@@ -1676,8 +1733,17 @@ void encode_run(int &frame_nr, // Store progress of the frame number
 
   bool requested_idr_frame = true;
   while (true) {
-    if (shutdown_event->peek() || reinit_event.peek() || !images->running())
+    if (shutdown_event->peek()) {
       break;
+    }
+    if (reinit_event.peek()) {
+      BOOST_LOG(info) << "Video encode loop pausing for display reinit"sv;
+      break;
+    }
+    if (!images->running()) {
+      BOOST_LOG(warning) << "Video encode loop stopped because capture image queue stopped"sv;
+      break;
+    }
 
     while (invalidate_ref_frames_events->peek()) {
       if (auto frames = invalidate_ref_frames_events->pop(0ms)) {
@@ -1813,25 +1879,63 @@ void capture(safe::mail_t mail, config_t config, void *channel_data) {
   platf::adjust_thread_priority(platf::thread_priority_e::critical);
   auto timer = platf::create_high_precision_timer();
 
+  std::optional<std::chrono::steady_clock::time_point> encode_reinit_wait_start;
+  std::optional<std::chrono::steady_clock::time_point> last_encode_reinit_wait_log;
+  std::optional<std::chrono::steady_clock::time_point> display_ready_wait_start;
+  std::optional<std::chrono::steady_clock::time_point> last_display_ready_wait_log;
+
   while (!shutdown_event->peek() && images->running()) {
     // Wait for the main capture event when the display is being reinitialized
     if (ref->reinit_event.peek()) {
+      auto now = std::chrono::steady_clock::now();
+      if (!encode_reinit_wait_start) {
+        encode_reinit_wait_start = now;
+      }
+      if (now - *encode_reinit_wait_start >= 1s &&
+          (!last_encode_reinit_wait_log || now - *last_encode_reinit_wait_log >= 1s)) {
+        BOOST_LOG(warning) << "Video encode waiting "
+                           << std::chrono::duration_cast<std::chrono::milliseconds>(
+                                  now - *encode_reinit_wait_start)
+                                  .count()
+                           << "ms for display reinit to finish";
+        last_encode_reinit_wait_log = now;
+      }
       timer->sleep_for(20ms);
       continue;
     }
+    encode_reinit_wait_start.reset();
+    last_encode_reinit_wait_log.reset();
     // Wait for the display to be ready
     std::shared_ptr<platf::display_t> display;
     {
       auto lg = ref->display_wp.lock();
-      if (ref->display_wp->expired())
+      if (ref->display_wp->expired()) {
+        auto now = std::chrono::steady_clock::now();
+        if (!display_ready_wait_start) {
+          display_ready_wait_start = now;
+        }
+        if (now - *display_ready_wait_start >= 1s &&
+            (!last_display_ready_wait_log || now - *last_display_ready_wait_log >= 1s)) {
+          BOOST_LOG(warning) << "Video encode waiting "
+                             << std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    now - *display_ready_wait_start)
+                                    .count()
+                             << "ms for capture display to become ready";
+          last_display_ready_wait_log = now;
+        }
         continue;
+      }
+      display_ready_wait_start.reset();
+      last_display_ready_wait_log.reset();
       display = ref->display_wp->lock();
     }
 
     auto &encoder = *chosen_encoder;
     auto encode_device = make_encode_device(*display, encoder, config);
-    if (!encode_device)
+    if (!encode_device) {
+      BOOST_LOG(error) << "Failed to create video encode device"sv;
       return;
+    }
 
     // Update client with our current HDR display state
     hdr_info_t hdr_info = std::make_unique<hdr_info_raw_t>(false);

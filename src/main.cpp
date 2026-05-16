@@ -278,17 +278,23 @@ int main(int argc, char *argv[]) {
     }
   };
 
-  auto push_video = [process_shutdown_event, debug_output_timing](safe::mail_t mail, MediaQueue *queue) {
+  auto video_output_watchdog_ms = std::make_shared<std::atomic<int64_t>>(0);
+
+  auto push_video = [process_shutdown_event, debug_output_timing, video_output_watchdog_ms](
+                        safe::mail_t mail, MediaQueue *queue) {
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown = mail->event<bool>(mail::shutdown);
 
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
 
-    auto last_output_packet = steady_clock::now();
+    auto now_ms = []() {
+      return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+    };
     output_debug::timing_t output_timing{debug_output_timing};
     auto check_output_timeout = [&]() {
-      if (steady_clock::now() - last_output_packet < 10s) {
+      auto last_output_packet = video_output_watchdog_ms->load();
+      if (last_output_packet == 0 || now_ms() - last_output_packet < 10000) {
         return false;
       }
 
@@ -347,7 +353,7 @@ int main(int argc, char *argv[]) {
         copy_to_packet(&queue->incoming[queue->inindex], &flags, sizeof(uint8_t));
         copy_to_packet(&queue->incoming[queue->inindex], (void *)payload.data(), payload.size());
         queue->inindex = updated;
-        last_output_packet = steady_clock::now();
+        video_output_watchdog_ms->store(now_ms());
         output_timing.record(findex, header_size + payload.size(), packet->is_idr(),
                              packet->encode_duration_us.value_or(0));
       } while (video_packets->peek());
