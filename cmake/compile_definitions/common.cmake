@@ -54,6 +54,8 @@ set(SUNSHINE_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/globals.h"
         "${CMAKE_SOURCE_DIR}/src/logging.cpp"
         "${CMAKE_SOURCE_DIR}/src/logging.h"
+        "${CMAKE_SOURCE_DIR}/src/output_debug.cpp"
+        "${CMAKE_SOURCE_DIR}/src/output_debug.h"
         "${CMAKE_SOURCE_DIR}/src/main.cpp"
         "${CMAKE_SOURCE_DIR}/src/video.cpp"
         "${CMAKE_SOURCE_DIR}/src/video.h"
