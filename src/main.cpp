@@ -21,6 +21,7 @@
 #include "globals.h"
 #include "interprocess.h"
 #include "logging.h"
+#include "output_debug.h"
 #include "platform/common.h"
 #include "video.h"
 
@@ -33,7 +34,17 @@ enum QueueType {
   Video,
   Audio,
 };
-enum EventType { Pointer, Bitrate, Framerate, Idr, Hdr, Stop, BufferOverflow, Resolution, EventMax };
+enum EventType {
+  Pointer,
+  Bitrate,
+  Framerate,
+  Idr,
+  Hdr,
+  Stop,
+  BufferOverflow,
+  Resolution,
+  EventMax
+};
 
 using namespace std::literals;
 using namespace std::chrono_literals;
@@ -97,6 +108,7 @@ int main(int argc, char *argv[]) {
   MediaMemory *memory = NULL;
   IVSHMEM *ivshmem = NULL;
   SharedMemory *shm = NULL;
+  bool debug_output_timing = false;
 
   std::string ivshmem_path;
   std::string shm_name;
@@ -133,6 +145,8 @@ int main(int argc, char *argv[]) {
 
   if (memory == NULL) {
     BOOST_LOG(info) << "IPC shared memory not available, using mockup memory block"sv;
+    BOOST_LOG(info) << "Output packet timing debug mode enabled"sv;
+    debug_output_timing = true;
     memory = (MediaMemory *)calloc(1, sizeof(MediaMemory));
   }
 
@@ -228,7 +242,7 @@ int main(int argc, char *argv[]) {
         if (buffer[1] == 0)
           break;
 
-        int new_bitrate = buffer[1] * 1000; // kbps
+        int new_bitrate = buffer[1] * 1000;                   // kbps
         if (std::abs(new_bitrate - cached_bitrate) >= 1000) { // only change if delta >= 1 Mbps
           cached_bitrate = new_bitrate;
           bitrate->raise(new_bitrate);
@@ -264,19 +278,33 @@ int main(int argc, char *argv[]) {
     }
   };
 
-  auto push_video = [process_shutdown_event](safe::mail_t mail, MediaQueue *queue) {
+  auto push_video = [process_shutdown_event, debug_output_timing](safe::mail_t mail, MediaQueue *queue) {
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown = mail->event<bool>(mail::shutdown);
 
     platf::adjust_thread_priority(platf::thread_priority_e::critical);
 
+    auto last_output_packet = steady_clock::now();
+    output_debug::timing_t output_timing{debug_output_timing};
+    auto check_output_timeout = [&]() {
+      if (steady_clock::now() - last_output_packet < 10s) {
+        return false;
+      }
+
+      BOOST_LOG(error) << "No video output packet written for 10 seconds; shutting down"sv;
+      local_shutdown->raise(true);
+      return true;
+    };
+
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       do {
         uint8_t flags = 0;
-        auto packet = video_packets->pop();
-        if (!packet)
+        auto packet = video_packets->pop(100ms);
+        if (!packet) {
+          check_output_timeout();
           break;
+        }
 
         auto findex = packet->frame_index();
         std::string_view payload{(char *)packet->data(), packet->data_size()};
@@ -298,6 +326,17 @@ int main(int argc, char *argv[]) {
         if (packet->after_ref_frame_invalidation)
           flags |= (1 << 1);
 
+        constexpr auto header_size = sizeof(uint64_t) + sizeof(uint64_t) + sizeof(uint8_t);
+        if (payload.size() > MEDIA_PACKET_SIZE - header_size) {
+          BOOST_LOG(error) << "Dropping oversized video packet: " << payload.size()
+                           << " bytes exceeds shared memory payload capacity "
+                           << (MEDIA_PACKET_SIZE - header_size);
+          if (check_output_timeout()) {
+            break;
+          }
+          continue;
+        }
+
         auto updated = queue->inindex + 1;
         if (updated >= IN_QUEUE_SIZE)
           updated = 0;
@@ -308,6 +347,9 @@ int main(int argc, char *argv[]) {
         copy_to_packet(&queue->incoming[queue->inindex], &flags, sizeof(uint8_t));
         copy_to_packet(&queue->incoming[queue->inindex], (void *)payload.data(), payload.size());
         queue->inindex = updated;
+        last_output_packet = steady_clock::now();
+        output_timing.record(findex, header_size + payload.size(), packet->is_idr(),
+                             packet->encode_duration_us.value_or(0));
       } while (video_packets->peek());
     }
 

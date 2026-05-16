@@ -35,6 +35,37 @@ extern "C" {
 using namespace std::literals;
 namespace video {
 
+namespace {
+void wait_until_frame_time(platf::high_precision_timer &timer,
+                           std::chrono::steady_clock::time_point target) {
+  constexpr auto spin_threshold = 500us;
+  constexpr auto yield_threshold = 50us;
+
+  while (true) {
+    auto now = std::chrono::steady_clock::now();
+    if (now >= target) {
+      return;
+    }
+
+    auto remaining = target - now;
+    if (remaining > spin_threshold) {
+      timer.sleep_for(remaining - spin_threshold);
+      continue;
+    }
+
+    if (remaining > yield_threshold) {
+      std::this_thread::yield();
+    } else {
+#ifdef _WIN32
+      YieldProcessor();
+#else
+      std::this_thread::yield();
+#endif
+    }
+  }
+}
+} // namespace
+
 void free_ctx(AVCodecContext *ctx) {
   avcodec_free_context(&ctx);
 }
@@ -352,8 +383,7 @@ public:
       if (!device && (avcodec_ctx->slices > 1 || avcodec_ctx->codec_id == AV_CODEC_ID_H265)) {
         avcodec_ctx->rc_buffer_size = expected_bitrate / ((framerate * 10) / 15);
       } else {
-        // Enforce strict VBV tuning by shrinking the hardware encoder's buffer to exactly 0.5s of data.
-        avcodec_ctx->rc_buffer_size = expected_bitrate / (framerate * 2);
+        avcodec_ctx->rc_buffer_size = expected_bitrate / framerate;
       }
     }
   }
@@ -1069,6 +1099,7 @@ int encode_avcodec(int64_t frame_nr, avcodec_encode_session_t &session,
                    safe::mail_raw_t::queue_t<packet_t> &packets, void *channel_data,
                    std::optional<std::chrono::steady_clock::time_point> frame_timestamp,
                    std::uint64_t rtp_sample_duration) {
+  auto encode_start = std::chrono::steady_clock::now();
   auto &frame = session.device->frame;
   frame->pts = frame_nr;
 
@@ -1132,6 +1163,9 @@ int encode_avcodec(int64_t frame_nr, avcodec_encode_session_t &session,
 
     packet->replacements = &session.replacements;
     packet->channel_data = channel_data;
+    packet->encode_duration_us =
+        std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - encode_start)
+            .count();
     packets->raise(std::move(packet));
   }
 
@@ -1142,7 +1176,11 @@ int encode_nvenc(int64_t frame_nr, nvenc_encode_session_t &session,
                  safe::mail_raw_t::queue_t<packet_t> &packets, void *channel_data,
                  std::optional<std::chrono::steady_clock::time_point> frame_timestamp,
                  std::uint64_t rtp_sample_duration) {
+  auto encode_start = std::chrono::steady_clock::now();
   auto encoded_frame = session.encode_frame(frame_nr);
+  auto encode_duration_us =
+      std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - encode_start)
+          .count();
   if (encoded_frame.data.empty()) {
     BOOST_LOG(error) << "NvENC returned empty packet";
     return -1;
@@ -1159,6 +1197,7 @@ int encode_nvenc(int64_t frame_nr, nvenc_encode_session_t &session,
   packet->after_ref_frame_invalidation = encoded_frame.after_ref_frame_invalidation;
   packet->frame_timestamp = frame_timestamp;
   packet->rtp_sample_duration = rtp_sample_duration;
+  packet->encode_duration_us = encode_duration_us;
   packets->raise(std::move(packet));
 
   return 0;
@@ -1436,8 +1475,7 @@ make_avcodec_encode_session(platf::display_t *disp, const encoder_t &encoder,
         // buffer by 1.5x for software HEVC encoding.
         ctx->rc_buffer_size = bitrate / ((config.framerate * 10) / 15);
       } else {
-        // Enforce strict VBV tuning by shrinking the hardware encoder's buffer to exactly 0.5s of data.
-        ctx->rc_buffer_size = bitrate / (config.framerate * 2);
+        ctx->rc_buffer_size = bitrate / config.framerate;
 
         if (encoder.name == "nvenc" && config::video.nv_legacy.vbv_percentage_increase > 0) {
           ctx->rc_buffer_size +=
@@ -1716,7 +1754,7 @@ void encode_run(int &frame_nr, // Store progress of the frame number
           next_frame_time = now + 100ms;
         }
       }
-      timer->sleep_for(duration);
+      wait_until_frame_time(*timer, now + duration);
     } else if (now - next_frame_time > 100ms) {
       // Reset target if we fall more than 100ms behind to avoid massive bursts
       next_frame_time = now;

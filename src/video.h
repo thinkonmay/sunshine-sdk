@@ -235,6 +235,7 @@ struct packet_raw_t {
   std::vector<replace_t> *replacements = nullptr;
   void *channel_data = nullptr;
   bool after_ref_frame_invalidation = false;
+  std::optional<double> encode_duration_us;
   std::optional<std::chrono::steady_clock::time_point> frame_timestamp;
   std::uint64_t rtp_sample_duration = 0;
 };
