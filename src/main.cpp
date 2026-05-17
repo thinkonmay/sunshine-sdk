@@ -43,6 +43,7 @@ enum EventType {
   Stop,
   BufferOverflow,
   Resolution,
+  Reset,
   EventMax
 };
 
@@ -272,6 +273,10 @@ int main(int argc, char *argv[]) {
         }
         break;
       }
+      case EventType::Reset:
+        BOOST_LOG(info) << "Pipeline reset requested";
+        process_shutdown_event->raise(true);
+        break;
       default:
         break;
       }
