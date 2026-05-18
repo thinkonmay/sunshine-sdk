@@ -3,6 +3,7 @@
  * @brief todo
  */
 #include <thread>
+#include <algorithm>
 
 #include <opus/opus_multistream.h>
 
@@ -240,7 +241,8 @@ void capture(safe::mail_t mail, config_t config, void *channel_data) {
     case platf::capture_e::ok:
       break;
     case platf::capture_e::timeout:
-      continue;
+      std::fill(std::begin(sample_buffer), std::end(sample_buffer), 0);
+      break;
     case platf::capture_e::reinit:
       BOOST_LOG(info) << "Reinitializing audio capture"sv;
       mic.reset();
