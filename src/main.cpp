@@ -44,6 +44,8 @@ enum EventType {
   BufferOverflow,
   Resolution,
   Reset,
+  VideoReset,
+  AudioReset,
   EventMax
 };
 
@@ -223,6 +225,8 @@ int main(int argc, char *argv[]) {
     auto framerate = mail->event<int>(mail::framerate);
     auto idr = mail->event<bool>(mail::idr);
     auto resolution = mail->event<std::pair<int, int>>(mail::resolution);
+    auto video_reset = mail->event<bool>(mail::video_reset);
+    auto audio_reset = mail->event<bool>(mail::audio_reset);
 
     int cached_bitrate = 6000; // kbps, matches default config.bitrate
     int new_framerate;
@@ -276,6 +280,14 @@ int main(int argc, char *argv[]) {
       case EventType::Reset:
         BOOST_LOG(info) << "Pipeline reset requested";
         process_shutdown_event->raise(true);
+        break;
+      case EventType::VideoReset:
+        BOOST_LOG(info) << "Video pipeline reset requested";
+        video_reset->raise(true);
+        break;
+      case EventType::AudioReset:
+        BOOST_LOG(info) << "Audio pipeline reset requested";
+        audio_reset->raise(true);
         break;
       default:
         break;

@@ -23,6 +23,8 @@ MAIL(audio_packets);
 MAIL(bitrate);
 MAIL(framerate);
 MAIL(resolution);
+MAIL(video_reset);
+MAIL(audio_reset);
 
 // Local mail
 MAIL(idr);

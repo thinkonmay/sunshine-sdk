@@ -1703,6 +1703,7 @@ void encode_run(int &frame_nr, // Store progress of the frame number
 
   auto shutdown_event = mail->event<bool>(mail::shutdown);
   auto bitrate_events = mail->event<int>(mail::bitrate);
+  auto video_reset_events = mail->event<bool>(mail::video_reset);
   auto framerate_events = mail->event<int>(mail::framerate);
   auto packets = mail->queue<packet_t>(mail::video_packets);
   auto idr_events = mail->event<bool>(mail::idr);
@@ -1736,8 +1737,9 @@ void encode_run(int &frame_nr, // Store progress of the frame number
     if (shutdown_event->peek()) {
       break;
     }
-    if (reinit_event.peek()) {
-      BOOST_LOG(info) << "Video encode loop pausing for display reinit"sv;
+    if (reinit_event.peek() || video_reset_events->peek()) {
+      BOOST_LOG(info) << "Video encode loop pausing for display reinit or reset"sv;
+      video_reset_events->pop();
       break;
     }
     if (!images->running()) {

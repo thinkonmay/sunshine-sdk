@@ -151,6 +151,7 @@ void encodeThread(safe::mail_t mail, sample_queue_t samples, config_t config, vo
 
 void capture(safe::mail_t mail, config_t config, void *channel_data) {
   auto shutdown_event = mail->event<bool>(mail::shutdown);
+  auto audio_reset_events = mail->event<bool>(mail::audio_reset);
   auto stream = &stream_configs[map_stream(config.channels, config.flags[config_t::HIGH_QUALITY])];
 
   auto ref = control_shared.ref();
@@ -237,6 +238,11 @@ void capture(safe::mail_t mail, config_t config, void *channel_data) {
     sample_buffer.resize(samples_per_frame);
 
     auto status = mic->sample(sample_buffer);
+    if (audio_reset_events->peek()) {
+      audio_reset_events->pop();
+      status = platf::capture_e::reinit;
+    }
+
     switch (status) {
     case platf::capture_e::ok:
       break;
