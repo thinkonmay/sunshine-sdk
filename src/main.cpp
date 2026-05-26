@@ -219,7 +219,7 @@ int main(int argc, char *argv[]) {
 
   auto mail = std::make_shared<safe::mail_raw_t>();
 
-  auto pull = [process_shutdown_event, mail](MediaQueue *queue) {
+  auto pull = [process_shutdown_event, mail, ivshmem](MediaQueue *queue) {
     auto timer = platf::create_high_precision_timer();
     auto local_shutdown = mail->event<bool>(mail::shutdown);
     auto bitrate = mail->event<int>(mail::bitrate);
@@ -230,13 +230,40 @@ int main(int argc, char *argv[]) {
     auto audio_reset = mail->event<bool>(mail::audio_reset);
     auto invalidate_ref_frames = mail->event<std::pair<int64_t, int64_t>>(mail::invalidate_ref_frames);
 
+    HANDLE event = NULL;
+    bool has_doorbell = false;
+    if (ivshmem) {
+      event = CreateEvent(NULL, FALSE, FALSE, NULL);
+      if (event) {
+        if (ivshmem->RegisterEvent(event, 0)) {
+          BOOST_LOG(info) << "Successfully registered IVSHMEM doorbell event on vector 0";
+          has_doorbell = true;
+        } else {
+          BOOST_LOG(warning) << "Failed to register IVSHMEM doorbell event, falling back to polling";
+          CloseHandle(event);
+          event = NULL;
+        }
+      }
+    }
+
     int cached_bitrate = 6000; // kbps, matches default config.bitrate
     int new_framerate;
     auto expected_index = queue->outindex;
     char buffer[DATA_PACKET_SIZE] = {0};
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
-      while (expected_index == queue->outindex)
-        timer->sleep_for(1ms);
+      while (expected_index == queue->outindex) {
+        if (has_doorbell) {
+          WaitForSingleObject(event, 100);
+          if (process_shutdown_event->peek() || local_shutdown->peek()) {
+            break;
+          }
+        } else {
+          timer->sleep_for(1ms);
+        }
+      }
+      if (expected_index == queue->outindex) {
+        continue;
+      }
 
       memcpy(buffer, queue->outgoing[expected_index].data, queue->outgoing[expected_index].size);
 
@@ -301,12 +328,16 @@ int main(int argc, char *argv[]) {
         break;
       }
     }
+
+    if (event) {
+      CloseHandle(event);
+    }
   };
 
   auto video_output_watchdog_ms = std::make_shared<std::atomic<int64_t>>(0);
 
-  auto push_video = [process_shutdown_event, debug_output_timing, video_output_watchdog_ms](
-                        safe::mail_t mail, MediaQueue *queue) {
+  auto push_video = [process_shutdown_event, debug_output_timing, video_output_watchdog_ms, ivshmem,
+                     memory](safe::mail_t mail, MediaQueue *queue) {
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown = mail->event<bool>(mail::shutdown);
@@ -378,6 +409,9 @@ int main(int argc, char *argv[]) {
         copy_to_packet(&queue->incoming[queue->inindex], &flags, sizeof(uint8_t));
         copy_to_packet(&queue->incoming[queue->inindex], (void *)payload.data(), payload.size());
         queue->inindex = updated;
+        if (ivshmem && memory->doorbell_peer_id > 0) {
+          ivshmem->RingDoorbell((UINT16)memory->doorbell_peer_id, 1);
+        }
         video_output_watchdog_ms->store(now_ms());
         output_timing.record(findex, header_size + payload.size(), packet->is_idr(),
                              packet->encode_duration_us.value_or(0));

@@ -199,6 +199,44 @@ HANDLE IVSHMEM::getHandle() {
   return m_handle;
 }
 
+bool IVSHMEM::RegisterEvent(HANDLE event, UINT16 vector) {
+  if (!m_initialized || m_handle == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+
+  IVSHMEM_EVENT iv_event;
+  iv_event.vector = vector;
+  iv_event.event = event;
+  iv_event.singleShot = FALSE;
+
+  DWORD bytes_returned = 0;
+  if (!DeviceIoControl(m_handle, IOCTL_IVSHMEM_REGISTER_EVENT, &iv_event, sizeof(IVSHMEM_EVENT),
+                       NULL, 0, &bytes_returned, NULL)) {
+    BOOST_LOG(error) << "RegisterEvent DeviceIoControl Failed: " << GetLastError();
+    return false;
+  }
+
+  return true;
+}
+
+bool IVSHMEM::RingDoorbell(UINT16 peerID, UINT16 vector) {
+  if (!m_initialized || m_handle == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+
+  IVSHMEM_RING ring;
+  ring.peerID = peerID;
+  ring.vector = vector;
+
+  DWORD bytes_returned = 0;
+  if (!DeviceIoControl(m_handle, IOCTL_IVSHMEM_RING_DOORBELL, &ring, sizeof(IVSHMEM_RING), NULL, 0,
+                       &bytes_returned, NULL)) {
+    return false;
+  }
+
+  return true;
+}
+
 void copy_to_packet(MediaPacket *packet, void *data, size_t size) {
   memcpy(packet->data + packet->size, data, size);
   packet->size += size;

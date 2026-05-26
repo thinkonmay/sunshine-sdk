@@ -57,6 +57,7 @@ typedef struct _HIDQueue {
 typedef struct _MediaMemory {
   DisplayQueue video[MAX_DISPLAY];
   DataQueue audio;
+  int doorbell_peer_id;
 } MediaMemory;
 
 typedef struct _DataMemory {

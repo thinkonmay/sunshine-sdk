@@ -33,6 +33,8 @@ public:
   UINT64 GetSize();
   void *GetMemory();
   HANDLE getHandle();
+  bool RegisterEvent(HANDLE event, UINT16 vector);
+  bool RingDoorbell(UINT16 peerID, UINT16 vector);
 
 protected:
 private:
