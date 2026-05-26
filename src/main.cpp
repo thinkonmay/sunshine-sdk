@@ -337,7 +337,7 @@ int main(int argc, char *argv[]) {
   auto video_output_watchdog_ms = std::make_shared<std::atomic<int64_t>>(0);
 
   auto push_video = [process_shutdown_event, debug_output_timing, video_output_watchdog_ms, ivshmem,
-                     memory](safe::mail_t mail, MediaQueue *queue) {
+                     memory](safe::mail_t mail, MediaQueue *queue, UINT16 doorbell_vector) {
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown = mail->event<bool>(mail::shutdown);
@@ -410,7 +410,7 @@ int main(int argc, char *argv[]) {
         copy_to_packet(&queue->incoming[queue->inindex], (void *)payload.data(), payload.size());
         queue->inindex = updated;
         if (ivshmem && memory->doorbell_peer_id > 0) {
-          ivshmem->RingDoorbell((UINT16)memory->doorbell_peer_id, 1);
+          ivshmem->RingDoorbell((UINT16)memory->doorbell_peer_id, doorbell_vector);
         }
         video_output_watchdog_ms->store(now_ms());
         output_timing.record(findex, header_size + payload.size(), packet->is_idr(),
@@ -464,7 +464,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < displays.size(); i++) {
       auto codec = memory->video[i].metadata.codec;
       auto capture = std::thread{video_capture, mail, displays.at(i), codec};
-      auto forward = std::thread{push_video, mail, &memory->video[i].internal};
+      auto forward = std::thread{push_video, mail, &memory->video[i].internal, (UINT16)(i + 1)};
       auto receive = std::thread{pull, &memory->video[i].internal};
       receive.detach();
       capture.detach();
