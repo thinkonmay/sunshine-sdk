@@ -46,6 +46,7 @@ enum EventType {
   Reset,
   VideoReset,
   AudioReset,
+  InvalidateRefFrames,
   EventMax
 };
 
@@ -227,6 +228,7 @@ int main(int argc, char *argv[]) {
     auto resolution = mail->event<std::pair<int, int>>(mail::resolution);
     auto video_reset = mail->event<bool>(mail::video_reset);
     auto audio_reset = mail->event<bool>(mail::audio_reset);
+    auto invalidate_ref_frames = mail->event<std::pair<int64_t, int64_t>>(mail::invalidate_ref_frames);
 
     int cached_bitrate = 6000; // kbps, matches default config.bitrate
     int new_framerate;
@@ -289,6 +291,12 @@ int main(int argc, char *argv[]) {
         BOOST_LOG(info) << "Audio pipeline reset requested";
         audio_reset->raise(true);
         break;
+      case EventType::InvalidateRefFrames: {
+        uint64_t first_frame = *(uint64_t*)&buffer[1];
+        uint64_t last_frame = *(uint64_t*)&buffer[9];
+        invalidate_ref_frames->raise(std::make_pair(first_frame, last_frame));
+        break;
+      }
       default:
         break;
       }
