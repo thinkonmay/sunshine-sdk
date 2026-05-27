@@ -422,7 +422,7 @@ int main(int argc, char *argv[]) {
       local_shutdown->raise(true);
   };
 
-  auto push_audio = [process_shutdown_event](safe::mail_t mail, DataQueue *queue) {
+  auto push_audio = [process_shutdown_event, ivshmem, memory](safe::mail_t mail, DataQueue *queue) {
     auto video_packets = mail->queue<video::packet_t>(mail::video_packets);
     auto audio_packets = mail->queue<audio::packet_t>(mail::audio_packets);
     auto local_shutdown = mail->event<bool>(mail::shutdown);
@@ -452,6 +452,9 @@ int main(int argc, char *argv[]) {
         copy_to_dpacket(&queue->incoming[queue->inindex], &sum, sizeof(uint8_t));
         copy_to_dpacket(&queue->incoming[queue->inindex], ptr, size);
         queue->inindex = updated;
+        if (ivshmem && memory->doorbell_peer_id > 0) {
+          ivshmem->RingDoorbell((UINT16)memory->doorbell_peer_id, MAX_DISPLAY + 1);
+        }
       } while (audio_packets->peek());
     }
 
