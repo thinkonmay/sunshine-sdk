@@ -253,7 +253,7 @@ int main(int argc, char *argv[]) {
     while (!process_shutdown_event->peek() && !local_shutdown->peek()) {
       while (expected_index == queue->outindex) {
         if (has_doorbell) {
-          WaitForSingleObject(event, 100);
+          WaitForSingleObject(event, 1000);
           if (process_shutdown_event->peek() || local_shutdown->peek()) {
             break;
           }
