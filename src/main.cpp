@@ -116,6 +116,7 @@ int main(int argc, char *argv[]) {
 
   std::string ivshmem_path;
   std::string shm_name;
+  std::string capture_display;
 
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
@@ -125,6 +126,8 @@ int main(int argc, char *argv[]) {
       ivshmem_path = argv[++i];
     } else if (arg == "--shm"sv && i + 1 < argc) {
       shm_name = argv[++i];
+    } else if (arg == "--capture-display"sv && i + 1 < argc) {
+      capture_display = argv[++i];
     }
   }
 
@@ -463,7 +466,14 @@ int main(int argc, char *argv[]) {
   };
 
   {
-    auto displays = platf::display_names(platf::mem_type_e::dxgi);
+    std::vector<std::string> displays;
+    if (!capture_display.empty()) {
+      BOOST_LOG(info) << "Pinned capture display: "sv << capture_display;
+      displays.emplace_back(capture_display);
+    } else {
+      displays = platf::display_names(platf::mem_type_e::dxgi);
+    }
+
     for (int i = 0; i < displays.size(); i++) {
       auto codec = memory->video[i].metadata.codec;
       auto capture = std::thread{video_capture, mail, displays.at(i), codec};
