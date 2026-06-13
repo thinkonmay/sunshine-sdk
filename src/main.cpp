@@ -14,6 +14,7 @@
 #include <iostream>
 #include <sstream>
 #include <string_view>
+#include <thread>
 
 // local includes
 #include "audio.h"
@@ -122,6 +123,8 @@ int main(int argc, char *argv[]) {
     std::string arg = argv[i];
     if (arg == "--force-sw"sv || arg == "-fsw"sv) {
       config::sunshine.flags.set(config::flag::FORCE_SOFTWARE_ENCODER);
+    } else if (arg == "--force-hw"sv || arg == "-fhw"sv) {
+      config::sunshine.flags.set(config::flag::FORCE_HARDWARE_ENCODER);
     } else if (arg == "--ivshmem"sv && i + 1 < argc) {
       ivshmem_path = argv[++i];
     } else if (arg == "--shm"sv && i + 1 < argc) {
@@ -187,9 +190,40 @@ int main(int argc, char *argv[]) {
   if (!platf_deinit_guard) {
     BOOST_LOG(error) << "Platform failed to initialize"sv;
     return StatusCode::NO_ENCODER_AVAILABLE;
-  } else if (video::probe_encoders()) {
-    BOOST_LOG(error) << "Video failed to find working encoder"sv;
-    return StatusCode::NO_ENCODER_AVAILABLE;
+  }
+
+  // Probe for a working encoder. On a freshly-booted GPU passthrough VM the
+  // display can usually be captured before the GPU driver is ready, so
+  // probe_encoders() may not find an (acceptable) encoder yet. We must NOT exit
+  // in that case: the display is fine, we just have to wait for the encoder to
+  // come up. Keep re-probing indefinitely until an acceptable encoder is found
+  // (or shutdown is requested).
+  //
+  // The candidate encoder list is decided inside probe_encoders() based on the
+  // flags below, so a successful probe (return 0) is always acceptable here:
+  //  --force-sw : only the software encoder is probed.
+  //  --force-hw : the software encoder is removed from the candidate list, so we
+  //               wait specifically for a hardware encoder (NVENC/QuickSync/AMF).
+  {
+    constexpr auto encoder_probe_retry_interval = 2s;
+
+    int attempt = 0;
+    while (!process_shutdown_event->peek()) {
+      if (video::probe_encoders() == 0) {
+        break;
+      }
+
+      // The display may still be capturable; only the encoder is missing (e.g.
+      // the GPU driver is still initializing). Keep waiting instead of exiting.
+      BOOST_LOG(warning) << "No usable encoder found yet (attempt "sv << ++attempt
+                         << "); waiting for an encoder to become available"sv;
+      std::this_thread::sleep_for(encoder_probe_retry_interval);
+    }
+
+    if (process_shutdown_event->peek()) {
+      BOOST_LOG(info) << "Shutdown requested while waiting for an encoder"sv;
+      return StatusCode::NORMAL_EXIT;
+    }
   }
 
   auto video_capture = [&](safe::mail_t mail, std::string displayin, int codec) {

@@ -2,6 +2,7 @@
  * @file src/video.cpp
  * @brief todo
  */
+#include <algorithm>
 #include <atomic>
 #include <bitset>
 #include <list>
@@ -2189,6 +2190,10 @@ int probe_encoders() {
 
   if (config::sunshine.flags[config::flag::FORCE_SOFTWARE_ENCODER]) {
     encoder_list = {&software};
+  } else if (config::sunshine.flags[config::flag::FORCE_HARDWARE_ENCODER]) {
+    // Drop the software encoder so selection never falls back to CPU encoding.
+    encoder_list.erase(std::remove(encoder_list.begin(), encoder_list.end(), &software),
+                       encoder_list.end());
   }
 
   // If we already have a good encoder, check to see if another probe is required

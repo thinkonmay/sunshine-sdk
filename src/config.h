@@ -97,6 +97,7 @@ enum flag_e : std::size_t {
   UPNP,                       // Try Universal Plug 'n Play
   CONST_PIN,                  // Use "universal" pin
   FORCE_SOFTWARE_ENCODER,     // Force software encoding
+  FORCE_HARDWARE_ENCODER,     // Only allow hardware encoders (no software fallback)
   FLAG_SIZE
 };
 }
