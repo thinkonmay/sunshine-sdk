@@ -434,6 +434,13 @@ public:
     return 0;
   }
 
+  // Drop the shared_ptr<display_t> kept only for initialization. After init the display is no
+  // longer needed for steady-state conversion, so releasing it lets the capture thread reinit
+  // the display even while this (potentially slow to destroy) device is still being torn down.
+  void release_display() {
+    display.reset();
+  }
+
   void apply_colorspace(const ::video::sunshine_colorspace_t &colorspace) {
     auto color_vectors = ::video::color_vectors_from_colorspace(colorspace);
 
@@ -813,6 +820,10 @@ public:
     return base.convert(img_base);
   }
 
+  void release_display() override {
+    base.release_display();
+  }
+
   void apply_colorspace() override {
     base.apply_colorspace(colorspace);
   }
@@ -931,6 +942,10 @@ public:
 
   int convert(platf::img_t &img_base) override {
     return base.convert(img_base);
+  }
+
+  void release_display() override {
+    base.release_display();
   }
 
 private:
