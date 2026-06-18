@@ -106,6 +106,16 @@ blob_t cursor_ps_hlsl;
 blob_t cursor_ps_normalize_white_hlsl;
 blob_t cursor_vs_hlsl;
 
+// Bounded wait (in milliseconds) for acquiring the cross-device keyed mutex that guards a
+// captured frame shared between the capture and encoder ID3D11Devices. A successful per-frame
+// acquire normally completes in well under a frame interval, so this ceiling is only reached
+// when the capture device has been invalidated (e.g. a guest display mode / resolution change)
+// while still owning the mutex. Using INFINITE there deadlocks the encode thread, preventing it
+// from observing reinit_event and releasing its display reference, which stalls capture
+// reinitialization until an external video reset arrives. Bailing out instead lets the encode
+// loop unwind promptly so the pipeline reinitializes on its own.
+constexpr DWORD encoder_mutex_acquire_timeout_ms = 500;
+
 struct img_d3d_t : public platf::img_t {
   // These objects are owned by the display_t's ID3D11Device
   texture2d_t capture_texture;
@@ -384,11 +394,15 @@ public:
         return -1;
       }
 
-      // Acquire encoder mutex to synchronize with capture code
-      auto status = img_ctx.encoder_mutex->AcquireSync(0, INFINITE);
+      // Acquire encoder mutex to synchronize with capture code. Use a bounded wait so a capture
+      // device invalidated during a display mode change (which can leave this mutex permanently
+      // owned) cannot wedge the encode thread; bailing out unwinds encode_run and releases the
+      // display reference so capture reinitialization can proceed immediately.
+      auto status = img_ctx.encoder_mutex->AcquireSync(0, encoder_mutex_acquire_timeout_ms);
       if (status != S_OK) {
         BOOST_LOG(error) << "Failed to acquire encoder mutex [0x"sv
-                         << util::hex(status).to_string_view() << ']';
+                         << util::hex(status).to_string_view()
+                         << "]; abandoning frame to allow reinit"sv;
         return -1;
       }
 
@@ -418,6 +432,13 @@ public:
     }
 
     return 0;
+  }
+
+  // Drop the shared_ptr<display_t> kept only for initialization. After init the display is no
+  // longer needed for steady-state conversion, so releasing it lets the capture thread reinit
+  // the display even while this (potentially slow to destroy) device is still being torn down.
+  void release_display() {
+    display.reset();
   }
 
   void apply_colorspace(const ::video::sunshine_colorspace_t &colorspace) {
@@ -799,6 +820,10 @@ public:
     return base.convert(img_base);
   }
 
+  void release_display() override {
+    base.release_display();
+  }
+
   void apply_colorspace() override {
     base.apply_colorspace(colorspace);
   }
@@ -917,6 +942,10 @@ public:
 
   int convert(platf::img_t &img_base) override {
     return base.convert(img_base);
+  }
+
+  void release_display() override {
+    base.release_display();
   }
 
 private:

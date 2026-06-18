@@ -19,6 +19,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 
 #pragma once
 
+#include "ivshmem_protocol.h"
 #include "smemory.h"
 #include <stdbool.h>
 #include <windows.h>
@@ -66,7 +67,3 @@ private:
   void *m_memory;
   bool m_initialized;
 };
-
-void copy_to_packet(MediaPacket *packet, void *data, size_t size);
-
-void copy_to_dpacket(DataPacket *packet, void *data, size_t size);

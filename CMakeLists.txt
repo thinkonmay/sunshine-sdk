@@ -8,6 +8,8 @@ project(Sunshine VERSION 0.23.1
         DESCRIPTION "Self-hosted game stream host for Moonlight"
         HOMEPAGE_URL "https://app.lizardbyte.dev/Sunshine")
 
+include(CTest)
+
 set(PROJECT_LICENSE "GPL-3.0")
 
 set(PROJECT_LONG_DESCRIPTION "Offering low latency, cloud gaming server capabilities with support for AMD, Intel, \

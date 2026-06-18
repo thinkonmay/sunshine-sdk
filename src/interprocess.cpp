@@ -237,15 +237,6 @@ bool IVSHMEM::RingDoorbell(UINT16 peerID, UINT16 vector) {
   return true;
 }
 
-void copy_to_packet(MediaPacket *packet, void *data, size_t size) {
-  memcpy(packet->data + packet->size, data, size);
-  packet->size += size;
-}
-void copy_to_dpacket(DataPacket *packet, void *data, size_t size) {
-  memcpy(packet->data + packet->size, data, size);
-  packet->size += size;
-}
-
 SharedMemory::SharedMemory(const char *name, size_t size)
     : m_size(size), m_handle(NULL), m_memory(NULL), m_initialized(false) {
   memset(m_name, 0, 512);

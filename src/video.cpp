@@ -343,6 +343,12 @@ public:
     return device->convert(img);
   }
 
+  void release_display() override {
+    if (device) {
+      device->release_display();
+    }
+  }
+
   void request_idr_frame() override {
     if (device && device->frame) {
       auto &frame = device->frame;
@@ -412,6 +418,12 @@ public:
     if (!device)
       return -1;
     return device->convert(img);
+  }
+
+  void release_display() override {
+    if (device) {
+      device->release_display();
+    }
   }
 
   void request_idr_frame() override {
@@ -1734,13 +1746,17 @@ void encode_run(int &frame_nr, // Store progress of the frame number
   std::uint64_t video_rtp_remainder = 0;
 
   bool requested_idr_frame = true;
+  bool decouple_teardown = false;
   while (true) {
     if (shutdown_event->peek()) {
       break;
     }
     if (reinit_event.peek() || video_reset_events->peek()) {
       BOOST_LOG(info) << "Video encode loop pausing for display reinit or reset"sv;
-      video_reset_events->pop();
+      if (video_reset_events->peek()) {
+        video_reset_events->pop();
+      }
+      decouple_teardown = true;
       break;
     }
     if (!images->running()) {
@@ -1830,6 +1846,33 @@ void encode_run(int &frame_nr, // Store progress of the frame number
     }
 
     session->request_normal_frame();
+  }
+
+  // When pausing for a display reinit, the capture thread is blocked waiting for every other
+  // shared_ptr<display_t> to be released (it spins until use_count() == 1). This encode thread
+  // holds three of those references: the by-value 'disp' parameter, the display kept inside the
+  // encode device, and the caller's display in capture(). Destroying the session here can block
+  // for the full duration of a guest display mode change (the encoder D3D device cross-references
+  // capture textures that are invalidated mid-switch), which would keep all of those references
+  // alive and stall reinitialization for several seconds until an external video reset arrives.
+  //
+  // Instead, drop the display references this thread can reach immediately, then move the heavy
+  // session teardown onto a detached thread so the capture thread can reinitialize right away
+  // while the GPU resources are released in the background.
+  if (decouple_teardown && session) {
+    session->release_display();
+    disp.reset();
+
+    std::thread([session = std::move(session)]() mutable {
+      auto teardown_start = std::chrono::steady_clock::now();
+      session.reset();
+      auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now() - teardown_start)
+                            .count();
+      if (elapsed_ms >= 500) {
+        BOOST_LOG(info) << "Background encode session teardown took " << elapsed_ms << "ms"sv;
+      }
+    }).detach();
   }
 }
 

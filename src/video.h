@@ -194,6 +194,12 @@ struct encode_session_t {
 
   virtual int convert(platf::img_t &img) = 0;
 
+  /**
+   * Release the shared_ptr<display_t> held by the underlying encode device so the capture
+   * thread can reinitialize the display without waiting for this session to be destroyed.
+   */
+  virtual void release_display() {}
+
   virtual void request_idr_frame() = 0;
 
   virtual void request_normal_frame() = 0;

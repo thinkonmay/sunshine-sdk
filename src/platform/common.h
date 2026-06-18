@@ -187,6 +187,19 @@ struct encode_device_t {
 
   virtual int convert(platf::img_t &img) = 0;
 
+  /**
+   * Release any shared_ptr<display_t> the device holds onto.
+   *
+   * The display is only required while the encode device is being initialized (to read the
+   * source dimensions/rotation). Holding it afterwards needlessly keeps the capture display
+   * alive: when a display mode change invalidates the capture device, destroying this encode
+   * device can block for the full duration of the mode switch, and as long as that teardown
+   * holds a display reference the capture thread's reinit wait (which spins until the display
+   * use_count drops to 1) cannot make progress. Dropping the reference here lets capture
+   * reinitialize immediately while the heavy GPU teardown finishes in the background.
+   */
+  virtual void release_display() {}
+
   video::sunshine_colorspace_t colorspace;
 };
 
