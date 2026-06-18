@@ -20,7 +20,7 @@ add_executable(test_ivshmem_protocol
 target_include_directories(test_ivshmem_protocol PRIVATE "${SUNSHINE_SRC_ROOT}/src")
 target_link_libraries(test_ivshmem_protocol PRIVATE GTest::gtest_main)
 
-add_test(NAME ivshmem_protocol COMMAND test_ivshmem_protocol)
+add_test(NAME ivshmem_protocol COMMAND $<TARGET_FILE:test_ivshmem_protocol>)
 set_tests_properties(ivshmem_protocol PROPERTIES
   LABELS "unit;ivshmem"
   TIMEOUT 120

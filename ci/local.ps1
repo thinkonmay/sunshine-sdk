@@ -55,10 +55,9 @@ function Invoke-Tests {
     }
     if (-not (Test-Path (Join-Path $BuildDir 'build.ninja'))) {
         Invoke-Configure
-    } else {
-        Write-Step 'build unit tests'
-        cmake --build $BuildDir --target test_ivshmem_protocol
     }
+    Write-Step 'build unit tests'
+    cmake --build $BuildDir --target test_ivshmem_protocol
     Write-Step 'run IVSHMEM protocol unit tests'
     $exe = Join-Path $BuildDir 'tests/test_ivshmem_protocol.exe'
     if (-not (Test-Path $exe)) {

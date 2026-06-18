@@ -43,10 +43,9 @@ step_tests() {
   fi
   if [[ ! -f "${BUILD_DIR}/build.ninja" ]]; then
     step_configure
-  else
-    ci_log "build unit tests"
-    cmake --build "${BUILD_DIR}" --target test_ivshmem_protocol
   fi
+  ci_log "build unit tests"
+  cmake --build "${BUILD_DIR}" --target test_ivshmem_protocol
   ci_log "run IVSHMEM protocol unit tests"
   ci_run_tests "${BUILD_DIR}"
 }

@@ -55,12 +55,19 @@ ci_run_standalone_tests() {
 
 ci_run_tests() {
   local build_dir="${1:-build}"
-  if [[ -x "${build_dir}/tests/test_ivshmem_protocol" ]]; then
-    "${build_dir}/tests/test_ivshmem_protocol"
-    return $?
-  fi
-  if [[ -x "${build_dir}/tests/test_ivshmem_protocol.exe" ]]; then
-    "${build_dir}/tests/test_ivshmem_protocol.exe"
+  local exe=""
+  for candidate in \
+    "${build_dir}/tests/test_ivshmem_protocol.exe" \
+    "${build_dir}/tests/test_ivshmem_protocol" \
+    "${build_dir}/test_ivshmem_protocol.exe" \
+    "${build_dir}/test_ivshmem_protocol"; do
+    if [[ -x "${candidate}" ]]; then
+      exe="${candidate}"
+      break
+    fi
+  done
+  if [[ -n "${exe}" ]]; then
+    "${exe}"
     return $?
   fi
   (cd "${build_dir}" && ctest --output-on-failure -R ivshmem_protocol)
