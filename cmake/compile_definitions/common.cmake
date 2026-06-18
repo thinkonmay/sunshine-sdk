@@ -44,6 +44,7 @@ include_directories("${CMAKE_CURRENT_BINARY_DIR}")  # required for importing ver
 
 set(SUNSHINE_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/smemory.h"
+        "${CMAKE_SOURCE_DIR}/src/ivshmem_protocol.h"
         "${CMAKE_SOURCE_DIR}/src/interprocess.h"
         "${CMAKE_SOURCE_DIR}/src/interprocess.cpp"
         "${CMAKE_SOURCE_DIR}/src/cbs.cpp"
